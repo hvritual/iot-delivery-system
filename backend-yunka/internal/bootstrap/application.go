@@ -18,6 +18,7 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/obsidian"
 	"google.golang.org/grpc"
 	"yunka.io/framework/core"
+	"yunka.io/framework/core/identity"
 	"yunka.io/framework/event"
 	frameworkoutbox "yunka.io/framework/event/outbox"
 	"yunka.io/framework/kernel"
@@ -69,15 +70,6 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		return nil, err
 	}
 	exporter := obsidian.NewExporter(configuration.ObsidianVault)
-	seedService := delivery.NewService(repository, exporter)
-	if err := seedExample(ctx, seedService); err != nil {
-		_ = repository.Close()
-		return nil, err
-	}
-	if err := seedService.Sync(ctx); err != nil {
-		_ = repository.Close()
-		return nil, fmt.Errorf("refresh Obsidian projection: %w", err)
-	}
 	outboxStore, err := localoutbox.NewSQLiteStore(repository.Database())
 	if err != nil {
 		_ = repository.Close()
@@ -114,6 +106,10 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		Transactions: localtx.NewSQLiteFactory(repository.Database()),
 	})
 	operations := deliveryapplication.NewOperations(adapter, executor, service).WithNotificationReader(notificationStore)
+	if err := seedExample(ctx, operations); err != nil {
+		_ = repository.Close()
+		return nil, err
+	}
 	broker := event.NewLocalBroker(nil)
 	subscriptions := make([]event.Subscription, 0, 2)
 	obsidianSubscription, err := broker.Subscribe(ctx, "delivery.work-item", obsidian.NewProjectionConsumer(service).Handle)
@@ -223,13 +219,6 @@ func (factories applicationFactories) BuildDeliveryManagement(generatedassembly.
 		return nil, errors.New("delivery management application adapter is not configured")
 	}
 	return factories.deliveryManagement, nil
-}
-
-func (application *Application) Service() *delivery.Service {
-	if application == nil {
-		return nil
-	}
-	return application.service
 }
 
 // Operations exposes the application-use-case boundary for local adapters
@@ -371,15 +360,25 @@ func (application *Application) dueReminderRuntimeComponent() core.RuntimeCompon
 	}
 }
 
-func seedExample(ctx context.Context, service *delivery.Service) error {
-	items, err := service.List(ctx)
+func seedExample(ctx context.Context, operations *deliveryapplication.Operations) error {
+	if operations == nil {
+		return errors.New("seed delivery operations are not configured")
+	}
+	bootstrapContext := identity.WithPrincipal(ctx, identity.Principal{
+		Subject:       "bootstrap/seed",
+		UserID:        "bootstrap/seed",
+		Roles:         []string{localauth.RoleLocalAdmin},
+		AuthMethod:    identity.AuthMethodAPIKey,
+		Authenticated: true,
+	})
+	items, err := operations.List(bootstrapContext)
 	if err != nil {
 		return fmt.Errorf("inspect existing delivery items: %w", err)
 	}
 	if len(items) > 0 {
 		return nil
 	}
-	item, err := service.Create(ctx, delivery.CreateInput{
+	item, err := operations.Create(bootstrapContext, delivery.CreateInput{
 		Title:    "样例：设备 OTA 发布验收",
 		Board:    delivery.BoardResearchDelivery,
 		Type:     "release",
@@ -392,7 +391,7 @@ func seedExample(ctx context.Context, service *delivery.Service) error {
 	if err != nil {
 		return fmt.Errorf("seed sample delivery item: %w", err)
 	}
-	_, err = service.UpdateContext(ctx, item.ID, delivery.ContextUpdate{Decision: &delivery.Decision{
+	_, err = operations.UpdateContext(bootstrapContext, item.ID, delivery.ContextUpdate{Decision: &delivery.Decision{
 		Title:        "将回滚演练纳入发布门禁",
 		Context:      "OTA 发布存在设备型号和网络差异。",
 		Outcome:      "发布前必须附上灰度与回滚证据。",

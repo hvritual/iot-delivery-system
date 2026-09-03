@@ -3,11 +3,13 @@ package bootstrap_test
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +25,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	_ "modernc.org/sqlite"
 )
 
 func TestApplicationUsesYunkaRuntimeHostForDeliveryAPI(t *testing.T) {
@@ -119,6 +122,135 @@ func TestApplicationUsesYunkaRuntimeHostForDeliveryAPI(t *testing.T) {
 			t.Fatalf("outbox projection did not reach %s before deadline: %v", overviewPath, readErr)
 		}
 		time.Sleep(25 * time.Millisecond)
+	}
+}
+
+func TestBootstrapSeedIsAnAuthorizedTransactionalOutboxOperation(t *testing.T) {
+	_, sourcePath, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("locate bootstrap test source")
+	}
+	source, err := os.ReadFile(filepath.Join(filepath.Dir(sourcePath), "application.go"))
+	if err != nil {
+		t.Fatalf("read bootstrap source: %v", err)
+	}
+	text := string(source)
+	for _, required := range []string{
+		"service := delivery.NewService(repository, exporter, delivery.NewTransactionalOutboxStager(outboxStore))",
+		"if err := seedExample(ctx, operations); err != nil",
+		"func seedExample(ctx context.Context, operations *deliveryapplication.Operations) error",
+		"operations.List(bootstrapContext)",
+		"operations.Create(bootstrapContext, delivery.CreateInput{",
+		"operations.UpdateContext(bootstrapContext, item.ID, delivery.ContextUpdate{",
+		"Authenticated: true",
+	} {
+		if !strings.Contains(text, required) {
+			t.Errorf("bootstrap seed must use the authorized Operations/Executor path; missing %q", required)
+		}
+	}
+	if strings.Contains(text, "seedService.Sync(ctx)") || strings.Contains(text, "service.Sync(ctx)") {
+		t.Error("bootstrap must not synchronously project seed data around the committed Outbox/dispatcher chain")
+	}
+}
+
+func TestBootstrapSeedStagesCommittedOutboxEventsThenProjectsExactlyOnce(t *testing.T) {
+	t.Setenv(localauth.APIKeyEnvironment, "bootstrap-seed-key")
+	ctx := context.Background()
+	vault := t.TempDir()
+	databasePath := filepath.Join(t.TempDir(), "bootstrap-seed.db")
+	application := newSeedApplication(t, ctx, databasePath, vault)
+
+	assertSeededOutboxProjection(t, ctx, databasePath, vault)
+	closeApplication(t, application)
+
+	application = newSeedApplication(t, ctx, databasePath, vault)
+	defer closeApplication(t, application)
+	assertSeededOutboxProjection(t, ctx, databasePath, vault)
+
+	dashboardResponse := getWithAPIKey(t, "http://"+application.HTTPAddress()+"/api/dashboard", "bootstrap-seed-key")
+	if dashboardResponse.StatusCode != http.StatusOK {
+		t.Fatalf("read seed dashboard after restart = %d body=%q", dashboardResponse.StatusCode, dashboardResponse.Body)
+	}
+	var dashboard httpapi.Dashboard
+	if err := json.Unmarshal([]byte(dashboardResponse.Body), &dashboard); err != nil {
+		t.Fatalf("decode seed dashboard after restart: %v", err)
+	}
+	if len(dashboard.Items) != 1 || !dashboard.Items[0].IsSample || len(dashboard.Items[0].Decisions) != 1 {
+		t.Fatalf("seed dashboard after restart = %#v, want one decision-bearing sample", dashboard)
+	}
+}
+
+func newSeedApplication(t *testing.T, ctx context.Context, databasePath, vault string) *bootstrap.Application {
+	t.Helper()
+	application, err := bootstrap.New(ctx, bootstrap.Config{HTTPAddress: "127.0.0.1:0", GRPCAddress: "127.0.0.1:0", DatabasePath: databasePath, ObsidianVault: vault})
+	if err != nil {
+		t.Fatalf("bootstrap seed application: %v", err)
+	}
+	return application
+}
+
+func closeApplication(t *testing.T, application *bootstrap.Application) {
+	t.Helper()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := application.Close(shutdownCtx); err != nil {
+		t.Fatalf("shutdown seed application: %v", err)
+	}
+}
+
+func assertSeededOutboxProjection(t *testing.T, ctx context.Context, databasePath, vault string) {
+	t.Helper()
+	database, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open seed database for readback: %v", err)
+	}
+	defer database.Close()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		var total, published int
+		err = database.QueryRowContext(ctx, `SELECT COUNT(*), COUNT(CASE WHEN status = 'published' THEN 1 END) FROM iotd_outbox`).Scan(&total, &published)
+		if err == nil && total == 2 && published == 2 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("seed outbox total=%d published=%d err=%v; want exactly two committed and published events", total, published, err)
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	rows, err := database.QueryContext(ctx, `SELECT envelope_json FROM iotd_outbox ORDER BY created_at, id`)
+	if err != nil {
+		t.Fatalf("read seed outbox envelopes: %v", err)
+	}
+	defer rows.Close()
+	var subjects []string
+	eventTypes := map[string]bool{}
+	for rows.Next() {
+		var envelope struct {
+			Subject string `json:"subject"`
+			Type    string `json:"type"`
+		}
+		var raw string
+		if err := rows.Scan(&raw); err != nil {
+			t.Fatalf("scan seed outbox envelope: %v", err)
+		}
+		if err := json.Unmarshal([]byte(raw), &envelope); err != nil {
+			t.Fatalf("decode seed outbox envelope: %v", err)
+		}
+		subjects = append(subjects, envelope.Subject)
+		eventTypes[envelope.Type] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate seed outbox envelopes: %v", err)
+	}
+	if len(subjects) != 2 || subjects[0] == "" || subjects[0] != subjects[1] || !eventTypes["delivery.work-item.created"] || !eventTypes["delivery.work-item.context-updated"] {
+		t.Fatalf("seed outbox subjects=%#v eventTypes=%#v, want one subject with create and context-update", subjects, eventTypes)
+	}
+	overview, err := os.ReadFile(filepath.Join(vault, "10-交付管理", "00-交付总览.md"))
+	if err != nil {
+		t.Fatalf("read projected seed overview: %v", err)
+	}
+	if got := strings.Count(string(overview), "样例：设备 OTA 发布验收"); got != 1 {
+		t.Fatalf("projected seed occurrences = %d, want 1", got)
 	}
 }
 
@@ -451,7 +583,7 @@ func TestApplicationSchedulesDueRemindersThroughTheDurableOutbox(t *testing.T) {
 
 func TestApplicationRegistersAdditionalNotificationChannelsAtAssembly(t *testing.T) {
 	t.Setenv(localauth.APIKeyEnvironment, "notification-channel-assembly-test-key")
-	delivered := make(chan notification.Notification, 1)
+	delivered := make(chan notification.Notification, 8)
 	application, err := bootstrap.New(context.Background(), bootstrap.Config{
 		HTTPAddress:   "127.0.0.1:0",
 		GRPCAddress:   "127.0.0.1:0",
@@ -494,14 +626,24 @@ func TestApplicationRegistersAdditionalNotificationChannelsAtAssembly(t *testing
 		}
 		t.Fatalf("create work item status = %d body=%q, want %d", response.StatusCode, body, http.StatusCreated)
 	}
+	var created delivery.WorkItem
+	if err := json.NewDecoder(response.Body).Decode(&created); err != nil {
+		t.Fatalf("decode created work item: %v", err)
+	}
+	if created.ID == "" {
+		t.Fatal("created work item must have an ID")
+	}
 
-	select {
-	case deliveredNotification := <-delivered:
-		if deliveredNotification.Channel != "recording-test" || deliveredNotification.EventType != "delivery.work-item.created" {
-			t.Fatalf("additional notification delivery = %#v, want recording creation event", deliveredNotification)
+	deadline := time.After(3 * time.Second)
+	for {
+		select {
+		case deliveredNotification := <-delivered:
+			if deliveredNotification.Channel == "recording-test" && deliveredNotification.EventType == "delivery.work-item.created" && deliveredNotification.Subject == created.ID {
+				return
+			}
+		case <-deadline:
+			t.Fatal("additional notification channel did not receive the requested work-item creation event")
 		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("additional notification channel did not receive the work-item event")
 	}
 }
 
