@@ -50,11 +50,15 @@ npm run dev
 
 ```powershell
 cd backend-yunka
+$env:IOT_DELIVERY_RUNTIME_ENVIRONMENT = 'development'
+$env:IOT_DELIVERY_BOOTSTRAP_MODE = 'disabled'
 $env:IOT_DELIVERY_LOCAL_API_KEY = '<仅本地使用的管理员密钥>'
 go run ./cmd/yunka-bootstrap
 ```
 
 默认地址为 HTTP `127.0.0.1:8281`、gRPC `127.0.0.1:8282`，SQLite 写入 `backend-yunka/data/iot-delivery-yunka.db`，Obsidian 投影写入 `backend-yunka/runtime-vault/`。可使用 `IOT_DELIVERY_YUNKA_HTTP_ADDR`、`IOT_DELIVERY_YUNKA_GRPC_ADDR`、`IOT_DELIVERY_YUNKA_DB` 与 `IOT_DELIVERY_YUNKA_OBSIDIAN_VAULT` 覆盖。
+
+运行环境必须显式设置为 `development` 或 `production`；bootstrap 默认 `disabled`。仅隔离开发环境可将 `IOT_DELIVERY_BOOTSTRAP_MODE` 设为 `example`；production 会在任何持久化或监听副作用前拒绝 example、legacy local API-key 和不安全 service credential development 开关，并要求有效、成对的 BFF organization/assertion key。production HTTP 仅接受签名 BFF assertion，MCP 是 development-only；灾备恢复不允许通过 example seed 进行。
 
 在另一个 PowerShell 中，使用相同的本地管理员密钥启动桌面工作台：
 

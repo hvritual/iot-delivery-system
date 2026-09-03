@@ -12,7 +12,7 @@
 | REST | `httpapi.Register` → `Operations` | Executor → authz → SQLite transaction + Outbox → dispatcher | `internal/httpapi/rest_execution_boundary_test.go` | 无生产可达直连 repository/Service 写入口 |
 | 生成 gRPC | generated RPC executor → `ExecuteTyped` | 同一 Executor/transaction/Outbox 链 | `delivery_contract_test.go`、bootstrap runtime test | 受生成 OperationPlan 约束 |
 | stdio MCP | 已认证 local principal → `Operations` | 同一 Executor/transaction/Outbox 链 | `internal/mcpserver/server_test.go` | 无独立写策略 |
-| bootstrap seed | bootstrap 信任边界内直接构造、`Authenticated=true` 的内部 principal（非人类/API key 登录）→ `Operations.List/Create/UpdateContext` | 两次业务写在事务中 stage；已提交事件由 dispatcher 投影 | [seed structure gate](../../backend-yunka/internal/bootstrap/application_test.go)；[seed outbox/idempotency regression](../../backend-yunka/internal/bootstrap/application_test.go) | 已关闭此前 `Service.Create/UpdateContext/Sync` 旁路 |
+| bootstrap seed | 默认关闭；仅显式 `development + example` 时，bootstrap 信任边界内直接构造、`Authenticated=true` 的内部 principal（非人类/API key 登录）→ `Operations.List/Create/UpdateContext` | 两次业务写在事务中 stage；已提交事件由 dispatcher 投影 | [seed structure gate](../../backend-yunka/internal/bootstrap/application_test.go)；[S0-02-08 gate](S0-02-08-BOOTSTRAP-FAIL-CLOSED-LEAKAGE-GATE.md) | 已关闭此前 `Service.Create/UpdateContext/Sync` 旁路 |
 | repository/Outbox 下游 | repository 与 stager 同处 Unit of Work | dispatcher 只消费已提交 Outbox；投影/通知为下游读模型 | `internal/delivery/transactional_outbox_test.go`、bootstrap seed 回归 | 不是业务主数据反向写入口 |
 
 ## 机器复核门禁与结果

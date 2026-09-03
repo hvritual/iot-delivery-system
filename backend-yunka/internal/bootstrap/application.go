@@ -35,20 +35,101 @@ import (
 	"yunka.io/gateway/authz"
 )
 
+type BootstrapMode string
+
+type RuntimeEnvironment string
+
+const (
+	BootstrapModeDisabled BootstrapMode = "disabled"
+	BootstrapModeExample  BootstrapMode = "example"
+
+	RuntimeEnvironmentDevelopment RuntimeEnvironment = "development"
+	RuntimeEnvironmentProduction  RuntimeEnvironment = "production"
+)
+
 type Config struct {
-	HTTPAddress          string
-	GRPCAddress          string
-	DatabasePath         string
-	ObsidianVault        string
-	NotificationChannels []notification.Channel
-	DueReminder          delivery.DueReminderConfig
-	BFFOrganizationID    string
-	BFFAssertionKey      string
+	HTTPAddress              string
+	GRPCAddress              string
+	DatabasePath             string
+	ObsidianVault            string
+	NotificationChannels     []notification.Channel
+	DueReminder              delivery.DueReminderConfig
+	BFFOrganizationID        string
+	BFFAssertionKey          string
+	RuntimeEnvironment       RuntimeEnvironment
+	BootstrapMode            BootstrapMode
+	LegacyLocalAPIKeyEnabled bool
 	// AllowInsecureServiceCredentialsForDevelopment permits service credentials
 	// only on a loopback gRPC listener for hermetic tests or local development.
 	// Its zero value is false; deployed callers require transport privacy and
 	// integrity through Yunka's service credential verifier.
 	AllowInsecureServiceCredentialsForDevelopment bool
+}
+
+type StartupPolicy struct {
+	RuntimeEnvironment                            RuntimeEnvironment
+	BootstrapMode                                 BootstrapMode
+	LegacyLocalAPIKeyEnabled                      bool
+	AllowInsecureServiceCredentialsForDevelopment bool
+}
+
+func StartupPolicyFromEnvironment(getenv func(string) string) (StartupPolicy, error) {
+	if getenv == nil {
+		return StartupPolicy{}, errors.New("startup environment reader is required")
+	}
+	policy := StartupPolicy{
+		RuntimeEnvironment:       RuntimeEnvironment(strings.TrimSpace(getenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT"))),
+		BootstrapMode:            BootstrapMode(strings.TrimSpace(getenv("IOT_DELIVERY_BOOTSTRAP_MODE"))),
+		LegacyLocalAPIKeyEnabled: legacyLocalAPIKeyConfigured(getenv),
+	}
+	if policy.BootstrapMode == "" {
+		policy.BootstrapMode = BootstrapModeDisabled
+	}
+	switch strings.TrimSpace(getenv("IOT_DELIVERY_ALLOW_INSECURE_SERVICE_CREDENTIALS_FOR_DEVELOPMENT")) {
+	case "", "false":
+	case "true":
+		policy.AllowInsecureServiceCredentialsForDevelopment = true
+	default:
+		return StartupPolicy{}, errors.New("insecure service credential development flag must be true or false")
+	}
+	if err := validateStartupPolicy(Config{
+		RuntimeEnvironment:       policy.RuntimeEnvironment,
+		BootstrapMode:            policy.BootstrapMode,
+		LegacyLocalAPIKeyEnabled: policy.LegacyLocalAPIKeyEnabled,
+		AllowInsecureServiceCredentialsForDevelopment: policy.AllowInsecureServiceCredentialsForDevelopment,
+	}); err != nil {
+		return StartupPolicy{}, err
+	}
+	return policy, nil
+}
+
+func legacyLocalAPIKeyConfigured(getenv func(string) string) bool {
+	for _, name := range []string{
+		localauth.APIKeyEnvironment,
+		localauth.ViewerAPIKeyEnvironment,
+		localauth.ContributorAPIKeyEnvironment,
+		localauth.ReleaseManagerAPIKeyEnvironment,
+	} {
+		if strings.TrimSpace(getenv(name)) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func (policy StartupPolicy) Apply(configuration Config) Config {
+	configuration.RuntimeEnvironment = policy.RuntimeEnvironment
+	configuration.BootstrapMode = policy.BootstrapMode
+	configuration.LegacyLocalAPIKeyEnabled = policy.LegacyLocalAPIKeyEnabled
+	configuration.AllowInsecureServiceCredentialsForDevelopment = policy.AllowInsecureServiceCredentialsForDevelopment
+	return configuration
+}
+
+func (policy StartupPolicy) ValidateLocalStdio() error {
+	if policy.RuntimeEnvironment != RuntimeEnvironmentDevelopment {
+		return errors.New("iot-delivery-mcp is development-only")
+	}
+	return nil
 }
 
 type Application struct {
@@ -73,6 +154,12 @@ type Application struct {
 // Yunka runtimehost. The host owns HTTP/gRPC listeners, health, diagnostics and
 // lifecycle; this package owns only the delivery assembly and persistence.
 func New(ctx context.Context, configuration Config) (*Application, error) {
+	if err := validateStartupPolicy(configuration); err != nil {
+		return nil, err
+	}
+	if err := validateBFFConfiguration(configuration); err != nil {
+		return nil, err
+	}
 	configuration.HTTPAddress = strings.TrimSpace(configuration.HTTPAddress)
 	configuration.GRPCAddress = strings.TrimSpace(configuration.GRPCAddress)
 	configuration.DatabasePath = strings.TrimSpace(configuration.DatabasePath)
@@ -113,10 +200,13 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		_ = repository.Close()
 		return nil, err
 	}
-	authenticator, err := localauth.FromEnvironment()
-	if err != nil {
-		_ = repository.Close()
-		return nil, err
+	var authenticator *localauth.Authenticator
+	if configuration.RuntimeEnvironment == RuntimeEnvironmentDevelopment {
+		authenticator, err = localauth.FromEnvironment()
+		if err != nil {
+			_ = repository.Close()
+			return nil, err
+		}
 	}
 	httpMiddleware, err := configuredHTTPMiddleware(authenticator, identityResolver, configuration)
 	if err != nil {
@@ -144,9 +234,11 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		Transactions: localtx.NewSQLiteFactory(repository.Database()),
 	})
 	operations := deliveryapplication.NewOperations(adapter, executor, service).WithNotificationReader(notificationStore)
-	if err := seedExample(ctx, operations); err != nil {
-		_ = repository.Close()
-		return nil, err
+	if configuration.BootstrapMode == BootstrapModeExample {
+		if err := seedExample(ctx, operations); err != nil {
+			_ = repository.Close()
+			return nil, err
+		}
 	}
 	broker := event.NewLocalBroker(nil)
 	subscriptions := make([]event.Subscription, 0, 2)
@@ -205,11 +297,15 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		reminders:     reminders,
 		serviceAuth:   serviceCredentialManager,
 	}
+	var legacyGRPCFallback grpc.UnaryServerInterceptor
+	if authenticator != nil {
+		legacyGRPCFallback = authenticator.GRPCUnaryServerInterceptor()
+	}
 	started, err := runtimehost.Bootstrap(ctx, runtimehost.Options[generatedassembly.Applications]{
 		HTTPListenAddress: configuration.HTTPAddress,
 		GRPCListenAddress: configuration.GRPCAddress,
 		HTTPMiddleware:    httpMiddleware,
-		GRPCServerOptions: []grpc.ServerOption{grpc.UnaryInterceptor(serviceCredentialManager.GRPCUnaryServerInterceptor(authenticator.GRPCUnaryServerInterceptor()))},
+		GRPCServerOptions: []grpc.ServerOption{grpc.UnaryInterceptor(serviceCredentialManager.GRPCUnaryServerInterceptor(legacyGRPCFallback))},
 		HealthPath:        "/health",
 		DiagnosticsPath:   "/__yunka/diagnostics",
 		Bootstrap: func(bootstrapCtx context.Context, runtime runtimehost.Runtime) (kernel.BootstrapResult[generatedassembly.Applications], error) {
@@ -249,17 +345,59 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	return application, nil
 }
 
+func validateStartupPolicy(configuration Config) error {
+	switch configuration.RuntimeEnvironment {
+	case RuntimeEnvironmentDevelopment, RuntimeEnvironmentProduction:
+	default:
+		return errors.New("runtime environment must be explicitly development or production")
+	}
+	switch configuration.BootstrapMode {
+	case "", BootstrapModeDisabled, BootstrapModeExample:
+	default:
+		return errors.New("bootstrap mode is invalid")
+	}
+	if configuration.BootstrapMode == BootstrapModeExample && configuration.RuntimeEnvironment != RuntimeEnvironmentDevelopment {
+		return errors.New("example bootstrap requires the development runtime environment")
+	}
+	if configuration.RuntimeEnvironment == RuntimeEnvironmentProduction && configuration.LegacyLocalAPIKeyEnabled {
+		return errors.New("legacy local API-key authentication is disabled in production")
+	}
+	if configuration.RuntimeEnvironment == RuntimeEnvironmentProduction && configuration.AllowInsecureServiceCredentialsForDevelopment {
+		return errors.New("insecure service credentials are disabled in production")
+	}
+	return nil
+}
+
+func validateBFFConfiguration(configuration Config) error {
+	organizationID := strings.TrimSpace(configuration.BFFOrganizationID)
+	encodedKey := strings.TrimSpace(configuration.BFFAssertionKey)
+	if organizationID == "" && encodedKey == "" {
+		if configuration.RuntimeEnvironment == RuntimeEnvironmentProduction {
+			return errors.New("production BFF organization and assertion key are required")
+		}
+		return nil
+	}
+	if organizationID == "" || encodedKey == "" {
+		return errors.New("BFF organization and assertion key must be configured together")
+	}
+	key, err := base64.RawURLEncoding.DecodeString(encodedKey)
+	if err != nil || len(key) < 32 || base64.RawURLEncoding.EncodeToString(key) != encodedKey {
+		return errors.New("BFF assertion key must be base64url and at least 32 bytes")
+	}
+	return nil
+}
+
 func configuredHTTPMiddleware(authenticator *localauth.Authenticator, resolver *identitybinding.Resolver, configuration Config) (func(http.Handler) http.Handler, error) {
 	organizationID := strings.TrimSpace(configuration.BFFOrganizationID)
 	encodedKey := strings.TrimSpace(configuration.BFFAssertionKey)
 	if organizationID == "" && encodedKey == "" {
+		if authenticator == nil {
+			return nil, errors.New("legacy local API-key authentication is not configured")
+		}
 		return bffhttp.APIKeyTraceMiddleware(authenticator), nil
 	}
-	if organizationID == "" || encodedKey == "" {
-		return nil, errors.New("BFF organization and assertion key must be configured together")
-	}
 	key, err := base64.RawURLEncoding.DecodeString(encodedKey)
-	if err != nil || len(key) < 32 || base64.RawURLEncoding.EncodeToString(key) != encodedKey {
+	if err != nil {
 		return nil, errors.New("BFF assertion key must be base64url and at least 32 bytes")
 	}
 	verifier, err := bffassertion.NewVerifier(bffassertion.Config{Key: key})
@@ -267,10 +405,11 @@ func configuredHTTPMiddleware(authenticator *localauth.Authenticator, resolver *
 		return nil, fmt.Errorf("configure BFF assertion verifier: %w", err)
 	}
 	middleware, err := bffhttp.NewMiddleware(bffhttp.Config{
-		Authenticator:  authenticator,
-		Verifier:       verifier,
-		Resolver:       resolver,
-		OrganizationID: organizationID,
+		Authenticator:       authenticator,
+		Verifier:            verifier,
+		Resolver:            resolver,
+		OrganizationID:      organizationID,
+		AllowLegacyFallback: configuration.RuntimeEnvironment == RuntimeEnvironmentDevelopment,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("configure BFF HTTP middleware: %w", err)

@@ -15,9 +15,10 @@ configured local BFF-channel API key, a server-generated trace ID, and a newly
 signed assertion. No provider token, session ID, CSRF token, client secret,
 API key, or assertion is returned to the browser.
 
-`backend-yunka` authenticates the existing local API key first. An absent
-assertion is explicitly a legacy/bootstrap API-key call, not a person. A
-present assertion must pass every check before any application operation runs.
+在 `development`，`backend-yunka` 保留现有 local API key first 的 BFF
+channel 兼容模式：缺失 assertion 是 legacy/bootstrap API-key 调用，不是人。
+在 `production`，只接受已签名且验证通过的 assertion，禁止无 assertion 的
+local API-key fallback；assertion 在任何 application operation 前必须通过全部校验。
 The server, not the browser or assertion, selects the one configured
 organization. That organization must already exist and be active. Identity
 binding can provision a user only inside that pre-existing organization;
@@ -60,9 +61,9 @@ the HMAC assertion is only a server-to-server propagation channel, never a
 second browser authentication method. Every generated operation declares both
 `api-key` and `jwt` in the source proto and regenerated operation plan; every
 handwritten extension plan does the same. During the S0-03 transition only,
-roles are copied from the already authenticated local BFF channel; assertions
-carry no role claim and cannot grant a role. gRPC and MCP remain non-browser
-API-key/service-entry work for S0-02-07.
+development 的 roles 可从已认证 local BFF channel 继承；production BFF-only
+principal 没有临时角色，assertion 不携带或授予角色，须由 S0-03 显式授权绑定。
+gRPC service credential 默认仍拒绝明文传输；MCP 仅支持 development。
 
 The backend adopts the assertion trace immediately after signature and request
 binding validation, before identity resolution, so missing, disabled, and
@@ -82,15 +83,14 @@ to `request_failed` and never return buffered raw content.
 The runtime reads `IOT_DELIVERY_BFF_ORGANIZATION_ID` and
 `IOT_DELIVERY_BFF_ASSERTION_KEY` only at the server composition boundary.
 They must appear together; invalid partial or invalid-key configuration fails
-startup. When both are intentionally absent, the historical local API-key
-route remains available solely as legacy/bootstrap compatibility and never
-claims to identify a person. The Next BFF refuses missing or malformed
-assertion/API-key configuration with stable `503 service_unavailable` and
-does not forward.
+startup. development 中两者均缺失时，历史 local API-key route 保持为
+legacy/bootstrap compatibility，且从不声称识别个人；production 则要求两者
+成对有效并在任何 SQLite、Vault 或 listener 副作用前拒绝缺失/无效配置。
+Next BFF 拒绝缺失或格式错误的 assertion/API-key 配置并且不转发。
 
-S0-02-07 owns service identities for gRPC/MCP, S0-03 replaces the temporary
-channel-role inheritance with RBAC, S0-05 owns full audit policy, and S0-08
-owns production bootstrap. None is implemented by this slice.
+S0-02-07 owns service identities for gRPC，S0-03 替换 development 的临时
+channel-role inheritance 并为 production BFF principal 提供 RBAC，S0-05
+拥有完整审计策略；S0-02-08 已落实 production bootstrap 信任边界。
 
 ## Test evidence
 

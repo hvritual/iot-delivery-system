@@ -26,48 +26,60 @@ const (
 )
 
 type Config struct {
-	Authenticator  *localauth.Authenticator
-	Verifier       *bffassertion.Verifier
-	Resolver       *identitybinding.Resolver
-	OrganizationID string
+	Authenticator       *localauth.Authenticator
+	Verifier            *bffassertion.Verifier
+	Resolver            *identitybinding.Resolver
+	OrganizationID      string
+	AllowLegacyFallback bool
 }
 
 type Middleware struct {
-	authenticator  *localauth.Authenticator
-	verifier       *bffassertion.Verifier
-	resolver       *identitybinding.Resolver
-	organizationID string
+	authenticator       *localauth.Authenticator
+	verifier            *bffassertion.Verifier
+	resolver            *identitybinding.Resolver
+	organizationID      string
+	allowLegacyFallback bool
 }
 
 func NewMiddleware(config Config) (*Middleware, error) {
-	if config.Authenticator == nil || config.Verifier == nil || config.Resolver == nil || strings.TrimSpace(config.OrganizationID) == "" {
+	if config.Verifier == nil || config.Resolver == nil || strings.TrimSpace(config.OrganizationID) == "" {
 		return nil, errors.New("BFF HTTP middleware is not configured")
 	}
+	if config.AllowLegacyFallback && config.Authenticator == nil {
+		return nil, errors.New("BFF legacy fallback authenticator is not configured")
+	}
 	return &Middleware{
-		authenticator:  config.Authenticator,
-		verifier:       config.Verifier,
-		resolver:       config.Resolver,
-		organizationID: strings.TrimSpace(config.OrganizationID),
+		authenticator:       config.Authenticator,
+		verifier:            config.Verifier,
+		resolver:            config.Resolver,
+		organizationID:      strings.TrimSpace(config.OrganizationID),
+		allowLegacyFallback: config.AllowLegacyFallback,
 	}, nil
 }
 
-// HTTPMiddleware authenticates the existing local key first. A missing
-// assertion remains an explicit legacy/bootstrap API-key call; an assertion
-// can only narrow that authenticated BFF channel into an OIDC person.
+// HTTPMiddleware accepts a signed BFF assertion. Development may explicitly
+// retain the historical local API-key fallback and BFF channel requirement.
 func (middleware *Middleware) HTTPMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		traceID := newTraceID()
-		if middleware == nil || middleware.authenticator == nil {
+		if middleware == nil {
 			writeError(writer, http.StatusServiceUnavailable, "service_unavailable", traceID)
 			return
 		}
-		channelPrincipal, err := middleware.authenticator.AuthenticateAPIKey(request.Header.Get(localauth.APIKeyHeader))
-		if err != nil {
-			writeError(writer, http.StatusUnauthorized, "unauthorized", traceID)
-			return
-		}
-		principal := channelPrincipal
 		if hasAssertionHeaders(request.Header) {
+			var legacyRoles []string
+			if middleware.allowLegacyFallback {
+				if middleware.authenticator == nil {
+					writeError(writer, http.StatusServiceUnavailable, "service_unavailable", traceID)
+					return
+				}
+				channelPrincipal, err := middleware.authenticator.AuthenticateAPIKey(request.Header.Get(localauth.APIKeyHeader))
+				if err != nil {
+					writeError(writer, http.StatusUnauthorized, "unauthorized", traceID)
+					return
+				}
+				legacyRoles = append([]string(nil), channelPrincipal.Roles...)
+			}
 			if middleware.verifier == nil || middleware.resolver == nil || middleware.organizationID == "" {
 				writeError(writer, http.StatusServiceUnavailable, "service_unavailable", traceID)
 				return
@@ -90,14 +102,30 @@ func (middleware *Middleware) HTTPMiddleware(next http.Handler) http.Handler {
 				writeError(writer, http.StatusForbidden, "forbidden", traceID)
 				return
 			}
-			principal = identity.Principal{
+			principal := identity.Principal{
 				Subject:       "oidc-bff/" + user.ID,
 				TenantID:      user.OrganizationID,
 				UserID:        user.ID,
-				Roles:         append([]string(nil), channelPrincipal.Roles...),
+				Roles:         legacyRoles,
 				AuthMethod:    identity.AuthMethodJWT,
 				Authenticated: true,
 			}
+			ctx := identity.WithPrincipal(request.Context(), principal)
+			ctx = runtimecontext.WithTraceID(ctx, traceID)
+			ctx = runtimecontext.WithMetadata(ctx, runtimecontext.Metadata{Transport: "http", Protocol: "http", Method: request.Method, Route: request.URL.EscapedPath(), RequestID: traceID})
+			traced := newTraceResponseWriter(writer, traceID)
+			next.ServeHTTP(traced, request.WithContext(ctx))
+			traced.commit()
+			return
+		}
+		if !middleware.allowLegacyFallback || middleware.authenticator == nil {
+			writeError(writer, http.StatusUnauthorized, "unauthorized", traceID)
+			return
+		}
+		principal, err := middleware.authenticator.AuthenticateAPIKey(request.Header.Get(localauth.APIKeyHeader))
+		if err != nil {
+			writeError(writer, http.StatusUnauthorized, "unauthorized", traceID)
+			return
 		}
 		ctx := identity.WithPrincipal(request.Context(), principal)
 		ctx = runtimecontext.WithTraceID(ctx, traceID)

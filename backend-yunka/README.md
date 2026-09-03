@@ -16,9 +16,13 @@
 
 ```powershell
 cd backend-yunka
+$env:IOT_DELIVERY_RUNTIME_ENVIRONMENT = 'development'
+$env:IOT_DELIVERY_BOOTSTRAP_MODE = 'disabled'
 $env:IOT_DELIVERY_LOCAL_API_KEY = '<仅本地使用的管理员密钥>'
 go run ./cmd/yunka-bootstrap
 ```
+
+运行环境必须显式为 `development` 或 `production`；未知或缺失值会在创建 SQLite、写 Vault 或监听端口前失败。样例初始化默认关闭，只有隔离开发场景显式设置 `IOT_DELIVERY_RUNTIME_ENVIRONMENT=development` 与 `IOT_DELIVERY_BOOTSTRAP_MODE=example` 才可运行。production 一律拒绝样例初始化、全部 legacy local API-key 环境变量以及 `IOT_DELIVERY_ALLOW_INSECURE_SERVICE_CREDENTIALS_FOR_DEVELOPMENT=true`，并要求成对、有效的 `IOT_DELIVERY_BFF_ORGANIZATION_ID` 与 `IOT_DELIVERY_BFF_ASSERTION_KEY`。production HTTP 只接受签名 BFF assertion；无 assertion 的 local API-key 路径和 gRPC local fallback 均关闭。灾备恢复不得借样例初始化执行，必须使用后续受审计的专用恢复程序。
 
 默认值：
 
@@ -62,10 +66,12 @@ Next 只在服务端的本机 `/api/*` 与 `/health` 代理向 `127.0.0.1:8281` 
 
 ## MCP 生命周期接入
 
-本地 stdio MCP Server 可供支持 MCP 的客户端接入。它复用 Yunka 应用用例边界和本地 API Key 角色，不直接访问仓储：
+本地 stdio MCP Server 仅支持 `development`，复用 Yunka 应用用例边界和本地 API Key 角色，不直接访问仓储；production 会在认证、SQLite 或监听器启动前明确拒绝该入口：
 
 ```powershell
 cd backend-yunka
+$env:IOT_DELIVERY_RUNTIME_ENVIRONMENT = 'development'
+$env:IOT_DELIVERY_BOOTSTRAP_MODE = 'disabled'
 $env:IOT_DELIVERY_LOCAL_API_KEY = '<仅本地使用的管理员密钥>'
 $env:IOT_DELIVERY_MCP_API_KEY = $env:IOT_DELIVERY_LOCAL_API_KEY
 go run ./cmd/iot-delivery-mcp

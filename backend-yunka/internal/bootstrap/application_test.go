@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"io"
+	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -35,10 +38,12 @@ func TestApplicationUsesYunkaRuntimeHostForDeliveryAPI(t *testing.T) {
 	ctx := context.Background()
 	vault := t.TempDir()
 	application, err := bootstrap.New(ctx, bootstrap.Config{
-		HTTPAddress:   "127.0.0.1:0",
-		GRPCAddress:   "127.0.0.1:0",
-		DatabasePath:  filepath.Join(t.TempDir(), "iot-delivery-yunka.db"),
-		ObsidianVault: vault,
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       filepath.Join(t.TempDir(), "iot-delivery-yunka.db"),
+		ObsidianVault:      vault,
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
+		BootstrapMode:      bootstrap.BootstrapModeExample,
 	})
 	if err != nil {
 		t.Fatalf("bootstrap Yunka application: %v", err)
@@ -150,10 +155,11 @@ func TestApplicationAcceptsServiceCredentialOnlyThroughGRPCAndKeepsItUnauthorize
 		t.Fatalf("close prepared service credential database: %v", err)
 	}
 	application, err := bootstrap.New(t.Context(), bootstrap.Config{
-		HTTPAddress:   "127.0.0.1:0",
-		GRPCAddress:   "127.0.0.1:0",
-		DatabasePath:  databasePath,
-		ObsidianVault: t.TempDir(),
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       databasePath,
+		ObsidianVault:      t.TempDir(),
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
 		AllowInsecureServiceCredentialsForDevelopment: true,
 	})
 	if err != nil {
@@ -176,13 +182,334 @@ func TestApplicationAcceptsServiceCredentialOnlyThroughGRPCAndKeepsItUnauthorize
 	}
 }
 
+func TestApplicationDoesNotSeedExampleByDefault(t *testing.T) {
+	t.Setenv(localauth.APIKeyEnvironment, "bootstrap-default-disabled-test-key")
+	application, err := bootstrap.New(t.Context(), bootstrap.Config{
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       filepath.Join(t.TempDir(), "bootstrap-default-disabled.db"),
+		ObsidianVault:      t.TempDir(),
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
+	})
+	if err != nil {
+		t.Fatalf("bootstrap application with default-disabled example seed: %v", err)
+	}
+	t.Cleanup(func() {
+		shutdownContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := application.Close(shutdownContext); err != nil {
+			t.Errorf("shutdown bootstrap application: %v", err)
+		}
+	})
+
+	dashboard := getWithAPIKey(t, "http://"+application.HTTPAddress()+"/api/dashboard", "bootstrap-default-disabled-test-key")
+	if dashboard.StatusCode != http.StatusOK {
+		t.Fatalf("default-disabled dashboard status = %d body=%q, want %d", dashboard.StatusCode, dashboard.Body, http.StatusOK)
+	}
+	var value httpapi.Dashboard
+	if err := json.Unmarshal([]byte(dashboard.Body), &value); err != nil {
+		t.Fatalf("decode default-disabled dashboard: %v", err)
+	}
+	if len(value.Items) != 0 {
+		t.Fatalf("default-disabled bootstrap items = %#v, want no sample data", value.Items)
+	}
+}
+
+func TestApplicationRejectsUnknownBootstrapModeBeforePersistentSideEffects(t *testing.T) {
+	databasePath := filepath.Join(t.TempDir(), "unknown-bootstrap-mode.db")
+	vault := filepath.Join(t.TempDir(), "unknown-bootstrap-mode-vault")
+	application, err := bootstrap.New(t.Context(), bootstrap.Config{
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       databasePath,
+		ObsidianVault:      vault,
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
+		BootstrapMode:      "surprise",
+	})
+	if application != nil {
+		t.Fatal("unknown bootstrap mode must not construct an application")
+	}
+	if err == nil || !strings.Contains(err.Error(), "bootstrap mode") {
+		t.Fatalf("unknown bootstrap mode error = %v, want a generic bootstrap mode error", err)
+	}
+	if _, statErr := os.Stat(databasePath); !os.IsNotExist(statErr) {
+		t.Fatalf("unknown bootstrap mode created database side effect: %v", statErr)
+	}
+	if _, statErr := os.Stat(vault); !os.IsNotExist(statErr) {
+		t.Fatalf("unknown bootstrap mode created Vault side effect: %v", statErr)
+	}
+}
+
+func TestExampleBootstrapRequiresExplicitDevelopmentEnvironment(t *testing.T) {
+	t.Setenv(localauth.APIKeyEnvironment, "example-bootstrap-environment-test-key")
+	databasePath := filepath.Join(t.TempDir(), "example-bootstrap-requires-development.db")
+	vault := filepath.Join(t.TempDir(), "example-bootstrap-requires-development-vault")
+	application, err := bootstrap.New(t.Context(), bootstrap.Config{
+		HTTPAddress:   "127.0.0.1:0",
+		GRPCAddress:   "127.0.0.1:0",
+		DatabasePath:  databasePath,
+		ObsidianVault: vault,
+		BootstrapMode: bootstrap.BootstrapModeExample,
+	})
+	if application != nil {
+		t.Cleanup(func() {
+			shutdownContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if closeErr := application.Close(shutdownContext); closeErr != nil {
+				t.Errorf("shutdown unexpectedly constructed example bootstrap: %v", closeErr)
+			}
+		})
+	}
+	if err == nil || !strings.Contains(err.Error(), "development") {
+		t.Errorf("example bootstrap without explicit development environment error = %v, want a generic development environment error", err)
+	}
+	if _, statErr := os.Stat(databasePath); !os.IsNotExist(statErr) {
+		t.Errorf("example bootstrap without development created database side effect: %v", statErr)
+	}
+	if _, statErr := os.Stat(vault); !os.IsNotExist(statErr) {
+		t.Errorf("example bootstrap without development created Vault side effect: %v", statErr)
+	}
+}
+
+func TestProductionStartupPolicyRejectsBeforeDatabaseVaultOrListenerSideEffects(t *testing.T) {
+	for _, testCase := range []struct {
+		name          string
+		configuration func() bootstrap.Config
+		wantError     string
+	}{
+		{
+			name: "example bootstrap",
+			configuration: func() bootstrap.Config {
+				return bootstrap.Config{RuntimeEnvironment: bootstrap.RuntimeEnvironmentProduction, BootstrapMode: bootstrap.BootstrapModeExample}
+			},
+			wantError: "example bootstrap",
+		},
+		{
+			name: "legacy local API key",
+			configuration: func() bootstrap.Config {
+				return bootstrap.Config{RuntimeEnvironment: bootstrap.RuntimeEnvironmentProduction, BootstrapMode: bootstrap.BootstrapModeDisabled, LegacyLocalAPIKeyEnabled: true}
+			},
+			wantError: "legacy local API-key",
+		},
+		{
+			name: "insecure service credential flag",
+			configuration: func() bootstrap.Config {
+				return bootstrap.Config{RuntimeEnvironment: bootstrap.RuntimeEnvironmentProduction, BootstrapMode: bootstrap.BootstrapModeDisabled, AllowInsecureServiceCredentialsForDevelopment: true}
+			},
+			wantError: "insecure service credentials",
+		},
+		{
+			name: "unknown runtime environment",
+			configuration: func() bootstrap.Config {
+				return bootstrap.Config{RuntimeEnvironment: "unknown", BootstrapMode: bootstrap.BootstrapModeDisabled}
+			},
+			wantError: "runtime environment",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			configuration := testCase.configuration()
+			configuration.HTTPAddress = freeLoopbackAddress(t)
+			configuration.GRPCAddress = freeLoopbackAddress(t)
+			configuration.DatabasePath = filepath.Join(t.TempDir(), "production-rejection.db")
+			configuration.ObsidianVault = filepath.Join(t.TempDir(), "production-rejection-vault")
+
+			application, err := bootstrap.New(t.Context(), configuration)
+			if application != nil {
+				t.Fatal("production policy rejection must not construct an application")
+			}
+			if err == nil || !strings.Contains(err.Error(), testCase.wantError) {
+				t.Fatalf("production %s error = %v, want generic %q rejection", testCase.name, err, testCase.wantError)
+			}
+			if _, statErr := os.Stat(configuration.DatabasePath); !os.IsNotExist(statErr) {
+				t.Fatalf("production %s created database side effect: %v", testCase.name, statErr)
+			}
+			if _, statErr := os.Stat(configuration.ObsidianVault); !os.IsNotExist(statErr) {
+				t.Fatalf("production %s created Vault side effect: %v", testCase.name, statErr)
+			}
+			assertLoopbackAddressAvailable(t, configuration.HTTPAddress)
+			assertLoopbackAddressAvailable(t, configuration.GRPCAddress)
+		})
+	}
+}
+
+func TestProductionRequiresValidBFFBeforePersistentSideEffects(t *testing.T) {
+	for _, testCase := range []struct {
+		name           string
+		organizationID string
+		assertionKey   string
+	}{
+		{name: "missing organization", assertionKey: validProductionBFFAssertionKey()},
+		{name: "missing assertion key", organizationID: "org-production"},
+		{name: "invalid assertion key", organizationID: "org-production", assertionKey: "not-base64url"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			databasePath := filepath.Join(t.TempDir(), "production-bff-validation.db")
+			vault := filepath.Join(t.TempDir(), "production-bff-validation-vault")
+			application, err := bootstrap.New(t.Context(), bootstrap.Config{
+				HTTPAddress:        freeLoopbackAddress(t),
+				GRPCAddress:        freeLoopbackAddress(t),
+				DatabasePath:       databasePath,
+				ObsidianVault:      vault,
+				RuntimeEnvironment: bootstrap.RuntimeEnvironmentProduction,
+				BootstrapMode:      bootstrap.BootstrapModeDisabled,
+				BFFOrganizationID:  testCase.organizationID,
+				BFFAssertionKey:    testCase.assertionKey,
+			})
+			if application != nil {
+				t.Fatal("invalid production BFF configuration must not construct an application")
+			}
+			if err == nil || !strings.Contains(err.Error(), "BFF") {
+				t.Fatalf("invalid production BFF configuration error = %v, want generic BFF rejection", err)
+			}
+			if _, statErr := os.Stat(databasePath); !os.IsNotExist(statErr) {
+				t.Fatalf("invalid production BFF configuration created database side effect: %v", statErr)
+			}
+			if _, statErr := os.Stat(vault); !os.IsNotExist(statErr) {
+				t.Fatalf("invalid production BFF configuration created Vault side effect: %v", statErr)
+			}
+		})
+	}
+}
+
+func TestProductionBFFOnlyRuntimeStartsWithoutSeedOrLocalAPIKeyAccess(t *testing.T) {
+	t.Setenv(localauth.APIKeyEnvironment, "")
+	databasePath := filepath.Join(t.TempDir(), "production-bff-only.db")
+	application, err := bootstrap.New(t.Context(), bootstrap.Config{
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       databasePath,
+		ObsidianVault:      t.TempDir(),
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentProduction,
+		BootstrapMode:      bootstrap.BootstrapModeDisabled,
+		BFFOrganizationID:  "org-production",
+		BFFAssertionKey:    validProductionBFFAssertionKey(),
+	})
+	if err != nil {
+		t.Fatalf("start BFF-only production runtime: %v", err)
+	}
+	t.Cleanup(func() { closeApplication(t, application) })
+
+	response := getWithAPIKey(t, "http://"+application.HTTPAddress()+"/api/dashboard", "local-key-must-not-work")
+	if response.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("production local API-key request status=%d body=%q, want %d", response.StatusCode, response.Body, http.StatusUnauthorized)
+	}
+	connection, err := grpc.NewClient(application.GRPCAddress(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("connect production gRPC runtime: %v", err)
+	}
+	defer connection.Close()
+	grpcContext := metadata.AppendToOutgoingContext(t.Context(), strings.ToLower(localauth.APIKeyHeader), "local-key-must-not-work")
+	_, err = deliveryv1.NewDeliveryServiceClient(connection).GetDashboard(grpcContext, &deliveryv1.GetDashboardRequest{})
+	if err == nil {
+		t.Fatal("production gRPC local API-key fallback unexpectedly succeeded")
+	}
+	database, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open production database for seed readback: %v", err)
+	}
+	defer database.Close()
+	var count int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_delivery_items`).Scan(&count); err != nil {
+		t.Fatalf("count production work items: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("production BFF-only runtime seeded %d work items, want 0", count)
+	}
+}
+
+func validProductionBFFAssertionKey() string {
+	return base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{0x61}, 32))
+}
+
+func TestStartupPolicyRejectsEveryLegacyLocalAPIKeyEnvironmentInProduction(t *testing.T) {
+	for _, environment := range []string{
+		localauth.APIKeyEnvironment,
+		localauth.ViewerAPIKeyEnvironment,
+		localauth.ContributorAPIKeyEnvironment,
+		localauth.ReleaseManagerAPIKeyEnvironment,
+	} {
+		t.Run(environment, func(t *testing.T) {
+			const sentinelCredential = "S0_02_08_ROLE_SENTINEL_DO_NOT_LOG"
+			policy, err := bootstrap.StartupPolicyFromEnvironment(func(name string) string {
+				switch name {
+				case "IOT_DELIVERY_RUNTIME_ENVIRONMENT":
+					return "production"
+				case "IOT_DELIVERY_BOOTSTRAP_MODE":
+					return "disabled"
+				case environment:
+					return sentinelCredential
+				default:
+					return ""
+				}
+			})
+			if policy != (bootstrap.StartupPolicy{}) {
+				t.Fatalf("production policy with %s = %#v, want no accepted policy", environment, policy)
+			}
+			if err == nil || !strings.Contains(err.Error(), "legacy local API-key") {
+				t.Fatalf("production %s error = %v, want generic legacy local API-key rejection", environment, err)
+			}
+			if strings.Contains(err.Error(), sentinelCredential) {
+				t.Fatalf("production %s error leaked sentinel credential: %q", environment, err)
+			}
+		})
+	}
+}
+
+func TestStartupPolicyErrorDoesNotLeakSentinelCredentialToCapturedLog(t *testing.T) {
+	const sentinelCredential = "S0_02_08_LOG_SENTINEL_DO_NOT_LOG"
+	_, err := bootstrap.StartupPolicyFromEnvironment(func(name string) string {
+		switch name {
+		case "IOT_DELIVERY_RUNTIME_ENVIRONMENT":
+			return "production"
+		case "IOT_DELIVERY_BOOTSTRAP_MODE":
+			return "disabled"
+		case localauth.APIKeyEnvironment:
+			return sentinelCredential
+		default:
+			return ""
+		}
+	})
+	if err == nil {
+		t.Fatal("production local API key policy must fail")
+	}
+
+	var captured bytes.Buffer
+	logger := log.New(&captured, "", 0)
+	logger.Printf("configure startup: %v", err)
+	if strings.Contains(err.Error(), sentinelCredential) || strings.Contains(captured.String(), sentinelCredential) {
+		t.Fatalf("startup error or captured log leaked sentinel credential: %q", captured.String())
+	}
+}
+
+func freeLoopbackAddress(t *testing.T) string {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("reserve loopback test address: %v", err)
+	}
+	defer listener.Close()
+	return listener.Addr().String()
+}
+
+func assertLoopbackAddressAvailable(t *testing.T, address string) {
+	t.Helper()
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		t.Fatalf("startup rejection retained listener side effect at %s: %v", address, err)
+	}
+	if err := listener.Close(); err != nil {
+		t.Fatalf("close startup side-effect probe at %s: %v", address, err)
+	}
+}
+
 func TestApplicationRejectsInsecureServiceCredentialModeOnNonLoopbackGRPC(t *testing.T) {
 	t.Setenv(localauth.APIKeyEnvironment, "service-runtime-local-key")
 	application, err := bootstrap.New(t.Context(), bootstrap.Config{
-		HTTPAddress:   "127.0.0.1:0",
-		GRPCAddress:   "0.0.0.0:0",
-		DatabasePath:  filepath.Join(t.TempDir(), "service-runtime.db"),
-		ObsidianVault: t.TempDir(),
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "0.0.0.0:0",
+		DatabasePath:       filepath.Join(t.TempDir(), "service-runtime.db"),
+		ObsidianVault:      t.TempDir(),
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
 		AllowInsecureServiceCredentialsForDevelopment: true,
 	})
 	if application != nil || err == nil || !strings.Contains(err.Error(), "loopback") {
@@ -194,10 +521,11 @@ func TestApplicationInitializesIdentityCoreSchemaInSharedSQLite(t *testing.T) {
 	t.Setenv(localauth.APIKeyEnvironment, "identity-core-schema-test-key")
 	databasePath := filepath.Join(t.TempDir(), "identity-core.db")
 	application, err := bootstrap.New(context.Background(), bootstrap.Config{
-		HTTPAddress:   "127.0.0.1:0",
-		GRPCAddress:   "127.0.0.1:0",
-		DatabasePath:  databasePath,
-		ObsidianVault: t.TempDir(),
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       databasePath,
+		ObsidianVault:      t.TempDir(),
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
 	})
 	if err != nil {
 		t.Fatalf("bootstrap application: %v", err)
@@ -252,10 +580,11 @@ func TestApplicationIdentityCoreMigrationPreservesDeliveryDataAndEnforcesDatabas
 	}
 
 	application, err := bootstrap.New(context.Background(), bootstrap.Config{
-		HTTPAddress:   "127.0.0.1:0",
-		GRPCAddress:   "127.0.0.1:0",
-		DatabasePath:  databasePath,
-		ObsidianVault: t.TempDir(),
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       databasePath,
+		ObsidianVault:      t.TempDir(),
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
 	})
 	if err != nil {
 		t.Fatalf("bootstrap application: %v", err)
@@ -369,10 +698,11 @@ func TestApplicationIdentityCoreMigrationPreservesDeliveryDataAndEnforcesDatabas
 	}
 
 	application, err = bootstrap.New(context.Background(), bootstrap.Config{
-		HTTPAddress:   "127.0.0.1:0",
-		GRPCAddress:   "127.0.0.1:0",
-		DatabasePath:  databasePath,
-		ObsidianVault: t.TempDir(),
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       databasePath,
+		ObsidianVault:      t.TempDir(),
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
 	})
 	if err != nil {
 		t.Fatalf("bootstrap application second time: %v", err)
@@ -441,7 +771,7 @@ func TestBootstrapSeedStagesCommittedOutboxEventsThenProjectsExactlyOnce(t *test
 
 func newSeedApplication(t *testing.T, ctx context.Context, databasePath, vault string) *bootstrap.Application {
 	t.Helper()
-	application, err := bootstrap.New(ctx, bootstrap.Config{HTTPAddress: "127.0.0.1:0", GRPCAddress: "127.0.0.1:0", DatabasePath: databasePath, ObsidianVault: vault})
+	application, err := bootstrap.New(ctx, bootstrap.Config{HTTPAddress: "127.0.0.1:0", GRPCAddress: "127.0.0.1:0", DatabasePath: databasePath, ObsidianVault: vault, RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment, BootstrapMode: bootstrap.BootstrapModeExample})
 	if err != nil {
 		t.Fatalf("bootstrap seed application: %v", err)
 	}
@@ -517,10 +847,11 @@ func TestApplicationProtectsBusinessHTTPAndGeneratedGRPCWithLocalAPIKey(t *testi
 	t.Setenv(localauth.APIKeyEnvironment, "bootstrap-test-key")
 	t.Setenv(localauth.ViewerAPIKeyEnvironment, "bootstrap-viewer-key")
 	application, err := bootstrap.New(context.Background(), bootstrap.Config{
-		HTTPAddress:   "127.0.0.1:0",
-		GRPCAddress:   "127.0.0.1:0",
-		DatabasePath:  filepath.Join(t.TempDir(), "iot-delivery-yunka.db"),
-		ObsidianVault: t.TempDir(),
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       filepath.Join(t.TempDir(), "iot-delivery-yunka.db"),
+		ObsidianVault:      t.TempDir(),
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
 	})
 	if err != nil {
 		t.Fatalf("bootstrap protected application: %v", err)
@@ -587,10 +918,11 @@ func TestApplicationProtectsBusinessHTTPAndGeneratedGRPCWithLocalAPIKey(t *testi
 func TestApplicationCreatesProjectThroughAuthorizedRuntime(t *testing.T) {
 	t.Setenv(localauth.APIKeyEnvironment, "project-runtime-test-key")
 	application, err := bootstrap.New(context.Background(), bootstrap.Config{
-		HTTPAddress:   "127.0.0.1:0",
-		GRPCAddress:   "127.0.0.1:0",
-		DatabasePath:  filepath.Join(t.TempDir(), "iot-delivery-yunka.db"),
-		ObsidianVault: t.TempDir(),
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       filepath.Join(t.TempDir(), "iot-delivery-yunka.db"),
+		ObsidianVault:      t.TempDir(),
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
 	})
 	if err != nil {
 		t.Fatalf("bootstrap application: %v", err)
@@ -687,7 +1019,7 @@ func TestApplicationCreatesProjectThroughAuthorizedRuntime(t *testing.T) {
 	if err := json.Unmarshal(listBody, &items); err != nil {
 		t.Fatalf("decode hosted work item list: %v", err)
 	}
-	if len(items) < 2 || items[0]["projectId"] != projectID || items[0]["kind"] != "epic" {
+	if len(items) != 1 || items[0]["projectId"] != projectID || items[0]["kind"] != "epic" {
 		t.Fatalf("hosted work item list = %#v, want project hierarchy fields", items)
 	}
 }
@@ -695,10 +1027,11 @@ func TestApplicationCreatesProjectThroughAuthorizedRuntime(t *testing.T) {
 func TestApplicationDeliversWorkItemEventsToLocalNotificationInbox(t *testing.T) {
 	t.Setenv(localauth.APIKeyEnvironment, "notification-runtime-test-key")
 	application, err := bootstrap.New(context.Background(), bootstrap.Config{
-		HTTPAddress:   "127.0.0.1:0",
-		GRPCAddress:   "127.0.0.1:0",
-		DatabasePath:  filepath.Join(t.TempDir(), "iot-delivery-yunka.db"),
-		ObsidianVault: t.TempDir(),
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       filepath.Join(t.TempDir(), "iot-delivery-yunka.db"),
+		ObsidianVault:      t.TempDir(),
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
 	})
 	if err != nil {
 		t.Fatalf("bootstrap application: %v", err)
@@ -772,11 +1105,12 @@ func TestApplicationDeliversWorkItemEventsToLocalNotificationInbox(t *testing.T)
 func TestApplicationSchedulesDueRemindersThroughTheDurableOutbox(t *testing.T) {
 	t.Setenv(localauth.APIKeyEnvironment, "due-reminder-runtime-test-key")
 	application, err := bootstrap.New(context.Background(), bootstrap.Config{
-		HTTPAddress:   "127.0.0.1:0",
-		GRPCAddress:   "127.0.0.1:0",
-		DatabasePath:  filepath.Join(t.TempDir(), "iot-delivery-yunka.db"),
-		ObsidianVault: t.TempDir(),
-		DueReminder:   delivery.DueReminderConfig{LeadDays: 0, Interval: 10 * time.Millisecond},
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       filepath.Join(t.TempDir(), "iot-delivery-yunka.db"),
+		ObsidianVault:      t.TempDir(),
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
+		DueReminder:        delivery.DueReminderConfig{LeadDays: 0, Interval: 10 * time.Millisecond},
 	})
 	if err != nil {
 		t.Fatalf("bootstrap application with reminder worker: %v", err)
@@ -844,10 +1178,11 @@ func TestApplicationRegistersAdditionalNotificationChannelsAtAssembly(t *testing
 	t.Setenv(localauth.APIKeyEnvironment, "notification-channel-assembly-test-key")
 	delivered := make(chan notification.Notification, 8)
 	application, err := bootstrap.New(context.Background(), bootstrap.Config{
-		HTTPAddress:   "127.0.0.1:0",
-		GRPCAddress:   "127.0.0.1:0",
-		DatabasePath:  filepath.Join(t.TempDir(), "iot-delivery-yunka.db"),
-		ObsidianVault: t.TempDir(),
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       filepath.Join(t.TempDir(), "iot-delivery-yunka.db"),
+		ObsidianVault:      t.TempDir(),
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
 		NotificationChannels: []notification.Channel{
 			recordingNotificationChannel{deliveries: delivered},
 		},
@@ -922,10 +1257,11 @@ func (channel recordingNotificationChannel) Deliver(_ context.Context, value not
 func TestApplicationRunsR2PlanningThroughAuthorizedRuntime(t *testing.T) {
 	t.Setenv(localauth.APIKeyEnvironment, "r2-runtime-test-key")
 	application, err := bootstrap.New(context.Background(), bootstrap.Config{
-		HTTPAddress:   "127.0.0.1:0",
-		GRPCAddress:   "127.0.0.1:0",
-		DatabasePath:  filepath.Join(t.TempDir(), "iot-delivery-yunka.db"),
-		ObsidianVault: t.TempDir(),
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       filepath.Join(t.TempDir(), "iot-delivery-yunka.db"),
+		ObsidianVault:      t.TempDir(),
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
 	})
 	if err != nil {
 		t.Fatalf("bootstrap application: %v", err)

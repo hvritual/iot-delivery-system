@@ -189,6 +189,50 @@ func TestBFFHTTPRetainsVerifiedTraceWhenBindingFails(t *testing.T) {
 	}
 }
 
+func TestBFFHTTPBFFOnlyModeRequiresAssertionAndDoesNotAssignLegacyRoles(t *testing.T) {
+	fixture := newFixture(t)
+	middleware, err := bffhttp.NewMiddleware(bffhttp.Config{
+		Verifier:            fixture.verifier,
+		Resolver:            fixture.resolver,
+		OrganizationID:      "org-1",
+		AllowLegacyFallback: false,
+	})
+	if err != nil {
+		t.Fatalf("construct BFF-only middleware: %v", err)
+	}
+	var principal identity.Principal
+	handler := middleware.HTTPMiddleware(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		principal, _ = identity.FromContext(request.Context())
+		writer.WriteHeader(http.StatusNoContent)
+	}))
+
+	localOnly := httptest.NewRequest(http.MethodGet, "/api/items", nil)
+	localOnly.Header.Set(localauth.APIKeyHeader, "bff-channel-key")
+	localResponse := httptest.NewRecorder()
+	handler.ServeHTTP(localResponse, localOnly)
+	if localResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("BFF-only local API-key response = %d, want %d", localResponse.Code, http.StatusUnauthorized)
+	}
+
+	signed := fixture.signedRequestTo(t, http.MethodGet, "/api/items", "subject-production", "nonce-production-bff-only", nil)
+	signedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(signedResponse, signed)
+	if signedResponse.Code != http.StatusNoContent {
+		t.Fatalf("BFF-only signed assertion response = %d body=%s, want %d", signedResponse.Code, signedResponse.Body.String(), http.StatusNoContent)
+	}
+	if !principal.Authenticated || principal.AuthMethod != identity.AuthMethodJWT || len(principal.Roles) != 0 {
+		t.Fatalf("BFF-only principal = %#v, want authenticated JWT principal without legacy roles", principal)
+	}
+
+	deniedHandler := middleware.HTTPMiddleware(fixture.upstream)
+	deniedRequest := fixture.signedRequestTo(t, http.MethodGet, "/api/projects", "subject-production", "nonce-production-bff-only-denied", nil)
+	deniedResponse := httptest.NewRecorder()
+	deniedHandler.ServeHTTP(deniedResponse, deniedRequest)
+	if deniedResponse.Code != http.StatusForbidden {
+		t.Fatalf("BFF-only business request = %d body=%s, want %d without S0-03 role bindings", deniedResponse.Code, deniedResponse.Body.String(), http.StatusForbidden)
+	}
+}
+
 func TestLegacyAPIKeyTraceMiddlewarePreservesFirstSuccessStatus(t *testing.T) {
 	authenticator, err := localauth.NewAuthenticator("legacy-key")
 	if err != nil {
@@ -340,7 +384,7 @@ func newFixture(t *testing.T) fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	middleware, err := bffhttp.NewMiddleware(bffhttp.Config{Authenticator: authenticator, Verifier: verifier, Resolver: resolver, OrganizationID: "org-1"})
+	middleware, err := bffhttp.NewMiddleware(bffhttp.Config{Authenticator: authenticator, Verifier: verifier, Resolver: resolver, OrganizationID: "org-1", AllowLegacyFallback: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,7 +394,7 @@ func newFixture(t *testing.T) fixture {
 
 func (fixture fixture) handlerFor(t *testing.T, organizationID string) http.Handler {
 	t.Helper()
-	middleware, err := bffhttp.NewMiddleware(bffhttp.Config{Authenticator: fixture.authenticator, Verifier: fixture.verifier, Resolver: fixture.resolver, OrganizationID: organizationID})
+	middleware, err := bffhttp.NewMiddleware(bffhttp.Config{Authenticator: fixture.authenticator, Verifier: fixture.verifier, Resolver: fixture.resolver, OrganizationID: organizationID, AllowLegacyFallback: true})
 	if err != nil {
 		t.Fatal(err)
 	}

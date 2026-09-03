@@ -40,6 +40,10 @@ func main() {
 }
 
 func configurationFromEnv() (bootstrap.Config, error) {
+	startupPolicy, err := bootstrap.StartupPolicyFromEnvironment(os.Getenv)
+	if err != nil {
+		return bootstrap.Config{}, err
+	}
 	channels, err := notification.ChannelsFromEnvironment(os.Getenv)
 	if err != nil {
 		return bootstrap.Config{}, err
@@ -48,7 +52,7 @@ func configurationFromEnv() (bootstrap.Config, error) {
 	if err != nil {
 		return bootstrap.Config{}, err
 	}
-	return bootstrap.Config{
+	return startupPolicy.Apply(bootstrap.Config{
 		HTTPAddress:          valueOr("IOT_DELIVERY_YUNKA_HTTP_ADDR", "127.0.0.1:8281"),
 		GRPCAddress:          valueOr("IOT_DELIVERY_YUNKA_GRPC_ADDR", "127.0.0.1:8282"),
 		DatabasePath:         valueOr("IOT_DELIVERY_YUNKA_DB", "data/iot-delivery-yunka.db"),
@@ -57,7 +61,7 @@ func configurationFromEnv() (bootstrap.Config, error) {
 		DueReminder:          dueReminder,
 		BFFOrganizationID:    strings.TrimSpace(os.Getenv("IOT_DELIVERY_BFF_ORGANIZATION_ID")),
 		BFFAssertionKey:      strings.TrimSpace(os.Getenv("IOT_DELIVERY_BFF_ASSERTION_KEY")),
-	}, nil
+	}), nil
 }
 
 func dueReminderConfigFromEnv() (delivery.DueReminderConfig, error) {

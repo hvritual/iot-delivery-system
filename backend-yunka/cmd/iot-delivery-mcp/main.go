@@ -22,6 +22,10 @@ const mcpAPIKeyEnvironment = "IOT_DELIVERY_MCP_API_KEY"
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	configuration, err := configurationFromEnv()
+	if err != nil {
+		log.Fatalf("configure local delivery MCP runtime: %v", err)
+	}
 	authenticator, err := localauth.FromEnvironment()
 	if err != nil {
 		log.Fatalf("configure local MCP authentication: %v", err)
@@ -34,7 +38,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("authenticate local MCP process: %v", err)
 	}
-	application, err := bootstrap.New(ctx, configurationFromEnv())
+	application, err := bootstrap.New(ctx, configuration)
 	if err != nil {
 		log.Fatalf("configure local delivery MCP runtime: %v", err)
 	}
@@ -52,15 +56,22 @@ func main() {
 	}
 }
 
-func configurationFromEnv() bootstrap.Config {
-	return bootstrap.Config{
+func configurationFromEnv() (bootstrap.Config, error) {
+	startupPolicy, err := bootstrap.StartupPolicyFromEnvironment(os.Getenv)
+	if err != nil {
+		return bootstrap.Config{}, err
+	}
+	if err := startupPolicy.ValidateLocalStdio(); err != nil {
+		return bootstrap.Config{}, err
+	}
+	return startupPolicy.Apply(bootstrap.Config{
 		HTTPAddress:       valueOr("IOT_DELIVERY_MCP_HTTP_ADDR", "127.0.0.1:0"),
 		GRPCAddress:       valueOr("IOT_DELIVERY_MCP_GRPC_ADDR", "127.0.0.1:0"),
 		DatabasePath:      valueOr("IOT_DELIVERY_YUNKA_DB", "data/iot-delivery-yunka.db"),
 		ObsidianVault:     valueOr("IOT_DELIVERY_YUNKA_OBSIDIAN_VAULT", "runtime-vault"),
 		BFFOrganizationID: strings.TrimSpace(os.Getenv("IOT_DELIVERY_BFF_ORGANIZATION_ID")),
 		BFFAssertionKey:   strings.TrimSpace(os.Getenv("IOT_DELIVERY_BFF_ASSERTION_KEY")),
-	}
+	}), nil
 }
 
 func valueOr(name, fallback string) string {

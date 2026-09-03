@@ -7,6 +7,8 @@ import (
 )
 
 func TestConfigurationDefaultsToAnIsolatedYunkaMVP(t *testing.T) {
+	t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "development")
+	t.Setenv("IOT_DELIVERY_BOOTSTRAP_MODE", "")
 	t.Setenv("IOT_DELIVERY_YUNKA_HTTP_ADDR", "")
 	t.Setenv("IOT_DELIVERY_YUNKA_GRPC_ADDR", "")
 	t.Setenv("IOT_DELIVERY_YUNKA_DB", "")
@@ -36,9 +38,14 @@ func TestConfigurationDefaultsToAnIsolatedYunkaMVP(t *testing.T) {
 	if configuration.DueReminder.LeadDays != 1 || configuration.DueReminder.Interval != time.Hour {
 		t.Fatalf("default due reminder config = %#v, want one-day lead and hourly schedule", configuration.DueReminder)
 	}
+	if configuration.RuntimeEnvironment != "development" || configuration.BootstrapMode != "disabled" {
+		t.Fatalf("default startup policy = environment=%q bootstrap=%q, want development with disabled bootstrap", configuration.RuntimeEnvironment, configuration.BootstrapMode)
+	}
 }
 
 func TestConfigurationReadsDueReminderWindowFromEnvironment(t *testing.T) {
+	t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "development")
+	t.Setenv("IOT_DELIVERY_BOOTSTRAP_MODE", "disabled")
 	t.Setenv("IOT_DELIVERY_DUE_REMINDER_LEAD_DAYS", "3")
 	t.Setenv("IOT_DELIVERY_DUE_REMINDER_INTERVAL", "30m")
 
@@ -51,7 +58,34 @@ func TestConfigurationReadsDueReminderWindowFromEnvironment(t *testing.T) {
 	}
 }
 
+func TestConfigurationRejectsProductionExampleBootstrapWithoutLeakingSentinelCredential(t *testing.T) {
+	const sentinelCredential = "S0_02_08_SENTINEL_DO_NOT_LOG"
+	t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "production")
+	t.Setenv("IOT_DELIVERY_BOOTSTRAP_MODE", "example")
+	t.Setenv("IOT_DELIVERY_LOCAL_API_KEY", sentinelCredential)
+
+	_, err := configurationFromEnv()
+	if err == nil || !strings.Contains(err.Error(), "bootstrap") {
+		t.Fatalf("production example bootstrap configuration error = %v, want generic bootstrap rejection", err)
+	}
+	if strings.Contains(err.Error(), sentinelCredential) {
+		t.Fatalf("startup configuration error leaked sentinel credential: %q", err)
+	}
+}
+
+func TestConfigurationRejectsUnknownRuntimeEnvironment(t *testing.T) {
+	t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "preproductionish")
+	t.Setenv("IOT_DELIVERY_BOOTSTRAP_MODE", "disabled")
+
+	_, err := configurationFromEnv()
+	if err == nil || !strings.Contains(err.Error(), "runtime environment") {
+		t.Fatalf("unknown runtime environment error = %v, want generic runtime environment rejection", err)
+	}
+}
+
 func TestConfigurationRegistersOnlyExplicitExternalNotificationChannels(t *testing.T) {
+	t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "development")
+	t.Setenv("IOT_DELIVERY_BOOTSTRAP_MODE", "disabled")
 	t.Setenv("IOT_DELIVERY_NOTIFICATION_WEBHOOK_URL", "https://hooks.example.test/delivery")
 	t.Setenv("IOT_DELIVERY_NOTIFICATION_WECOM_WEBHOOK_URL", "https://wecom.example.test/robot")
 	t.Setenv("IOT_DELIVERY_NOTIFICATION_SMTP_ADDRESS", "smtp.example.test:587")
