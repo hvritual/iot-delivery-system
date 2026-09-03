@@ -15,7 +15,9 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/bffhttp"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	deliveryapplication "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryauthz"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/httpapi"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/humanauthz"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitybinding"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitycore"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localauth"
@@ -213,12 +215,12 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		_ = repository.Close()
 		return nil, err
 	}
-	authorizer, err := localauth.NewAuthorizer()
+	authorizer, guards, err := configuredAuthorization(ctx, configuration, repository)
 	if err != nil {
 		_ = repository.Close()
-		return nil, fmt.Errorf("create local authorizer: %w", err)
+		return nil, err
 	}
-	security, err := authz.NewExecutionSecurity(authorizer, nil)
+	security, err := authz.NewExecutionSecurity(authorizer, guards)
 	if err != nil {
 		_ = repository.Close()
 		return nil, fmt.Errorf("create operation security: %w", err)
@@ -343,6 +345,32 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	application.httpAddress = started.HTTPAddress
 	application.grpcAddress = started.GRPCAddress
 	return application, nil
+}
+
+func configuredAuthorization(ctx context.Context, configuration Config, repository *delivery.SQLiteRepository) (authz.Authorizer, authz.GuardResolver, error) {
+	if repository == nil || repository.Database() == nil {
+		return nil, nil, errors.New("delivery authorization repository is required")
+	}
+	if configuration.RuntimeEnvironment == RuntimeEnvironmentDevelopment {
+		authorizer, err := localauth.NewAuthorizer()
+		if err != nil {
+			return nil, nil, fmt.Errorf("create local authorizer: %w", err)
+		}
+		return authorizer, nil, nil
+	}
+	resolver, err := humanauthz.NewGrantResolver(repository.Database())
+	if err != nil {
+		return nil, nil, fmt.Errorf("create human grant resolver: %w", err)
+	}
+	authorizer, err := authz.NewGrantAuthorizerWithResolver(resolver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("create human grant authorizer: %w", err)
+	}
+	guard, err := deliveryauthz.NewOperationGuard(repository, repository.Database())
+	if err != nil {
+		return nil, nil, fmt.Errorf("create delivery operation guard: %w", err)
+	}
+	return authorizer, guard.GuardResolver(), nil
 }
 
 func validateStartupPolicy(configuration Config) error {

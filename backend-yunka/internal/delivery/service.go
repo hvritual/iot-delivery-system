@@ -70,13 +70,14 @@ func (service *Service) CreateProject(ctx context.Context, input ProjectInput) (
 		return Project{}, err
 	}
 	project := Project{
-		ID:          id,
-		Name:        strings.TrimSpace(input.Name),
-		Board:       input.Board,
-		Owner:       strings.TrimSpace(input.Owner),
-		Description: strings.TrimSpace(input.Description),
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:             id,
+		OrganizationID: strings.TrimSpace(input.OrganizationID),
+		Name:           strings.TrimSpace(input.Name),
+		Board:          input.Board,
+		Owner:          strings.TrimSpace(input.Owner),
+		Description:    strings.TrimSpace(input.Description),
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 	if err := service.persistProjectMutation(ctx, "delivery.project.created", project, func() error {
 		return service.repository.CreateProject(ctx, project)

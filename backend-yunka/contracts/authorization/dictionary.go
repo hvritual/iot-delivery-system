@@ -18,7 +18,14 @@ type Dictionary struct {
 	SchemaVersion string       `json:"schemaVersion"`
 	DictionaryID  string       `json:"dictionaryId"`
 	Permissions   []Permission `json:"permissions"`
+	Operations    []Operation  `json:"operations"`
 	Roles         []Role       `json:"roles"`
+}
+
+type Operation struct {
+	ID            string `json:"id"`
+	Permission    string `json:"permission"`
+	RequiredScope string `json:"requiredScope"`
 }
 
 type Permission struct {

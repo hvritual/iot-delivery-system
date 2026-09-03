@@ -185,7 +185,7 @@ func (repository *SQLiteRepository) Save(ctx context.Context, item WorkItem) err
 }
 
 func (repository *SQLiteRepository) CreateProject(ctx context.Context, project Project) error {
-	payload, err := json.Marshal(project)
+	payload, err := encodeProject(project)
 	if err != nil {
 		return fmt.Errorf("encode delivery project: %w", err)
 	}
@@ -193,7 +193,7 @@ func (repository *SQLiteRepository) CreateProject(ctx context.Context, project P
 	if err != nil {
 		return err
 	}
-	_, err = executor.ExecContext(ctx, `INSERT INTO iotd_delivery_projects (id, payload, updated_at) VALUES (?, ?, ?)`, project.ID, string(payload), project.UpdatedAt.UTC().Format(timeLayout))
+	_, err = executor.ExecContext(ctx, `INSERT INTO iotd_delivery_projects (id, payload, updated_at) VALUES (?, ?, ?)`, project.ID, payload, project.UpdatedAt.UTC().Format(timeLayout))
 	if err != nil {
 		return fmt.Errorf("insert delivery project: %w", err)
 	}
@@ -245,7 +245,7 @@ func (repository *SQLiteRepository) ListProjects(ctx context.Context) ([]Project
 }
 
 func (repository *SQLiteRepository) SaveProject(ctx context.Context, project Project) error {
-	payload, err := json.Marshal(project)
+	payload, err := encodeProject(project)
 	if err != nil {
 		return fmt.Errorf("encode delivery project: %w", err)
 	}
@@ -253,7 +253,7 @@ func (repository *SQLiteRepository) SaveProject(ctx context.Context, project Pro
 	if err != nil {
 		return err
 	}
-	result, err := executor.ExecContext(ctx, `UPDATE iotd_delivery_projects SET payload = ?, updated_at = ? WHERE id = ?`, string(payload), project.UpdatedAt.UTC().Format(timeLayout), project.ID)
+	result, err := executor.ExecContext(ctx, `UPDATE iotd_delivery_projects SET payload = ?, updated_at = ? WHERE id = ?`, payload, project.UpdatedAt.UTC().Format(timeLayout), project.ID)
 	if err != nil {
 		return fmt.Errorf("update delivery project: %w", err)
 	}
@@ -509,7 +509,26 @@ func decodeProject(payload string) (Project, error) {
 	if err := json.Unmarshal([]byte(payload), &project); err != nil {
 		return Project{}, fmt.Errorf("decode delivery project: %w", err)
 	}
+	var ownership struct {
+		OrganizationID string `json:"organizationId"`
+	}
+	if err := json.Unmarshal([]byte(payload), &ownership); err != nil {
+		return Project{}, fmt.Errorf("decode delivery project ownership: %w", err)
+	}
+	project.OrganizationID = ownership.OrganizationID
 	return project, nil
+}
+
+func encodeProject(project Project) ([]byte, error) {
+	payload := struct {
+		Project
+		OrganizationID string `json:"organizationId"`
+	}{Project: project, OrganizationID: project.OrganizationID}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("encode delivery project: %w", err)
+	}
+	return encoded, nil
 }
 
 func decodeRelease(payload string) (Release, error) {

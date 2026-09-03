@@ -7,6 +7,7 @@ import (
 	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/policy"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryauthz"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
 	"yunka.io/framework/operation"
 	"yunka.io/pkg/operationplan"
@@ -90,7 +91,21 @@ func (operations *Operations) listExtendedWorkItems(ctx context.Context, operati
 	if !ok {
 		return nil, errors.New("delivery work item list operation returned an unexpected result")
 	}
-	return items, nil
+	return filterAuthorizedWorkItems(ctx, items), nil
+}
+
+func filterAuthorizedWorkItems(ctx context.Context, items []delivery.WorkItem) []delivery.WorkItem {
+	projects, restricted := deliveryauthz.AuthorizedProjectsFromContext(ctx)
+	if !restricted {
+		return items
+	}
+	filtered := make([]delivery.WorkItem, 0, len(items))
+	for _, item := range items {
+		if projects[item.ProjectID] {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
 }
 
 func (operations *Operations) Create(ctx context.Context, input delivery.CreateInput) (delivery.WorkItem, error) {

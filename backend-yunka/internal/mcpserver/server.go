@@ -80,7 +80,12 @@ func (server *server) createProject(ctx context.Context, _ *mcp.CallToolRequest,
 	if err != nil {
 		return nil, projectOutput{}, err
 	}
-	project, err := server.operations.CreateProject(ctx, delivery.ProjectInput(args))
+	project, err := server.operations.CreateProject(ctx, delivery.ProjectInput{
+		Name:        args.Name,
+		Board:       args.Board,
+		Owner:       args.Owner,
+		Description: args.Description,
+	})
 	return nil, projectOutput{Project: project}, err
 }
 

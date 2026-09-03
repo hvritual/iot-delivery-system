@@ -45,20 +45,22 @@ type WorkItemDependency struct {
 }
 
 type Project struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Board       Board     `json:"board"`
-	Owner       string    `json:"owner"`
-	Description string    `json:"description,omitempty"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	ID             string    `json:"id"`
+	OrganizationID string    `json:"-"`
+	Name           string    `json:"name"`
+	Board          Board     `json:"board"`
+	Owner          string    `json:"owner"`
+	Description    string    `json:"description,omitempty"`
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
 }
 
 type ProjectInput struct {
-	Name        string `json:"name"`
-	Board       Board  `json:"board"`
-	Owner       string `json:"owner"`
-	Description string `json:"description"`
+	OrganizationID string `json:"-"`
+	Name           string `json:"name"`
+	Board          Board  `json:"board"`
+	Owner          string `json:"owner"`
+	Description    string `json:"description"`
 }
 
 // Release, Sprint, and Milestone are first-class planning records. Work items

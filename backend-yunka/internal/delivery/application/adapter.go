@@ -7,6 +7,7 @@ import (
 
 	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryauthz"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -185,10 +186,11 @@ func (adapter *Adapter) CreateProject(ctx context.Context, request *deliveryv1.C
 		return nil, err
 	}
 	project, err := service.CreateProject(ctx, delivery.ProjectInput{
-		Name:        request.GetName(),
-		Board:       delivery.Board(request.GetBoard()),
-		Owner:       request.GetOwner(),
-		Description: request.GetDescription(),
+		OrganizationID: deliveryauthz.OrganizationIDFromContext(ctx),
+		Name:           request.GetName(),
+		Board:          delivery.Board(request.GetBoard()),
+		Owner:          request.GetOwner(),
+		Description:    request.GetDescription(),
 	})
 	if err != nil {
 		return nil, err
@@ -334,7 +336,21 @@ func (adapter *Adapter) list(ctx context.Context) ([]delivery.WorkItem, error) {
 	if err != nil {
 		return nil, err
 	}
-	return service.List(ctx)
+	items, err := service.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	projects, restricted := deliveryauthz.AuthorizedProjectsFromContext(ctx)
+	if !restricted {
+		return items, nil
+	}
+	result := make([]delivery.WorkItem, 0, len(items))
+	for _, item := range items {
+		if projects[item.ProjectID] {
+			result = append(result, item)
+		}
+	}
+	return result, nil
 }
 
 func workItems(items []delivery.WorkItem) []*deliveryv1.WorkItem {
