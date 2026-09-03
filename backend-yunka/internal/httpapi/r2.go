@@ -1,41 +1,11 @@
 package httpapi
 
 import (
-	"context"
 	"net/http"
 	"strings"
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 )
-
-// R2Service is the cohesive task-lifecycle boundary used by the expanded HTTP
-// API. It intentionally remains optional so the original MVP handler can be
-// embedded in a narrow test fixture without acquiring unrelated capabilities.
-type R2Service interface {
-	Get(context.Context, string) (delivery.WorkItem, error)
-	UpdateWorkItem(context.Context, string, delivery.WorkItemUpdate) (delivery.WorkItem, error)
-	AddComment(context.Context, string, delivery.CommentInput) (delivery.Comment, error)
-	Search(context.Context, delivery.WorkItemFilter) ([]delivery.WorkItem, error)
-	CreateRelease(context.Context, delivery.ReleaseInput) (delivery.Release, error)
-	ListReleases(context.Context, string) ([]delivery.Release, error)
-	CreateSprint(context.Context, delivery.SprintInput) (delivery.Sprint, error)
-	ListSprints(context.Context, string) ([]delivery.Sprint, error)
-	CreateMilestone(context.Context, delivery.MilestoneInput) (delivery.Milestone, error)
-	ListMilestones(context.Context, string) ([]delivery.Milestone, error)
-	SaveView(context.Context, delivery.SavedViewInput) (delivery.SavedView, error)
-	ListSavedViews(context.Context) ([]delivery.SavedView, error)
-	MemberWeek(context.Context, string, string) (delivery.MemberWeek, error)
-	ProjectProgress(context.Context, string) (delivery.ProjectProgress, error)
-	ProjectSchedule(context.Context, string) (delivery.ProjectSchedule, error)
-}
-
-func (api *api) requireR2(writer http.ResponseWriter) bool {
-	if api != nil && api.r2Service != nil {
-		return true
-	}
-	writeJSON(writer, http.StatusNotImplemented, map[string]string{"error": "R2 delivery management is not configured"})
-	return false
-}
 
 func workItemFilterFromRequest(request *http.Request) delivery.WorkItemFilter {
 	query := request.URL.Query()
@@ -53,10 +23,7 @@ func workItemFilterFromRequest(request *http.Request) delivery.WorkItemFilter {
 }
 
 func (api *api) item(writer http.ResponseWriter, request *http.Request, id string) {
-	if !api.requireR2(writer) {
-		return
-	}
-	item, err := api.r2Service.Get(request.Context(), id)
+	item, err := api.operations.Get(request.Context(), id)
 	if err != nil {
 		writeError(writer, err)
 		return
@@ -81,17 +48,14 @@ func (api *api) patchItem(writer http.ResponseWriter, request *http.Request, id 
 	var item delivery.WorkItem
 	var err error
 	if patch.hasWorkItemUpdate() {
-		if !api.requireR2(writer) {
-			return
-		}
-		item, err = api.r2Service.UpdateWorkItem(request.Context(), id, patch.WorkItemUpdate)
+		item, err = api.operations.UpdateWorkItem(request.Context(), id, patch.WorkItemUpdate)
 		if err != nil {
 			writeError(writer, err)
 			return
 		}
 	}
 	if patch.hasContextUpdate() {
-		item, err = api.service.UpdateContext(request.Context(), id, delivery.ContextUpdate{
+		item, err = api.operations.UpdateContext(request.Context(), id, delivery.ContextUpdate{
 			Plan:     patch.Plan,
 			Solution: patch.Solution,
 			Blocker:  patch.Blocker,
@@ -121,15 +85,12 @@ func (patch itemPatch) hasContextUpdate() bool {
 }
 
 func (api *api) comments(writer http.ResponseWriter, request *http.Request, id string) {
-	if !api.requireR2(writer) {
-		return
-	}
 	var input delivery.CommentInput
 	if err := decodeJSON(request, &input); err != nil {
 		writeJSON(writer, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	comment, err := api.r2Service.AddComment(request.Context(), id, input)
+	comment, err := api.operations.AddComment(request.Context(), id, input)
 	if err != nil {
 		writeError(writer, err)
 		return
@@ -138,11 +99,8 @@ func (api *api) comments(writer http.ResponseWriter, request *http.Request, id s
 }
 
 func (api *api) releases(writer http.ResponseWriter, request *http.Request) {
-	if !api.requireR2(writer) {
-		return
-	}
 	if request.Method == http.MethodGet {
-		values, err := api.r2Service.ListReleases(request.Context(), request.URL.Query().Get("projectId"))
+		values, err := api.operations.ListReleases(request.Context(), request.URL.Query().Get("projectId"))
 		if err != nil {
 			writeError(writer, err)
 			return
@@ -155,7 +113,7 @@ func (api *api) releases(writer http.ResponseWriter, request *http.Request) {
 		writeJSON(writer, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	value, err := api.r2Service.CreateRelease(request.Context(), input)
+	value, err := api.operations.CreateRelease(request.Context(), input)
 	if err != nil {
 		writeError(writer, err)
 		return
@@ -164,11 +122,8 @@ func (api *api) releases(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (api *api) sprints(writer http.ResponseWriter, request *http.Request) {
-	if !api.requireR2(writer) {
-		return
-	}
 	if request.Method == http.MethodGet {
-		values, err := api.r2Service.ListSprints(request.Context(), request.URL.Query().Get("projectId"))
+		values, err := api.operations.ListSprints(request.Context(), request.URL.Query().Get("projectId"))
 		if err != nil {
 			writeError(writer, err)
 			return
@@ -181,7 +136,7 @@ func (api *api) sprints(writer http.ResponseWriter, request *http.Request) {
 		writeJSON(writer, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	value, err := api.r2Service.CreateSprint(request.Context(), input)
+	value, err := api.operations.CreateSprint(request.Context(), input)
 	if err != nil {
 		writeError(writer, err)
 		return
@@ -190,11 +145,8 @@ func (api *api) sprints(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (api *api) milestones(writer http.ResponseWriter, request *http.Request) {
-	if !api.requireR2(writer) {
-		return
-	}
 	if request.Method == http.MethodGet {
-		values, err := api.r2Service.ListMilestones(request.Context(), request.URL.Query().Get("projectId"))
+		values, err := api.operations.ListMilestones(request.Context(), request.URL.Query().Get("projectId"))
 		if err != nil {
 			writeError(writer, err)
 			return
@@ -207,7 +159,7 @@ func (api *api) milestones(writer http.ResponseWriter, request *http.Request) {
 		writeJSON(writer, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	value, err := api.r2Service.CreateMilestone(request.Context(), input)
+	value, err := api.operations.CreateMilestone(request.Context(), input)
 	if err != nil {
 		writeError(writer, err)
 		return
@@ -216,11 +168,8 @@ func (api *api) milestones(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (api *api) views(writer http.ResponseWriter, request *http.Request) {
-	if !api.requireR2(writer) {
-		return
-	}
 	if request.Method == http.MethodGet {
-		values, err := api.r2Service.ListSavedViews(request.Context())
+		values, err := api.operations.ListSavedViews(request.Context())
 		if err != nil {
 			writeError(writer, err)
 			return
@@ -233,7 +182,7 @@ func (api *api) views(writer http.ResponseWriter, request *http.Request) {
 		writeJSON(writer, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	value, err := api.r2Service.SaveView(request.Context(), input)
+	value, err := api.operations.SaveView(request.Context(), input)
 	if err != nil {
 		writeError(writer, err)
 		return
@@ -242,10 +191,7 @@ func (api *api) views(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (api *api) memberWeek(writer http.ResponseWriter, request *http.Request) {
-	if !api.requireR2(writer) {
-		return
-	}
-	value, err := api.r2Service.MemberWeek(request.Context(), request.URL.Query().Get("member"), request.URL.Query().Get("weekStart"))
+	value, err := api.operations.MemberWeek(request.Context(), request.URL.Query().Get("member"), request.URL.Query().Get("weekStart"))
 	if err != nil {
 		writeError(writer, err)
 		return
@@ -254,12 +200,9 @@ func (api *api) memberWeek(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (api *api) projectAction(writer http.ResponseWriter, request *http.Request) {
-	if !api.requireR2(writer) {
-		return
-	}
 	parts := strings.Split(strings.Trim(strings.TrimPrefix(request.URL.Path, "/api/projects/"), "/"), "/")
 	if len(parts) == 2 && parts[0] != "" && parts[1] == "progress" {
-		value, err := api.r2Service.ProjectProgress(request.Context(), parts[0])
+		value, err := api.operations.ProjectProgress(request.Context(), parts[0])
 		if err != nil {
 			writeError(writer, err)
 			return
@@ -268,7 +211,7 @@ func (api *api) projectAction(writer http.ResponseWriter, request *http.Request)
 		return
 	}
 	if len(parts) == 2 && parts[0] != "" && parts[1] == "schedule" {
-		value, err := api.r2Service.ProjectSchedule(request.Context(), parts[0])
+		value, err := api.operations.ProjectSchedule(request.Context(), parts[0])
 		if err != nil {
 			writeError(writer, err)
 			return

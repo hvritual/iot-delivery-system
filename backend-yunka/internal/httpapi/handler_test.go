@@ -2,7 +2,6 @@ package httpapi_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -15,8 +14,8 @@ import (
 func TestHandlerCreatesAdvancesAndSummarizesDeliveryItems(t *testing.T) {
 	t.Parallel()
 
-	service := delivery.NewService(delivery.NewMemoryRepository(), nil)
-	handler := httpapi.NewHandler(service)
+	fixture := newRESTFixture(t)
+	handler := fixture.handler
 
 	createRequest := httptest.NewRequest(http.MethodPost, "/api/items", bytes.NewBufferString(`{
 		"title":"设备 OTA 发布验收",
@@ -69,8 +68,8 @@ func TestHandlerCreatesAdvancesAndSummarizesDeliveryItems(t *testing.T) {
 func TestHandlerRecordsDeliveryContext(t *testing.T) {
 	t.Parallel()
 
-	service := delivery.NewService(delivery.NewMemoryRepository(), nil)
-	handler := httpapi.NewHandler(service)
+	fixture := newRESTFixture(t)
+	handler := fixture.handler
 	createRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(createRecorder, httptest.NewRequest(http.MethodPost, "/api/items", bytes.NewBufferString(`{
 		"title":"设备离线率治理", "board":"设备质量与连接", "owner":"设备平台主管"
@@ -107,8 +106,8 @@ func TestHandlerRecordsDeliveryContext(t *testing.T) {
 func TestHandlerReturnsUnprocessableWhenGateEvidenceIsMissing(t *testing.T) {
 	t.Parallel()
 
-	service := delivery.NewService(delivery.NewMemoryRepository(), nil)
-	handler := httpapi.NewHandler(service)
+	fixture := newRESTFixture(t)
+	handler := fixture.handler
 	create := httptest.NewRecorder()
 	handler.ServeHTTP(create, httptest.NewRequest(http.MethodPost, "/api/items", bytes.NewBufferString(`{"title":"网关验收","board":"产品与平台能力","owner":"平台负责人"}`)))
 	var item delivery.WorkItem
@@ -126,8 +125,8 @@ func TestHandlerReturnsUnprocessableWhenGateEvidenceIsMissing(t *testing.T) {
 func TestHandlerCreatesProjectAndNestedWorkItems(t *testing.T) {
 	t.Parallel()
 
-	service := delivery.NewService(delivery.NewMemoryRepository(), nil)
-	handler := httpapi.NewHandler(service)
+	fixture := newRESTFixture(t)
+	handler := fixture.handler
 
 	projectRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(projectRecorder, httptest.NewRequest(http.MethodPost, "/api/projects", bytes.NewBufferString(`{
@@ -212,30 +211,19 @@ func TestHandlerCreatesProjectAndNestedWorkItems(t *testing.T) {
 func TestHandlerReturnsSimilarWorkItemCandidates(t *testing.T) {
 	t.Parallel()
 
-	service := delivery.NewService(delivery.NewMemoryRepository(), nil)
-	project, err := service.CreateProject(context.Background(), delivery.ProjectInput{
-		Name:  "OTA 2026.09 发布",
-		Board: delivery.BoardResearchDelivery,
-		Owner: "发布负责人",
-	})
-	if err != nil {
-		t.Fatalf("create project: %v", err)
+	fixture := newRESTFixture(t)
+	handler := fixture.handler
+	project := createJSON(t, handler, http.MethodPost, "/api/projects", `{"name":"OTA 2026.09 发布","board":"研发交付效能","owner":"发布负责人"}`, http.StatusCreated)
+	projectID, _ := project["id"].(string)
+	if projectID == "" {
+		t.Fatalf("project id = %#v, want non-empty", project["id"])
 	}
-	if _, err := service.Create(context.Background(), delivery.CreateInput{
-		Title:     "验证 OTA 灰度发布",
-		Board:     delivery.BoardResearchDelivery,
-		ProjectID: project.ID,
-		Kind:      delivery.WorkItemKindTask,
-		Owner:     "测试负责人",
-	}); err != nil {
-		t.Fatalf("create work item: %v", err)
-	}
-	handler := httpapi.NewHandler(service)
+	createJSON(t, handler, http.MethodPost, "/api/items", `{"title":"验证 OTA 灰度发布","board":"研发交付效能","projectId":"`+projectID+`","kind":"task","owner":"测试负责人"}`, http.StatusCreated)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/api/items/similarity", bytes.NewBufferString(`{
 		"title":"OTA 灰度发布验证",
 		"board":"研发交付效能",
-		"projectId":"`+project.ID+`",
+		"projectId":"`+projectID+`",
 		"kind":"task"
 	}`)))
 	if recorder.Code != http.StatusOK {
@@ -253,8 +241,8 @@ func TestHandlerReturnsSimilarWorkItemCandidates(t *testing.T) {
 func TestHandlerReturnsConflictForDuplicateWorkItem(t *testing.T) {
 	t.Parallel()
 
-	service := delivery.NewService(delivery.NewMemoryRepository(), nil)
-	handler := httpapi.NewHandler(service)
+	fixture := newRESTFixture(t)
+	handler := fixture.handler
 	project := createJSON(t, handler, http.MethodPost, "/api/projects", `{
 		"name":"OTA 发布重复事项验收",
 		"board":"研发交付效能",
@@ -283,8 +271,8 @@ func TestHandlerReturnsConflictForDuplicateWorkItem(t *testing.T) {
 func TestHandlerSupportsPlanningTaskAuditSearchSavedViewsAndProgress(t *testing.T) {
 	t.Parallel()
 
-	service := delivery.NewService(delivery.NewMemoryRepository(), nil)
-	handler := httpapi.NewHandler(service)
+	fixture := newRESTFixture(t)
+	handler := fixture.handler
 	project := createJSON(t, handler, http.MethodPost, "/api/projects", `{"name":"OTA 发布","board":"研发交付效能","owner":"发布负责人"}`, http.StatusCreated)
 	projectID, _ := project["id"].(string)
 	release := createJSON(t, handler, http.MethodPost, "/api/releases", `{"projectId":"`+projectID+`","name":"OTA 2.8","version":"2.8.0","targetDate":"2026-09-11"}`, http.StatusCreated)

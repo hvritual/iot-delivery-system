@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -10,7 +9,7 @@ import (
 	"time"
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
-	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
 	"yunka.io/gateway/authz"
 )
 
@@ -30,28 +29,6 @@ type BoardSummary struct {
 	Closed    int            `json:"closed"`
 }
 
-type Service interface {
-	Dashboard(context.Context) ([]delivery.WorkItem, error)
-	List(context.Context) ([]delivery.WorkItem, error)
-	Create(context.Context, delivery.CreateInput) (delivery.WorkItem, error)
-	UpdateContext(context.Context, string, delivery.ContextUpdate) (delivery.WorkItem, error)
-	AdvanceGate(context.Context, string, delivery.Gate, []delivery.Evidence) (delivery.WorkItem, error)
-	Close(context.Context, string, string) (delivery.WorkItem, error)
-}
-
-type ProjectService interface {
-	CreateProject(context.Context, delivery.ProjectInput) (delivery.Project, error)
-	ListProjects(context.Context) ([]delivery.Project, error)
-}
-
-type SimilarityService interface {
-	FindSimilar(context.Context, delivery.SimilarityQuery) ([]delivery.SimilarityCandidate, error)
-}
-
-type NotificationService interface {
-	ListNotifications(context.Context, int) ([]notification.Notification, error)
-}
-
 func (dashboard Dashboard) Board(board delivery.Board) BoardSummary {
 	for _, summary := range dashboard.Boards {
 		if summary.Board == board {
@@ -61,9 +38,9 @@ func (dashboard Dashboard) Board(board delivery.Board) BoardSummary {
 	return BoardSummary{Board: board}
 }
 
-func NewHandler(service Service) http.Handler {
+func NewHandler(operations *application.Operations) http.Handler {
 	mux := http.NewServeMux()
-	api := newAPI(service)
+	api := newAPI(operations)
 	mux.HandleFunc("GET /health", api.health)
 	mux.HandleFunc("GET /api/dashboard", api.dashboard)
 	mux.HandleFunc("GET /api/items", api.items)
@@ -90,11 +67,11 @@ func NewHandler(service Service) http.Handler {
 
 // Register adds only business routes to a host-owned mux. It lets Yunka's
 // runtime host reserve /health and diagnostics without changing the UI API.
-func Register(mux *http.ServeMux, service Service) {
+func Register(mux *http.ServeMux, operations *application.Operations) {
 	if mux == nil {
 		return
 	}
-	api := newAPI(service)
+	api := newAPI(operations)
 	mux.HandleFunc("GET /api/dashboard", api.dashboard)
 	mux.HandleFunc("GET /api/items", api.items)
 	mux.HandleFunc("POST /api/items", api.items)
@@ -118,19 +95,11 @@ func Register(mux *http.ServeMux, service Service) {
 }
 
 type api struct {
-	service             Service
-	projectsService     ProjectService
-	similarityService   SimilarityService
-	notificationService NotificationService
-	r2Service           R2Service
+	operations *application.Operations
 }
 
-func newAPI(service Service) *api {
-	projects, _ := service.(ProjectService)
-	similarity, _ := service.(SimilarityService)
-	notifications, _ := service.(NotificationService)
-	r2, _ := service.(R2Service)
-	return &api{service: service, projectsService: projects, similarityService: similarity, notificationService: notifications, r2Service: r2}
+func newAPI(operations *application.Operations) *api {
+	return &api{operations: operations}
 }
 
 func (api *api) health(writer http.ResponseWriter, _ *http.Request) {
@@ -138,7 +107,7 @@ func (api *api) health(writer http.ResponseWriter, _ *http.Request) {
 }
 
 func (api *api) dashboard(writer http.ResponseWriter, request *http.Request) {
-	items, err := api.service.Dashboard(request.Context())
+	items, err := api.operations.Dashboard(request.Context())
 	if err != nil {
 		writeError(writer, err)
 		return
@@ -148,16 +117,7 @@ func (api *api) dashboard(writer http.ResponseWriter, request *http.Request) {
 
 func (api *api) items(writer http.ResponseWriter, request *http.Request) {
 	if request.Method == http.MethodGet {
-		if api.r2Service != nil {
-			items, err := api.r2Service.Search(request.Context(), workItemFilterFromRequest(request))
-			if err != nil {
-				writeError(writer, err)
-				return
-			}
-			writeJSON(writer, http.StatusOK, items)
-			return
-		}
-		items, err := api.service.List(request.Context())
+		items, err := api.operations.Search(request.Context(), workItemFilterFromRequest(request))
 		if err != nil {
 			writeError(writer, err)
 			return
@@ -170,7 +130,7 @@ func (api *api) items(writer http.ResponseWriter, request *http.Request) {
 		writeJSON(writer, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	item, err := api.service.Create(request.Context(), input)
+	item, err := api.operations.Create(request.Context(), input)
 	if err != nil {
 		writeError(writer, err)
 		return
@@ -179,12 +139,8 @@ func (api *api) items(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (api *api) projects(writer http.ResponseWriter, request *http.Request) {
-	if api.projectsService == nil {
-		writeJSON(writer, http.StatusNotImplemented, map[string]string{"error": "project management is not configured"})
-		return
-	}
 	if request.Method == http.MethodGet {
-		projects, err := api.projectsService.ListProjects(request.Context())
+		projects, err := api.operations.ListProjects(request.Context())
 		if err != nil {
 			writeError(writer, err)
 			return
@@ -197,7 +153,7 @@ func (api *api) projects(writer http.ResponseWriter, request *http.Request) {
 		writeJSON(writer, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	project, err := api.projectsService.CreateProject(request.Context(), input)
+	project, err := api.operations.CreateProject(request.Context(), input)
 	if err != nil {
 		writeError(writer, err)
 		return
@@ -206,16 +162,12 @@ func (api *api) projects(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (api *api) similarity(writer http.ResponseWriter, request *http.Request) {
-	if api.similarityService == nil {
-		writeJSON(writer, http.StatusNotImplemented, map[string]string{"error": "work item similarity is not configured"})
-		return
-	}
 	var query delivery.SimilarityQuery
 	if err := decodeJSON(request, &query); err != nil {
 		writeJSON(writer, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	candidates, err := api.similarityService.FindSimilar(request.Context(), query)
+	candidates, err := api.operations.FindSimilar(request.Context(), query)
 	if err != nil {
 		writeError(writer, err)
 		return
@@ -224,10 +176,6 @@ func (api *api) similarity(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (api *api) notifications(writer http.ResponseWriter, request *http.Request) {
-	if api.notificationService == nil {
-		writeJSON(writer, http.StatusNotImplemented, map[string]string{"error": "notification inbox is not configured"})
-		return
-	}
 	limit := 0
 	if rawLimit := strings.TrimSpace(request.URL.Query().Get("limit")); rawLimit != "" {
 		value, err := strconv.Atoi(rawLimit)
@@ -237,7 +185,7 @@ func (api *api) notifications(writer http.ResponseWriter, request *http.Request)
 		}
 		limit = value
 	}
-	notifications, err := api.notificationService.ListNotifications(request.Context(), limit)
+	notifications, err := api.operations.ListNotifications(request.Context(), limit)
 	if err != nil {
 		writeError(writer, err)
 		return
@@ -260,6 +208,11 @@ func (api *api) itemAction(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 	if len(parts) == 3 && parts[1] == "gates" {
+		if request.Method != http.MethodPost {
+			writer.Header().Set("Allow", http.MethodPost)
+			writeJSON(writer, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+			return
+		}
 		var input struct {
 			Evidence []delivery.Evidence `json:"evidence"`
 		}
@@ -267,7 +220,7 @@ func (api *api) itemAction(writer http.ResponseWriter, request *http.Request) {
 			writeJSON(writer, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
-		item, err := api.service.AdvanceGate(request.Context(), parts[0], delivery.Gate(parts[2]), input.Evidence)
+		item, err := api.operations.AdvanceGate(request.Context(), parts[0], delivery.Gate(parts[2]), input.Evidence)
 		if err != nil {
 			writeError(writer, err)
 			return
@@ -276,6 +229,11 @@ func (api *api) itemAction(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 	if len(parts) == 2 && parts[1] == "close" {
+		if request.Method != http.MethodPost {
+			writer.Header().Set("Allow", http.MethodPost)
+			writeJSON(writer, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+			return
+		}
 		var input struct {
 			Retrospective string `json:"retrospective"`
 		}
@@ -283,7 +241,7 @@ func (api *api) itemAction(writer http.ResponseWriter, request *http.Request) {
 			writeJSON(writer, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
-		item, err := api.service.Close(request.Context(), parts[0], input.Retrospective)
+		item, err := api.operations.Close(request.Context(), parts[0], input.Retrospective)
 		if err != nil {
 			writeError(writer, err)
 			return
