@@ -64,6 +64,7 @@ func newRESTFixture(t *testing.T) restFixture {
 	principal := identity.Principal{
 		Authenticated: true,
 		AuthMethod:    identity.AuthMethodAPIKey,
+		TenantID:      "local-development",
 		UserID:        "rest-local-admin",
 		Roles:         []string{localauth.RoleLocalAdmin},
 	}
@@ -91,15 +92,16 @@ func TestRESTWriteRoutesUseOperationsWithSQLiteExecutorAndOutbox(t *testing.T) {
 	requestJSON(t, fixture.handler, http.MethodPost, "/api/items/"+itemID+"/gates/solution_reviewed", `{"evidence":[{"kind":"review","title":"solution approved","reference":"ADR-REST-001"}]}`, http.StatusOK)
 	requestJSON(t, fixture.handler, http.MethodPost, "/api/views", `{"name":"REST boundary","filter":{"projectId":"`+projectID+`"}}`, http.StatusCreated)
 
-	for _, gate := range []string{"development_completed", "test_passed", "production_validated"} {
+	for _, gate := range []string{"development_completed", "test_passed"} {
 		requestJSON(t, fixture.handler, http.MethodPost, "/api/items/"+itemID+"/gates/"+gate, `{"evidence":[{"kind":"test","title":"`+gate+`"}]}`, http.StatusOK)
 	}
-	closed := requestJSON(t, fixture.handler, http.MethodPost, "/api/items/"+itemID+"/close", `{"retrospective":"kept REST contract"}`, http.StatusOK)
-	if closed["status"] != string(delivery.StatusClosed) {
-		t.Fatalf("close response = %#v, want closed item", closed)
+	requestJSON(t, fixture.handler, http.MethodPost, "/api/items/"+itemID+"/gates/production_validated", `{"evidence":[{"kind":"test","title":"production_validated"}]}`, http.StatusInternalServerError)
+	stored, err := fixture.repository.Get(t.Context(), itemID)
+	if err != nil || stored.Gate != delivery.GateTestPassed {
+		t.Fatalf("API key production validation changed item = %#v, %v", stored, err)
 	}
 	snapshot, err := fixture.outbox.Snapshot(t.Context())
-	if err != nil || snapshot.Pending < 11 {
+	if err != nil || snapshot.Pending < 10 {
 		t.Fatalf("REST writes outbox = %#v, %v; want all writes staged", snapshot, err)
 	}
 }
@@ -134,7 +136,7 @@ func TestRESTRejectsNonPOSTGateAndCloseWithoutSideEffects(t *testing.T) {
 			method: http.MethodGet,
 			body:   `{"retrospective":"should not close"}`,
 			setup: func(t *testing.T) string {
-				return createProductionValidatedRESTItem(t, fixture.handler)
+				return createTestPassedRESTItem(t, fixture.handler)
 			},
 		},
 		{
@@ -142,7 +144,7 @@ func TestRESTRejectsNonPOSTGateAndCloseWithoutSideEffects(t *testing.T) {
 			method: http.MethodPatch,
 			body:   `{"retrospective":"should not close"}`,
 			setup: func(t *testing.T) string {
-				return createProductionValidatedRESTItem(t, fixture.handler)
+				return createTestPassedRESTItem(t, fixture.handler)
 			},
 		},
 	} {
@@ -255,10 +257,10 @@ func createRESTItem(t *testing.T, handler http.Handler) string {
 	return responseID(t, item)
 }
 
-func createProductionValidatedRESTItem(t *testing.T, handler http.Handler) string {
+func createTestPassedRESTItem(t *testing.T, handler http.Handler) string {
 	t.Helper()
 	itemID := createRESTItem(t, handler)
-	for _, gate := range []string{"solution_reviewed", "development_completed", "test_passed", "production_validated"} {
+	for _, gate := range []string{"solution_reviewed", "development_completed", "test_passed"} {
 		requestJSON(t, handler, http.MethodPost, "/api/items/"+itemID+"/gates/"+gate, `{"evidence":[{"kind":"test","title":"`+gate+`"}]}`, http.StatusOK)
 	}
 	return itemID

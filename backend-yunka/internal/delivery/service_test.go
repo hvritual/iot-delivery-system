@@ -9,6 +9,8 @@ func TestServiceRequiresGateEvidenceAndRetrospective(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
+	implementer := humanPrincipalContext(t, "service-test-implementer")
+	reviewer := humanPrincipalContext(t, "service-test-reviewer")
 	service := NewService(NewMemoryRepository(), nil)
 	item, err := service.Create(ctx, CreateInput{
 		Title:    "设备 OTA 发布验收",
@@ -31,7 +33,11 @@ func TestServiceRequiresGateEvidenceAndRetrospective(t *testing.T) {
 		GateTestPassed,
 		GateProductionValidated,
 	} {
-		item, err = service.AdvanceGate(ctx, item.ID, nextGate, []Evidence{{
+		actor := implementer
+		if nextGate == GateProductionValidated {
+			actor = reviewer
+		}
+		item, err = service.AdvanceGate(actor, item.ID, nextGate, []Evidence{{
 			Kind:  "test-or-review",
 			Title: "证明 " + string(nextGate) + " 已完成",
 		}})
@@ -40,11 +46,11 @@ func TestServiceRequiresGateEvidenceAndRetrospective(t *testing.T) {
 		}
 	}
 
-	if _, err := service.Close(ctx, item.ID, ""); err == nil {
+	if _, err := service.Close(reviewer, item.ID, ""); err == nil {
 		t.Fatal("close without a retrospective should fail")
 	}
 
-	closed, err := service.Close(ctx, item.ID, "灰度阶段发现回滚证据需要在发布前归档。")
+	closed, err := service.Close(reviewer, item.ID, "灰度阶段发现回滚证据需要在发布前归档。")
 	if err != nil {
 		t.Fatalf("close delivery item: %v", err)
 	}

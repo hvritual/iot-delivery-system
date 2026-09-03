@@ -27,7 +27,7 @@ Project, release, sprint and milestone creation use their own permissions. They 
 
 Team, membership, role, role-binding and audit permissions are marked `reserved`: they have no current REST, gRPC, or MCP management endpoint. A service identity is not a human role and receives no default grant; a later task must grant it explicitly per operation and project.
 
-`no-self-production-verification` is mandatory policy metadata. It prevents an implementer from production-verifying or closing their own change, but runtime enforcement belongs to S0-03-07.
+`no-self-production-verification` is enforced by S0-03-07 at the shared delivery-service boundary. It records a complete, server-derived implementation principal at `development_completed`, then requires a different named JWT human principal from the same tenant for production validation and close. Service identities, development API keys, missing or malformed principals, inconsistent persisted principal sources, cross-tenant callers, and legacy records without that source fail closed.
 
 ## Development compatibility
 

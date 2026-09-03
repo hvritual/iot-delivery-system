@@ -683,7 +683,7 @@ func validateRoles(definitions []roleDefinition, permissions map[string]permissi
 }
 
 func validateConstraints(definitions []constraintDefinition, permissions map[string]permissionDefinition) error {
-	want := constraintDefinition{ID: "no-self-production-verification", EnforcementStatus: "deferred-s0-03-07", AppliesTo: []string{"delivery.work-items.gate.advance", "delivery.work-items.close"}, Rule: "An implementer must not production-verify or close their own change."}
+	want := constraintDefinition{ID: "no-self-production-verification", EnforcementStatus: "enforced-s0-03-07", AppliesTo: []string{"delivery.work-items.gate.advance", "delivery.work-items.close"}, Rule: "An implementer must not production-verify or close their own change."}
 	if len(definitions) != 1 || definitions[0].ID != want.ID || definitions[0].EnforcementStatus != want.EnforcementStatus || definitions[0].Rule != want.Rule || !slices.Equal(definitions[0].AppliesTo, want.AppliesTo) {
 		return fmt.Errorf("segregation-of-duties constraint is incomplete")
 	}

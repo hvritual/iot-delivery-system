@@ -448,7 +448,8 @@ func TestOperationsGovernanceWritesUseGeneratedContractsWhenServiceIsProvided(t 
 		operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())}),
 		service,
 	)
-	administrator := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, UserID: "governance-actor", Roles: []string{localauth.RoleLocalAdmin}})
+	administrator := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodJWT, TenantID: "local-development", UserID: "governance-actor", Roles: []string{localauth.RoleLocalAdmin}})
+	reviewer := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodJWT, TenantID: "local-development", UserID: "governance-reviewer", Roles: []string{localauth.RoleLocalAdmin}})
 	viewer := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, Roles: []string{localauth.RoleViewer}})
 
 	item, err := operations.Create(administrator, delivery.CreateInput{Title: "generated governance writes", Board: delivery.BoardResearchDelivery, Owner: "governance-actor", Plan: "keep", Solution: "keep"})
@@ -545,7 +546,11 @@ func TestOperationsGovernanceWritesUseGeneratedContractsWhenServiceIsProvided(t 
 		if snapshotErr != nil {
 			t.Fatal(snapshotErr)
 		}
-		advanced, err = operations.AdvanceGate(administrator, item.ID, gate, []delivery.Evidence{{Kind: "test", Title: string(gate)}})
+		actor := administrator
+		if gate == delivery.GateProductionValidated {
+			actor = reviewer
+		}
+		advanced, err = operations.AdvanceGate(actor, item.ID, gate, []delivery.Evidence{{Kind: "test", Title: string(gate)}})
 		if err != nil {
 			t.Fatalf("advance %s: %v", gate, err)
 		}
@@ -558,23 +563,29 @@ func TestOperationsGovernanceWritesUseGeneratedContractsWhenServiceIsProvided(t 
 		t.Fatalf("generated advance calls = %d, item = %#v", applicationPort.advanceGateCalls, advanced)
 	}
 	assertNoSideEffect("close without retrospective", delivery.ErrRetrospectiveRequired, func() error {
-		_, callErr := operations.Close(administrator, item.ID, " \t ")
+		_, callErr := operations.Close(reviewer, item.ID, " \t ")
 		return callErr
 	})
 	beforeClose, err := store.Snapshot(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	closed, err := operations.Close(administrator, item.ID, "  retained retrospective  ")
+	closed, err := operations.Close(reviewer, item.ID, "  retained retrospective  ")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if applicationPort.closeCalls != 3 || closed.Status != delivery.StatusClosed || closed.Retrospective != "retained retrospective" || len(closed.Activities) == 0 || closed.Activities[len(closed.Activities)-1].Actor != "governance-actor" {
+	if applicationPort.closeCalls != 3 || closed.Status != delivery.StatusClosed || closed.Retrospective != "retained retrospective" || len(closed.Activities) == 0 || closed.Activities[len(closed.Activities)-1].Actor != "governance-reviewer" {
 		t.Fatalf("closed item = %#v, generated calls = %d", closed, applicationPort.closeCalls)
 	}
 	persisted, err = repository.Get(ctx, item.ID)
-	if err != nil || !reflect.DeepEqual(persisted, closed) {
+	visiblePersisted := persisted
+	visiblePersisted.ImplementationPrincipal = delivery.PrincipalSource{}
+	visiblePersisted.ProductionValidationPrincipal = delivery.PrincipalSource{}
+	if err != nil || !reflect.DeepEqual(visiblePersisted, closed) {
 		t.Fatalf("persisted closed item = %#v, %v; want %#v", persisted, err, closed)
+	}
+	if persisted.ImplementationPrincipal.SubjectID != "governance-actor" || persisted.ProductionValidationPrincipal.SubjectID != "governance-reviewer" {
+		t.Fatalf("persisted segregation-of-duties principals = %#v / %#v", persisted.ImplementationPrincipal, persisted.ProductionValidationPrincipal)
 	}
 	afterClose, err := store.Snapshot(ctx)
 	if err != nil || afterClose.Pending != beforeClose.Pending+1 {

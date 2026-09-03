@@ -14,18 +14,22 @@ import (
 )
 
 var (
-	ErrEvidenceRequired      = errors.New("gate advancement requires at least one evidence record")
-	ErrInvalidGateTransition = errors.New("invalid delivery gate transition")
-	ErrRetrospectiveRequired = errors.New("closing a delivery item requires a retrospective")
-	ErrReleaseNotValidated   = errors.New("delivery item must pass production validation before it can close")
-	ErrProjectParentMismatch = errors.New("delivery item parent must belong to the same project")
-	ErrDuplicateWorkItem     = errors.New("duplicate delivery work item")
-	ErrInvalidDependency     = errors.New("invalid delivery work item dependency")
-	ErrCircularDependency    = errors.New("delivery work item dependency creates a cycle")
-	ErrInvalidIoTBinding     = errors.New("invalid IoT binding")
-	ErrInvalidTraceLink      = errors.New("invalid delivery trace link")
-	ErrInvalidWorkItemUpdate = errors.New("delivery work item update has no editable fields")
-	ErrPlanningScopeMismatch = errors.New("delivery planning record must belong to the same project")
+	ErrEvidenceRequired                 = errors.New("gate advancement requires at least one evidence record")
+	ErrInvalidGateTransition            = errors.New("invalid delivery gate transition")
+	ErrRetrospectiveRequired            = errors.New("closing a delivery item requires a retrospective")
+	ErrReleaseNotValidated              = errors.New("delivery item must pass production validation before it can close")
+	ErrProjectParentMismatch            = errors.New("delivery item parent must belong to the same project")
+	ErrDuplicateWorkItem                = errors.New("duplicate delivery work item")
+	ErrInvalidDependency                = errors.New("invalid delivery work item dependency")
+	ErrCircularDependency               = errors.New("delivery work item dependency creates a cycle")
+	ErrInvalidIoTBinding                = errors.New("invalid IoT binding")
+	ErrInvalidTraceLink                 = errors.New("invalid delivery trace link")
+	ErrInvalidWorkItemUpdate            = errors.New("delivery work item update has no editable fields")
+	ErrPlanningScopeMismatch            = errors.New("delivery planning record must belong to the same project")
+	ErrImplementationPrincipalRequired  = errors.New("delivery implementation requires a trusted principal")
+	ErrProductionPrincipalRequired      = errors.New("production validation and closing require a named JWT principal")
+	ErrImplementationSourceRequired     = errors.New("delivery item has no trusted implementation principal")
+	ErrImplementerCannotVerifyOwnChange = errors.New("implementer cannot production-verify or close their own change")
 )
 
 type Exporter interface {
@@ -1205,6 +1209,30 @@ func (service *Service) AdvanceGate(ctx context.Context, id string, next Gate, e
 	if !isNextGate(item.Gate, next) {
 		return WorkItem{}, fmt.Errorf("%w: %s -> %s", ErrInvalidGateTransition, item.Gate, next)
 	}
+	var principal PrincipalSource
+	if next == GateDevelopmentCompleted {
+		var ok bool
+		principal, ok = trustedPrincipalSource(ctx)
+		if !ok {
+			return WorkItem{}, ErrImplementationPrincipalRequired
+		}
+	}
+	if next == GateProductionValidated {
+		var ok bool
+		principal, ok = namedJWTPrincipalSource(ctx)
+		if !ok {
+			return WorkItem{}, ErrProductionPrincipalRequired
+		}
+		if !validImplementationPrincipalSource(item.ImplementationPrincipal) {
+			return WorkItem{}, ErrImplementationSourceRequired
+		}
+		if principal.TenantID != item.ImplementationPrincipal.TenantID {
+			return WorkItem{}, ErrImplementationSourceRequired
+		}
+		if principal.sameSubject(item.ImplementationPrincipal) {
+			return WorkItem{}, ErrImplementerCannotVerifyOwnChange
+		}
+	}
 	now := service.now().UTC()
 	for index := range evidence {
 		evidence[index].Kind = strings.TrimSpace(evidence[index].Kind)
@@ -1219,6 +1247,12 @@ func (service *Service) AdvanceGate(ctx context.Context, id string, next Gate, e
 	}
 	item.Gate = next
 	item.Status = statusForGate(next)
+	if next == GateDevelopmentCompleted {
+		item.ImplementationPrincipal = principal
+	}
+	if next == GateProductionValidated {
+		item.ProductionValidationPrincipal = principal
+	}
 	item.Evidence = append(item.Evidence, evidence...)
 	item.UpdatedAt = now
 	item.Activities = append(item.Activities, service.newActivity(ctx, item, "gate_advanced", "推进交付关卡", now))
@@ -1241,6 +1275,19 @@ func (service *Service) Close(ctx context.Context, id, retrospective string) (Wo
 	retrospective = strings.TrimSpace(retrospective)
 	if retrospective == "" {
 		return WorkItem{}, ErrRetrospectiveRequired
+	}
+	principal, ok := namedJWTPrincipalSource(ctx)
+	if !ok {
+		return WorkItem{}, ErrProductionPrincipalRequired
+	}
+	if !validImplementationPrincipalSource(item.ImplementationPrincipal) {
+		return WorkItem{}, ErrImplementationSourceRequired
+	}
+	if principal.TenantID != item.ImplementationPrincipal.TenantID {
+		return WorkItem{}, ErrImplementationSourceRequired
+	}
+	if principal.sameSubject(item.ImplementationPrincipal) {
+		return WorkItem{}, ErrImplementerCannotVerifyOwnChange
 	}
 	item.Status = StatusClosed
 	item.Retrospective = retrospective
@@ -1334,6 +1381,67 @@ func actorFromContext(ctx context.Context) string {
 		return value
 	}
 	return "system"
+}
+
+func trustedPrincipalSource(ctx context.Context) (PrincipalSource, bool) {
+	principal, ok := identity.FromContext(ctx)
+	if !ok || !principal.Authenticated || !canonicalPrincipalValue(principal.TenantID) {
+		return PrincipalSource{}, false
+	}
+	switch principal.AuthMethod {
+	case identity.AuthMethodJWT:
+		if !canonicalPrincipalValue(principal.UserID) {
+			return PrincipalSource{}, false
+		}
+		return PrincipalSource{Kind: "human", AuthMethod: identity.AuthMethodJWT, SubjectID: principal.UserID, TenantID: principal.TenantID}, true
+	case identity.AuthMethodServiceToken:
+		serviceAccountID, ok := strings.CutPrefix(principal.Subject, "service-account/")
+		if principal.UserID != "" || !canonicalPrincipalValue(principal.Subject) || !canonicalPrincipalValue(serviceAccountID) || !ok {
+			return PrincipalSource{}, false
+		}
+		return PrincipalSource{Kind: "service", AuthMethod: identity.AuthMethodServiceToken, SubjectID: principal.Subject, TenantID: principal.TenantID}, true
+	case identity.AuthMethodAPIKey:
+		if !canonicalPrincipalValue(principal.UserID) {
+			return PrincipalSource{}, false
+		}
+		return PrincipalSource{Kind: "development-api-key", AuthMethod: identity.AuthMethodAPIKey, SubjectID: principal.UserID, TenantID: principal.TenantID}, true
+	default:
+		return PrincipalSource{}, false
+	}
+}
+
+func namedJWTPrincipalSource(ctx context.Context) (PrincipalSource, bool) {
+	principal, ok := identity.FromContext(ctx)
+	if !ok || principal.AuthMethod != identity.AuthMethodJWT || !canonicalPrincipalValue(principal.UserID) {
+		return PrincipalSource{}, false
+	}
+	source, ok := trustedPrincipalSource(ctx)
+	return source, ok && source.Kind == "human"
+}
+
+func canonicalPrincipalValue(value string) bool {
+	return value != "" && strings.TrimSpace(value) == value
+}
+
+func (source PrincipalSource) sameSubject(other PrincipalSource) bool {
+	return source.SubjectID == other.SubjectID
+}
+
+func validImplementationPrincipalSource(source PrincipalSource) bool {
+	if !canonicalPrincipalValue(source.TenantID) || !canonicalPrincipalValue(source.SubjectID) {
+		return false
+	}
+	switch source.Kind {
+	case "human":
+		return source.AuthMethod == identity.AuthMethodJWT
+	case "service":
+		serviceAccountID, ok := strings.CutPrefix(source.SubjectID, "service-account/")
+		return source.AuthMethod == identity.AuthMethodServiceToken && ok && canonicalPrincipalValue(serviceAccountID)
+	case "development-api-key":
+		return source.AuthMethod == identity.AuthMethodAPIKey
+	default:
+		return false
+	}
 }
 
 func normalizeIoTBindings(values []IoTBinding) ([]IoTBinding, error) {

@@ -239,38 +239,50 @@ type Decision struct {
 }
 
 type WorkItem struct {
-	ID              string               `json:"id"`
-	Title           string               `json:"title"`
-	Board           Board                `json:"board"`
-	ProjectID       string               `json:"projectId,omitempty"`
-	ParentID        string               `json:"parentId,omitempty"`
-	Kind            WorkItemKind         `json:"kind,omitempty"`
-	Dependencies    []WorkItemDependency `json:"dependencies,omitempty"`
-	Type            string               `json:"type"`
-	Owner           string               `json:"owner"`
-	Priority        Priority             `json:"priority"`
-	Status          Status               `json:"status"`
-	Gate            Gate                 `json:"gate"`
-	ReleaseID       string               `json:"releaseId,omitempty"`
-	SprintID        string               `json:"sprintId,omitempty"`
-	MilestoneID     string               `json:"milestoneId,omitempty"`
-	StartDate       string               `json:"startDate,omitempty"`
-	DueDate         string               `json:"dueDate,omitempty"`
-	EstimatePoints  float64              `json:"estimatePoints,omitempty"`
-	ProgressPercent int                  `json:"progressPercent"`
-	Plan            string               `json:"plan,omitempty"`
-	Solution        string               `json:"solution,omitempty"`
-	Decisions       []Decision           `json:"decisions,omitempty"`
-	Evidence        []Evidence           `json:"evidence,omitempty"`
-	IoTBindings     []IoTBinding         `json:"iotBindings,omitempty"`
-	TraceLinks      []TraceLink          `json:"traceLinks,omitempty"`
-	Comments        []Comment            `json:"comments,omitempty"`
-	Activities      []Activity           `json:"activities,omitempty"`
-	Retrospective   string               `json:"retrospective,omitempty"`
-	Blocker         string               `json:"blocker,omitempty"`
-	IsSample        bool                 `json:"isSample"`
-	CreatedAt       time.Time            `json:"createdAt"`
-	UpdatedAt       time.Time            `json:"updatedAt"`
+	ID                            string               `json:"id"`
+	Title                         string               `json:"title"`
+	Board                         Board                `json:"board"`
+	ProjectID                     string               `json:"projectId,omitempty"`
+	ParentID                      string               `json:"parentId,omitempty"`
+	Kind                          WorkItemKind         `json:"kind,omitempty"`
+	Dependencies                  []WorkItemDependency `json:"dependencies,omitempty"`
+	Type                          string               `json:"type"`
+	Owner                         string               `json:"owner"`
+	Priority                      Priority             `json:"priority"`
+	Status                        Status               `json:"status"`
+	Gate                          Gate                 `json:"gate"`
+	ReleaseID                     string               `json:"releaseId,omitempty"`
+	SprintID                      string               `json:"sprintId,omitempty"`
+	MilestoneID                   string               `json:"milestoneId,omitempty"`
+	StartDate                     string               `json:"startDate,omitempty"`
+	DueDate                       string               `json:"dueDate,omitempty"`
+	EstimatePoints                float64              `json:"estimatePoints,omitempty"`
+	ProgressPercent               int                  `json:"progressPercent"`
+	Plan                          string               `json:"plan,omitempty"`
+	Solution                      string               `json:"solution,omitempty"`
+	Decisions                     []Decision           `json:"decisions,omitempty"`
+	Evidence                      []Evidence           `json:"evidence,omitempty"`
+	IoTBindings                   []IoTBinding         `json:"iotBindings,omitempty"`
+	TraceLinks                    []TraceLink          `json:"traceLinks,omitempty"`
+	Comments                      []Comment            `json:"comments,omitempty"`
+	Activities                    []Activity           `json:"activities,omitempty"`
+	ImplementationPrincipal       PrincipalSource      `json:"implementationPrincipal,omitzero"`
+	ProductionValidationPrincipal PrincipalSource      `json:"productionValidationPrincipal,omitzero"`
+	Retrospective                 string               `json:"retrospective,omitempty"`
+	Blocker                       string               `json:"blocker,omitempty"`
+	IsSample                      bool                 `json:"isSample"`
+	CreatedAt                     time.Time            `json:"createdAt"`
+	UpdatedAt                     time.Time            `json:"updatedAt"`
+}
+
+// PrincipalSource is a server-derived execution identity. It is not accepted
+// from any client request, so it remains suitable for separation-of-duties
+// decisions after SQLite persistence and process restart.
+type PrincipalSource struct {
+	Kind       string `json:"kind"`
+	AuthMethod string `json:"authMethod"`
+	SubjectID  string `json:"subjectId"`
+	TenantID   string `json:"tenantId"`
 }
 
 type CreateInput struct {

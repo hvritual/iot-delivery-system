@@ -65,7 +65,7 @@
     {"id": "viewer", "bindingScope": "project", "grants": [{"permission": "delivery.work-items.read", "allowedScopes": ["project", "object"]}]},
     {"id": "auditor", "bindingScope": "organization", "grants": [{"permission": "delivery.dashboard.read", "allowedScopes": ["organization"]}, {"permission": "delivery.work-items.read", "allowedScopes": ["project", "object"]}, {"permission": "audit.events.read", "allowedScopes": ["organization", "project", "object"]}]}
   ],
-  "constraints": [{"id": "no-self-production-verification", "enforcementStatus": "deferred-s0-03-07", "appliesTo": ["delivery.work-items.gate.advance", "delivery.work-items.close"], "rule": "An implementer must not production-verify or close their own change."}],
+  "constraints": [{"id": "no-self-production-verification", "enforcementStatus": "enforced-s0-03-07", "appliesTo": ["delivery.work-items.gate.advance", "delivery.work-items.close"], "rule": "An implementer must not production-verify or close their own change."}],
   "serviceIdentities": {"defaultGrants": [], "requiredScope": "project", "rule": "A service identity is not a human role and must receive an explicit minimum per-operation, per-project grant in a later task."},
   "developmentCompatibility": {
     "status": "development-only-not-a-production-role-binding",
