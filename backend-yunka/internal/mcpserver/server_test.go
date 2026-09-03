@@ -301,6 +301,28 @@ func TestMCPAndGeneratedGRPCRejectViewerWritesWithoutSideEffects(t *testing.T) {
 	}
 }
 
+func TestMCPAuthorizationErrorsUseStableNormalizedCategories(t *testing.T) {
+	fixture := newExecutionFixture(t)
+	viewer := fixture.principal(t, "mcp-grpc-viewer-key")
+
+	denied := callMCP(t, fixture.operations, viewer, "delivery.create_work_item", map[string]any{
+		"title": "viewer must not create", "board": string(delivery.BoardResearchDelivery), "owner": "viewer",
+	})
+	if !denied.IsError || mcpErrorText(denied) != "permission_denied" {
+		t.Fatalf("viewer MCP create result = %#v text=%q, want stable permission_denied", denied, mcpErrorText(denied))
+	}
+	if text := mcpErrorText(denied); strings.Contains(text, "grant") || strings.Contains(text, "role") || strings.Contains(text, "sql") {
+		t.Fatalf("viewer MCP create leaked authorization internals: %q", text)
+	}
+
+	unauthenticated := callMCP(t, fixture.operations, identity.Principal{}, "delivery.create_work_item", map[string]any{
+		"title": "unauthenticated", "board": string(delivery.BoardResearchDelivery), "owner": "anonymous",
+	})
+	if !unauthenticated.IsError || mcpErrorText(unauthenticated) != "unauthenticated" {
+		t.Fatalf("unauthenticated MCP create result = %#v text=%q, want stable unauthenticated", unauthenticated, mcpErrorText(unauthenticated))
+	}
+}
+
 func TestMCPRetainsOperationsLifecycleAndSaveViewExtension(t *testing.T) {
 	fixture := newExecutionFixture(t)
 	admin := fixture.principal(t, "mcp-grpc-admin-key")

@@ -95,7 +95,10 @@ func TestRESTWriteRoutesUseOperationsWithSQLiteExecutorAndOutbox(t *testing.T) {
 	for _, gate := range []string{"development_completed", "test_passed"} {
 		requestJSON(t, fixture.handler, http.MethodPost, "/api/items/"+itemID+"/gates/"+gate, `{"evidence":[{"kind":"test","title":"`+gate+`"}]}`, http.StatusOK)
 	}
-	requestJSON(t, fixture.handler, http.MethodPost, "/api/items/"+itemID+"/gates/production_validated", `{"evidence":[{"kind":"test","title":"production_validated"}]}`, http.StatusInternalServerError)
+	denied := requestJSON(t, fixture.handler, http.MethodPost, "/api/items/"+itemID+"/gates/production_validated", `{"evidence":[{"kind":"test","title":"production_validated"}]}`, http.StatusForbidden)
+	if denied["error"] != "permission_denied" {
+		t.Fatalf("API key production validation error = %#v, want stable permission_denied", denied)
+	}
 	stored, err := fixture.repository.Get(t.Context(), itemID)
 	if err != nil || stored.Gate != delivery.GateTestPassed {
 		t.Fatalf("API key production validation changed item = %#v, %v", stored, err)

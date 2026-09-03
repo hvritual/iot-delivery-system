@@ -2,12 +2,15 @@ package application_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
 	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
+	"yunka.io/framework/core/identity"
+	"yunka.io/gateway/authz"
 )
 
 func TestAdapterImplementsGeneratedPortAndMapsCreateItem(t *testing.T) {
@@ -43,5 +46,26 @@ func TestAdapterRejectsUnknownUpdateMask(t *testing.T) {
 	stored, err := service.Get(context.Background(), created.GetItem().GetId())
 	if err != nil || stored.Title != "item" {
 		t.Fatalf("unknown mask changed item=%#v err=%v", stored, err)
+	}
+}
+
+func TestAdapterClassifiesSelfProductionVerificationAsPermissionDenied(t *testing.T) {
+	service := delivery.NewService(delivery.NewMemoryRepository(), nil)
+	adapter := application.NewAdapter(service)
+	implementer := identity.WithPrincipal(t.Context(), identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodJWT, TenantID: "org-a", UserID: "implementer"})
+
+	created, err := adapter.CreateItem(implementer, &deliveryv1.CreateItemRequest{Title: "segregated", Board: string(delivery.BoardResearchDelivery), Owner: "owner"})
+	if err != nil {
+		t.Fatalf("create item: %v", err)
+	}
+	for _, gate := range []delivery.Gate{delivery.GateSolutionReviewed, delivery.GateDevelopmentCompleted, delivery.GateTestPassed} {
+		if _, err := adapter.AdvanceGate(implementer, &deliveryv1.AdvanceGateRequest{Id: created.GetItem().GetId(), Gate: string(gate), Evidence: []*deliveryv1.Evidence{{Kind: "test", Title: string(gate)}}}); err != nil {
+			t.Fatalf("advance %s: %v", gate, err)
+		}
+	}
+
+	_, err = adapter.AdvanceGate(implementer, &deliveryv1.AdvanceGateRequest{Id: created.GetItem().GetId(), Gate: string(delivery.GateProductionValidated), Evidence: []*deliveryv1.Evidence{{Kind: "validation", Title: "self review"}}})
+	if !authz.IsDenied(err) || !errors.Is(err, delivery.ErrImplementerCannotVerifyOwnChange) {
+		t.Fatalf("self production verification error = %v, want permission-denied wrapper preserving the domain sentinel", err)
 	}
 }

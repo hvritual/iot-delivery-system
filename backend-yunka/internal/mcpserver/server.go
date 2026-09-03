@@ -12,7 +12,10 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"yunka.io/framework/core/identity"
+	"yunka.io/gateway/authz"
 )
+
+var errMCPUnauthenticated = errors.New("MCP principal is not authenticated")
 
 type server struct {
 	operations *application.Operations
@@ -35,23 +38,55 @@ func New(operations *application.Operations, principal identity.Principal) *mcp.
 }
 
 func (server *server) addTools(target *mcp.Server) {
-	mcp.AddTool(target, readTool("delivery.list_projects", "列出交付项目", "列出当前本地交付项目。"), server.listProjects)
-	mcp.AddTool(target, writeTool("delivery.create_project", "创建交付项目", "在本地交付系统创建项目。"), server.createProject)
-	mcp.AddTool(target, readTool("delivery.list_work_items", "查询交付事项", "按项目、负责人、状态、类型和关键词查询事项。"), server.listWorkItems)
-	mcp.AddTool(target, readTool("delivery.find_similar", "检查相似事项", "在创建前检查同项目或同板块的相似事项。"), server.findSimilar)
-	mcp.AddTool(target, writeTool("delivery.create_work_item", "创建交付事项", "创建事项；若存在相似候选，先返回候选，需显式确认后才创建。"), server.createWorkItem)
-	mcp.AddTool(target, writeTool("delivery.update_work_item", "更新交付事项", "编辑任务的排期、进度、IoT 绑定、依赖和研发证据。"), server.updateWorkItem)
-	mcp.AddTool(target, writeTool("delivery.add_comment", "新增事项评论", "为交付事项添加可审计评论。"), server.addComment)
-	mcp.AddTool(target, writeTool("delivery.advance_gate", "推进交付关卡", "提交证据并推进交付关卡。"), server.advanceGate)
-	mcp.AddTool(target, writeTool("delivery.close_work_item", "关闭交付事项", "在生产验证后记录复盘并关闭事项。"), server.closeWorkItem)
-	mcp.AddTool(target, writeTool("delivery.create_release", "创建发布版本", "为项目创建发布版本。"), server.createRelease)
-	mcp.AddTool(target, writeTool("delivery.create_sprint", "创建 Sprint", "为项目创建 Sprint。"), server.createSprint)
-	mcp.AddTool(target, writeTool("delivery.create_milestone", "创建里程碑", "为项目创建里程碑。"), server.createMilestone)
-	mcp.AddTool(target, readTool("delivery.get_member_week", "查看成员周任务", "查看成员在指定自然周的任务事项。"), server.memberWeek)
-	mcp.AddTool(target, readTool("delivery.get_project_progress", "查看项目进度", "按估算权重汇总项目任务进度。"), server.projectProgress)
-	mcp.AddTool(target, readTool("delivery.get_project_schedule", "查看项目交付健康", "查看依赖阻塞、逾期、未排期和成员剩余估算。"), server.projectSchedule)
-	mcp.AddTool(target, writeTool("delivery.save_view", "保存任务视图", "保存当前本地身份的任务筛选视图。"), server.saveView)
-	mcp.AddTool(target, readTool("delivery.list_saved_views", "列出保存视图", "列出当前本地身份保存的任务筛选视图。"), server.listSavedViews)
+	addTool(target, readTool("delivery.list_projects", "列出交付项目", "列出当前本地交付项目。"), server.listProjects)
+	addTool(target, writeTool("delivery.create_project", "创建交付项目", "在本地交付系统创建项目。"), server.createProject)
+	addTool(target, readTool("delivery.list_work_items", "查询交付事项", "按项目、负责人、状态、类型和关键词查询事项。"), server.listWorkItems)
+	addTool(target, readTool("delivery.find_similar", "检查相似事项", "在创建前检查同项目或同板块的相似事项。"), server.findSimilar)
+	addTool(target, writeTool("delivery.create_work_item", "创建交付事项", "创建事项；若存在相似候选，先返回候选，需显式确认后才创建。"), server.createWorkItem)
+	addTool(target, writeTool("delivery.update_work_item", "更新交付事项", "编辑任务的排期、进度、IoT 绑定、依赖和研发证据。"), server.updateWorkItem)
+	addTool(target, writeTool("delivery.add_comment", "新增事项评论", "为交付事项添加可审计评论。"), server.addComment)
+	addTool(target, writeTool("delivery.advance_gate", "推进交付关卡", "提交证据并推进交付关卡。"), server.advanceGate)
+	addTool(target, writeTool("delivery.close_work_item", "关闭交付事项", "在生产验证后记录复盘并关闭事项。"), server.closeWorkItem)
+	addTool(target, writeTool("delivery.create_release", "创建发布版本", "为项目创建发布版本。"), server.createRelease)
+	addTool(target, writeTool("delivery.create_sprint", "创建 Sprint", "为项目创建 Sprint。"), server.createSprint)
+	addTool(target, writeTool("delivery.create_milestone", "创建里程碑", "为项目创建里程碑。"), server.createMilestone)
+	addTool(target, readTool("delivery.get_member_week", "查看成员周任务", "查看成员在指定自然周的任务事项。"), server.memberWeek)
+	addTool(target, readTool("delivery.get_project_progress", "查看项目进度", "按估算权重汇总项目任务进度。"), server.projectProgress)
+	addTool(target, readTool("delivery.get_project_schedule", "查看项目交付健康", "查看依赖阻塞、逾期、未排期和成员剩余估算。"), server.projectSchedule)
+	addTool(target, writeTool("delivery.save_view", "保存任务视图", "保存当前本地身份的任务筛选视图。"), server.saveView)
+	addTool(target, readTool("delivery.list_saved_views", "列出保存视图", "列出当前本地身份保存的任务筛选视图。"), server.listSavedViews)
+}
+
+func addTool[In, Out any](target *mcp.Server, tool *mcp.Tool, handler mcp.ToolHandlerFor[In, Out]) {
+	mcp.AddTool(target, tool, func(ctx context.Context, request *mcp.CallToolRequest, input In) (*mcp.CallToolResult, Out, error) {
+		result, output, err := handler(ctx, request, input)
+		return result, output, normalizeToolError(err)
+	})
+}
+
+type normalizedToolError struct {
+	category string
+	cause    error
+}
+
+func (err *normalizedToolError) Error() string { return err.category }
+func (err *normalizedToolError) Unwrap() error { return err.cause }
+
+func normalizeToolError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, errMCPUnauthenticated) {
+		return &normalizedToolError{category: "unauthenticated", cause: err}
+	}
+	if authz.IsDenied(err) {
+		var denied *authz.DeniedError
+		if errors.As(err, &denied) && (denied.Decision.Reason == authz.ReasonUnauthenticated || denied.Decision.Reason == authz.ReasonAuthenticationMethod) {
+			return &normalizedToolError{category: "unauthenticated", cause: err}
+		}
+		return &normalizedToolError{category: "permission_denied", cause: err}
+	}
+	return err
 }
 
 func (server *server) toolContext(ctx context.Context) (context.Context, error) {
@@ -59,7 +94,7 @@ func (server *server) toolContext(ctx context.Context) (context.Context, error) 
 		return nil, errors.New("delivery MCP operations are not configured")
 	}
 	if !server.principal.Authenticated {
-		return nil, errors.New("local MCP principal is not authenticated")
+		return nil, errMCPUnauthenticated
 	}
 	return identity.WithPrincipal(ctx, server.principal), nil
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryauthz"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"yunka.io/gateway/authz"
 )
 
 // Adapter is the explicit, handwritten application implementation injected
@@ -304,7 +305,7 @@ func (adapter *Adapter) AdvanceGate(ctx context.Context, request *deliveryv1.Adv
 	}
 	item, err := service.AdvanceGate(ctx, request.GetId(), delivery.Gate(request.GetGate()), evidence)
 	if err != nil {
-		return nil, err
+		return nil, normalizeAuthorizationError(err)
 	}
 	return &deliveryv1.WorkItemResponse{Item: workItem(item)}, nil
 }
@@ -319,9 +320,20 @@ func (adapter *Adapter) CloseItem(ctx context.Context, request *deliveryv1.Close
 	}
 	item, err := service.Close(ctx, request.GetId(), request.GetRetrospective())
 	if err != nil {
-		return nil, err
+		return nil, normalizeAuthorizationError(err)
 	}
 	return &deliveryv1.WorkItemResponse{Item: workItem(item)}, nil
+}
+
+// normalizeAuthorizationError retains domain sentinel matching while marking
+// high-risk separation-of-duties denials for the shared transport adapters.
+func normalizeAuthorizationError(err error) error {
+	if !errors.Is(err, delivery.ErrProductionPrincipalRequired) &&
+		!errors.Is(err, delivery.ErrImplementationSourceRequired) &&
+		!errors.Is(err, delivery.ErrImplementerCannotVerifyOwnChange) {
+		return err
+	}
+	return errors.Join(authz.Denied(authz.Decision{Reason: authz.ReasonPermissionDenied}), err)
 }
 
 func (adapter *Adapter) deliveryService() (*delivery.Service, error) {

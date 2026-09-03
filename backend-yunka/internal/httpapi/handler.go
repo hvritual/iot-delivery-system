@@ -300,12 +300,15 @@ func decodeJSON(request *http.Request, target any) error {
 
 func writeError(writer http.ResponseWriter, err error) {
 	status := http.StatusInternalServerError
+	message := err.Error()
 	switch {
 	case authz.IsDenied(err):
 		status = http.StatusForbidden
+		message = "permission_denied"
 		var denied *authz.DeniedError
 		if errors.As(err, &denied) && (denied.Decision.Reason == authz.ReasonUnauthenticated || denied.Decision.Reason == authz.ReasonAuthenticationMethod) {
 			status = http.StatusUnauthorized
+			message = "unauthenticated"
 		}
 	case errors.Is(err, delivery.ErrNotFound):
 		status = http.StatusNotFound
@@ -325,7 +328,7 @@ func writeError(writer http.ResponseWriter, err error) {
 	case strings.Contains(err.Error(), "required"):
 		status = http.StatusBadRequest
 	}
-	writeJSON(writer, status, map[string]string{"error": err.Error()})
+	writeJSON(writer, status, map[string]string{"error": message})
 }
 
 func writeJSON(writer http.ResponseWriter, status int, value any) {

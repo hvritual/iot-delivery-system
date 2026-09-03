@@ -22,6 +22,12 @@ var (
 	ErrDenied           = errors.New("delivery authorization denied")
 )
 
+// denied keeps the domain sentinel observable while presenting every rejected
+// durable scope/grant check as the framework's normalized authorization error.
+func denied() error {
+	return errors.Join(authz.Denied(authz.Decision{Reason: authz.ReasonPermissionDenied}), ErrDenied)
+}
+
 type resourceLookup interface {
 	Get(context.Context, string) (delivery.WorkItem, error)
 	GetProject(context.Context, string) (delivery.Project, error)
@@ -120,21 +126,21 @@ func (resolver operationGuardResolver) ResolveGuard(authz.OperationID) (authz.Op
 
 func (guard *OperationGuard) Prepare(ctx context.Context, authorized authz.AuthorizedOperation, input any) (context.Context, error) {
 	if guard == nil || guard.lookup == nil || guard.database == nil {
-		return nil, ErrDenied
+		return nil, denied()
 	}
 	if !validInput(authorized.Policy.Operation, input) {
-		return nil, ErrDenied
+		return nil, denied()
 	}
 	operation, ok := guard.operations[authorized.Policy.Operation]
 	if !ok || !authorized.Decision.Allowed ||
 		authorized.Decision.Operation != authorized.Policy.Operation ||
 		operation.Permission != string(singlePermission(authorized.Policy)) ||
 		!singlePermissionMatches(authorized.Decision.Permissions, operation.Permission) {
-		return nil, ErrDenied
+		return nil, denied()
 	}
 	tenantID := authorized.Principal.TenantID
 	if tenantID == "" || tenantID != strings.TrimSpace(tenantID) {
-		return nil, ErrDenied
+		return nil, denied()
 	}
 	grants, err := guard.verifyGrants(ctx, authorized.Principal, authorized.Decision.Grants, operation)
 	if err != nil {
@@ -143,7 +149,7 @@ func (guard *OperationGuard) Prepare(ctx context.Context, authorized authz.Autho
 	secured := organizationKey.With(ctx, tenantID)
 	if operation.RequiredScope == "organization" {
 		if !guard.allowsOrganization(grants, operation, tenantID) {
-			return nil, ErrDenied
+			return nil, denied()
 		}
 		if authorized.Policy.Operation == "delivery.dashboard.get" {
 			projects, err := guard.organizationProjects(ctx, tenantID)
@@ -170,7 +176,7 @@ func (guard *OperationGuard) Prepare(ctx context.Context, authorized authz.Autho
 		return nil, err
 	}
 	if !guard.allowsProject(grants, operation, tenantID, project.ID, objectID) {
-		return nil, ErrDenied
+		return nil, denied()
 	}
 	return secured, nil
 }
@@ -191,20 +197,20 @@ func (guard *OperationGuard) verifyGrants(ctx context.Context, principal identit
 		return guard.verifyServiceGrants(ctx, principal, serviceAccountID, grants, operation)
 	}
 	if !isHumanJWTPrincipal(principal) {
-		return nil, ErrDenied
+		return nil, denied()
 	}
 	if len(grants) == 0 {
-		return nil, ErrDenied
+		return nil, denied()
 	}
 	verified := make([]authz.Grant, 0, len(grants))
 	seen := make(map[authz.Grant]struct{}, len(grants))
 	for _, grant := range grants {
 		scopeType, scopeID, ok := bindingScope(grant.Scope, principal.TenantID)
 		if !ok || string(grant.Permission) != operation.Permission || !canonicalID(grant.RoleID) {
-			return nil, ErrDenied
+			return nil, denied()
 		}
 		if _, exists := seen[grant]; exists {
-			return nil, ErrDenied
+			return nil, denied()
 		}
 		seen[grant] = struct{}{}
 		var found int
@@ -213,7 +219,7 @@ func (guard *OperationGuard) verifyGrants(ctx context.Context, principal identit
 			return nil, fmt.Errorf("verify delivery grant: %w", err)
 		}
 		if err != nil || found != 1 {
-			return nil, ErrDenied
+			return nil, denied()
 		}
 		verified = append(verified, grant)
 	}
@@ -222,17 +228,17 @@ func (guard *OperationGuard) verifyGrants(ctx context.Context, principal identit
 
 func (guard *OperationGuard) verifyServiceGrants(ctx context.Context, principal identity.Principal, serviceAccountID string, grants []authz.Grant, operation authorization.Operation) ([]authz.Grant, error) {
 	if len(grants) == 0 {
-		return nil, ErrDenied
+		return nil, denied()
 	}
 	verified := make([]authz.Grant, 0, len(grants))
 	seen := make(map[authz.Grant]struct{}, len(grants))
 	for _, grant := range grants {
 		projectID, ok := serviceProjectScope(grant.Scope)
 		if !ok || string(grant.Permission) != operation.Permission || grant.RoleID != "service-account:"+serviceAccountID {
-			return nil, ErrDenied
+			return nil, denied()
 		}
 		if _, exists := seen[grant]; exists {
-			return nil, ErrDenied
+			return nil, denied()
 		}
 		seen[grant] = struct{}{}
 		var found int
@@ -241,7 +247,7 @@ func (guard *OperationGuard) verifyServiceGrants(ctx context.Context, principal 
 			return nil, fmt.Errorf("verify delivery service grant: %w", err)
 		}
 		if err != nil || found != 1 {
-			return nil, ErrDenied
+			return nil, denied()
 		}
 		verified = append(verified, grant)
 	}
@@ -375,7 +381,7 @@ func (guard *OperationGuard) allowedProjects(ctx context.Context, grants []authz
 func (guard *OperationGuard) ownedProject(ctx context.Context, projectID, tenantID string) (delivery.Project, error) {
 	project, err := guard.lookup.GetProject(ctx, projectID)
 	if err != nil || project.OrganizationID == "" || project.OrganizationID != tenantID {
-		return delivery.Project{}, ErrDenied
+		return delivery.Project{}, denied()
 	}
 	return project, nil
 }
@@ -429,14 +435,14 @@ func (guard *OperationGuard) projectAndObjectID(ctx context.Context, operation a
 	case *deliveryv1.CloseItemRequest:
 		objectID = request.GetId()
 	default:
-		return "", "", ErrDenied
+		return "", "", denied()
 	}
 	if objectID != "" {
 		projectID, err := guard.itemProjectID(ctx, objectID)
 		return projectID, objectID, err
 	}
 	if strings.TrimSpace(projectID) == "" {
-		return "", "", ErrDenied
+		return "", "", denied()
 	}
 	return projectID, "", nil
 }
@@ -486,11 +492,11 @@ func validInput(operation authz.OperationID, input any) bool {
 
 func (guard *OperationGuard) itemProjectID(ctx context.Context, itemID string) (string, error) {
 	if strings.TrimSpace(itemID) == "" {
-		return "", ErrDenied
+		return "", denied()
 	}
 	item, err := guard.lookup.Get(ctx, itemID)
 	if err != nil || strings.TrimSpace(item.ProjectID) == "" {
-		return "", ErrDenied
+		return "", denied()
 	}
 	return item.ProjectID, nil
 }
