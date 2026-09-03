@@ -46,11 +46,21 @@ func TestOperationsListDoesNotBypassGuardProjectSet(t *testing.T) {
 	if err := identitycore.ApplyMigrations(t.Context(), database); err != nil {
 		t.Fatal(err)
 	}
+	for _, statement := range []string{
+		`INSERT INTO organizations (id, slug, name) VALUES ('org-a', 'org-a', 'Organization A')`,
+		`INSERT INTO users (id, organization_id, display_name) VALUES ('user-a', 'org-a', 'Alice')`,
+		`INSERT INTO role_bindings (id, organization_id, role_id, scope_type, scope_id, user_id) VALUES ('binding-viewer-a', 'org-a', 'viewer', 'project', 'project-a', 'user-a')`,
+		`INSERT INTO role_bindings (id, organization_id, role_id, scope_type, scope_id, user_id) VALUES ('binding-viewer-b', 'org-a', 'viewer', 'project', 'project-b', 'user-a')`,
+	} {
+		if _, err := database.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
 	guard, err := deliveryauthz.NewOperationGuard(repository, database)
 	if err != nil {
 		t.Fatal(err)
 	}
-	secured, err := guard.Prepare(t.Context(), authz.AuthorizedOperation{Principal: identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodJWT, TenantID: "org-a", UserID: "user-a"}, Policy: authz.Policy{Operation: "delivery.items.list", Permissions: []authz.PermissionKey{"delivery.work-items.read"}}, Decision: authz.Decision{Allowed: true, Grants: []authz.Grant{{Permission: "delivery.work-items.read", RoleID: "viewer", Scope: "project:project-a"}}}}, &deliveryv1.ListItemsRequest{})
+	secured, err := guard.Prepare(t.Context(), authz.AuthorizedOperation{Principal: identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodJWT, TenantID: "org-a", UserID: "user-a"}, Policy: authz.Policy{Operation: "delivery.items.list", Permissions: []authz.PermissionKey{"delivery.work-items.read"}}, Decision: authz.Decision{Allowed: true, Operation: "delivery.items.list", Permissions: []authz.PermissionKey{"delivery.work-items.read"}, Grants: []authz.Grant{{Permission: "delivery.work-items.read", RoleID: "viewer", Scope: "project:project-a"}, {Permission: "delivery.work-items.read", RoleID: "viewer", Scope: "project:project-b"}}}}, &deliveryv1.ListItemsRequest{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +70,7 @@ func TestOperationsListDoesNotBypassGuardProjectSet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(items) != 1 || items[0].ID != "item-a" {
-		t.Fatalf("listed items = %#v, want item-a only", items)
+	if len(items) != 2 || items[0].ID != "item-a" || items[1].ID != "item-b" {
+		t.Fatalf("listed items = %#v, want item-a and item-b", items)
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/contracts/authorization"
 	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
+	"yunka.io/framework/core/identity"
 	"yunka.io/gateway/authz"
 )
 
@@ -47,25 +48,74 @@ func NewOperationGuard(lookup resourceLookup, database *sql.DB) (*OperationGuard
 	if err != nil {
 		return nil, fmt.Errorf("load permission dictionary: %w", err)
 	}
+	return NewOperationGuardWithDictionary(lookup, database, dictionary)
+}
+
+// NewOperationGuardWithDictionary constructs an OperationGuard from a validated
+// dictionary. Production uses NewOperationGuard, which loads the embedded
+// versioned dictionary.
+func NewOperationGuardWithDictionary(lookup resourceLookup, database *sql.DB, dictionary authorization.Dictionary) (*OperationGuard, error) {
+	if lookup == nil {
+		return nil, ErrLookupRequired
+	}
+	if database == nil {
+		return nil, ErrDatabaseRequired
+	}
+	permissions := make(map[string]authorization.Permission, len(dictionary.Permissions))
+	for _, permission := range dictionary.Permissions {
+		if !canonicalID(permission.ID) || permission.ID != strings.TrimSpace(permission.ID) {
+			return nil, errors.New("delivery authorization dictionary permission is incomplete")
+		}
+		if _, exists := permissions[permission.ID]; exists {
+			return nil, errors.New("delivery authorization dictionary permission is duplicated")
+		}
+		permissions[permission.ID] = permission
+	}
 	operations := make(map[authz.OperationID]authorization.Operation, len(dictionary.Operations))
 	for _, operation := range dictionary.Operations {
-		if operation.ID == "" || operation.Permission == "" || operation.RequiredScope == "" {
+		if !canonicalID(operation.ID) || !canonicalID(operation.Permission) || !supportedScope(operation.RequiredScope) {
 			return nil, errors.New("delivery authorization dictionary operation is incomplete")
+		}
+		permission, exists := permissions[operation.Permission]
+		if !exists || !containsScope(permission.AllowedScopes, operation.RequiredScope) {
+			return nil, errors.New("delivery authorization dictionary operation references an unsupported permission scope")
+		}
+		if _, exists := operations[authz.OperationID(operation.ID)]; exists {
+			return nil, errors.New("delivery authorization dictionary operation is duplicated")
 		}
 		operations[authz.OperationID(operation.ID)] = operation
 	}
 	return &OperationGuard{lookup: lookup, database: database, operations: operations}, nil
 }
 
-func (guard *OperationGuard) GuardResolver() authz.StaticGuardResolver {
+func canonicalID(value string) bool {
+	return value != "" && value == strings.TrimSpace(value)
+}
+
+func supportedScope(scope string) bool {
+	return scope == "organization" || scope == "project" || scope == "object"
+}
+
+func containsScope(scopes []string, expected string) bool {
+	for _, scope := range scopes {
+		if scope == expected {
+			return true
+		}
+	}
+	return false
+}
+
+func (guard *OperationGuard) GuardResolver() authz.GuardResolver {
 	if guard == nil {
 		return nil
 	}
-	guards := make(map[authz.OperationID]authz.OperationGuard, len(guard.operations))
-	for operation := range guard.operations {
-		guards[operation] = guard
-	}
-	return authz.NewStaticGuardResolver(guards)
+	return operationGuardResolver{guard: guard}
+}
+
+type operationGuardResolver struct{ guard *OperationGuard }
+
+func (resolver operationGuardResolver) ResolveGuard(authz.OperationID) (authz.OperationGuard, bool) {
+	return resolver.guard, resolver.guard != nil
 }
 
 func (guard *OperationGuard) Prepare(ctx context.Context, authorized authz.AuthorizedOperation, input any) (context.Context, error) {
@@ -76,14 +126,17 @@ func (guard *OperationGuard) Prepare(ctx context.Context, authorized authz.Autho
 		return nil, ErrDenied
 	}
 	operation, ok := guard.operations[authorized.Policy.Operation]
-	if !ok || !authorized.Decision.Allowed || operation.Permission != string(singlePermission(authorized.Policy)) {
+	if !ok || !authorized.Decision.Allowed ||
+		authorized.Decision.Operation != authorized.Policy.Operation ||
+		operation.Permission != string(singlePermission(authorized.Policy)) ||
+		!singlePermissionMatches(authorized.Decision.Permissions, operation.Permission) {
 		return nil, ErrDenied
 	}
-	tenantID := strings.TrimSpace(authorized.Principal.TenantID)
-	if tenantID == "" {
+	tenantID := authorized.Principal.TenantID
+	if tenantID == "" || tenantID != strings.TrimSpace(tenantID) || !canonicalID(authorized.Principal.UserID) {
 		return nil, ErrDenied
 	}
-	grants, err := guard.verifyGrants(ctx, authorized.Decision.Grants, operation)
+	grants, err := guard.verifyGrants(ctx, authorized.Principal, authorized.Decision.Grants, operation)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +161,7 @@ func (guard *OperationGuard) Prepare(ctx context.Context, authorized authz.Autho
 		}
 		return authorizedProjectsKey.With(secured, projects), nil
 	}
-	projectID, err := guard.projectID(ctx, authorized.Policy.Operation, input)
+	projectID, objectID, err := guard.projectAndObjectID(ctx, authorized.Policy.Operation, input)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +169,7 @@ func (guard *OperationGuard) Prepare(ctx context.Context, authorized authz.Autho
 	if err != nil {
 		return nil, err
 	}
-	if !guard.allowsProject(grants, operation, tenantID, project.ID, "") {
+	if !guard.allowsProject(grants, operation, tenantID, project.ID, objectID) {
 		return nil, ErrDenied
 	}
 	return secured, nil
@@ -129,26 +182,91 @@ func singlePermission(policy authz.Policy) authz.PermissionKey {
 	return policy.Permissions[0]
 }
 
-func (guard *OperationGuard) verifyGrants(ctx context.Context, grants []authz.Grant, operation authorization.Operation) ([]authz.Grant, error) {
+func singlePermissionMatches(permissions []authz.PermissionKey, expected string) bool {
+	return len(permissions) == 1 && string(permissions[0]) == expected
+}
+
+func (guard *OperationGuard) verifyGrants(ctx context.Context, principal identity.Principal, grants []authz.Grant, operation authorization.Operation) ([]authz.Grant, error) {
+	if len(grants) == 0 {
+		return nil, ErrDenied
+	}
 	verified := make([]authz.Grant, 0, len(grants))
+	seen := make(map[authz.Grant]struct{}, len(grants))
 	for _, grant := range grants {
-		if string(grant.Permission) != operation.Permission || strings.TrimSpace(grant.RoleID) == "" {
-			continue
+		scopeType, scopeID, ok := bindingScope(grant.Scope, principal.TenantID)
+		if !ok || string(grant.Permission) != operation.Permission || !canonicalID(grant.RoleID) {
+			return nil, ErrDenied
 		}
+		if _, exists := seen[grant]; exists {
+			return nil, ErrDenied
+		}
+		seen[grant] = struct{}{}
 		var found int
-		err := guard.database.QueryRowContext(ctx, `SELECT 1 FROM permissions p JOIN role_permission_grants r ON r.permission_id = p.id JOIN role_permission_grant_allowed_scopes s ON s.role_id = r.role_id AND s.permission_id = r.permission_id WHERE p.id = ? AND p.status = 'active' AND r.role_id = ? AND s.scope_type = ?`, operation.Permission, grant.RoleID, operation.RequiredScope).Scan(&found)
-		if err == nil && found == 1 {
-			verified = append(verified, grant)
-			continue
-		}
+		err := guard.database.QueryRowContext(ctx, activeBindingGrantQuery, principal.UserID, grant.RoleID, scopeType, scopeID, operation.Permission, operation.RequiredScope, principal.TenantID, principal.UserID).Scan(&found)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("verify delivery grant: %w", err)
 		}
-	}
-	if len(verified) == 0 {
-		return nil, ErrDenied
+		if err != nil || found != 1 {
+			return nil, ErrDenied
+		}
+		verified = append(verified, grant)
 	}
 	return verified, nil
+}
+
+const activeBindingGrantQuery = `
+SELECT 1
+FROM organizations
+JOIN users
+  ON users.organization_id = organizations.id
+ AND users.id = ?
+ AND users.status = 'active'
+JOIN role_bindings
+  ON role_bindings.organization_id = organizations.id
+ AND role_bindings.status = 'active'
+ AND role_bindings.role_id = ?
+ AND role_bindings.scope_type = ?
+ AND role_bindings.scope_id = ?
+JOIN role_permission_grants
+  ON role_permission_grants.role_id = role_bindings.role_id
+ AND role_permission_grants.permission_id = ?
+JOIN permissions
+  ON permissions.id = role_permission_grants.permission_id
+ AND permissions.status = 'active'
+JOIN role_permission_grant_allowed_scopes
+  ON role_permission_grant_allowed_scopes.role_id = role_permission_grants.role_id
+ AND role_permission_grant_allowed_scopes.permission_id = role_permission_grants.permission_id
+ AND role_permission_grant_allowed_scopes.scope_type = ?
+WHERE organizations.id = ?
+  AND organizations.status = 'active'
+  AND (
+    role_bindings.user_id = users.id
+    OR EXISTS (
+      SELECT 1
+      FROM teams
+      JOIN team_memberships
+        ON team_memberships.team_id = teams.id
+       AND team_memberships.organization_id = teams.organization_id
+      WHERE teams.id = role_bindings.team_id
+        AND teams.organization_id = organizations.id
+        AND teams.status = 'active'
+        AND team_memberships.user_id = ?
+    )
+  )`
+
+func bindingScope(scope, tenantID string) (string, string, bool) {
+	parts := strings.Split(scope, ":")
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	switch parts[0] {
+	case "organization":
+		return "organization", parts[1], parts[1] == tenantID && canonicalID(parts[1])
+	case "project":
+		return "project", parts[1], canonicalID(parts[1])
+	default:
+		return "", "", false
+	}
 }
 
 func (guard *OperationGuard) organizationProjects(ctx context.Context, tenantID string) (map[string]bool, error) {
@@ -212,8 +330,9 @@ func (guard *OperationGuard) allowsProject(grants []authz.Grant, operation autho
 	return false
 }
 
-func (guard *OperationGuard) projectID(ctx context.Context, operation authz.OperationID, input any) (string, error) {
+func (guard *OperationGuard) projectAndObjectID(ctx context.Context, operation authz.OperationID, input any) (string, string, error) {
 	projectID := ""
+	objectID := ""
 	switch request := input.(type) {
 	case *deliveryv1.CreateItemRequest:
 		projectID = request.GetProjectId()
@@ -224,22 +343,26 @@ func (guard *OperationGuard) projectID(ctx context.Context, operation authz.Oper
 	case *deliveryv1.CreateMilestoneRequest:
 		projectID = request.GetProjectId()
 	case *deliveryv1.UpdateItemRequest:
-		return guard.itemProjectID(ctx, request.GetId())
+		objectID = request.GetId()
 	case *deliveryv1.CreateItemCommentRequest:
-		return guard.itemProjectID(ctx, request.GetId())
+		objectID = request.GetId()
 	case *deliveryv1.UpdateItemContextRequest:
-		return guard.itemProjectID(ctx, request.GetId())
+		objectID = request.GetId()
 	case *deliveryv1.AdvanceGateRequest:
-		return guard.itemProjectID(ctx, request.GetId())
+		objectID = request.GetId()
 	case *deliveryv1.CloseItemRequest:
-		return guard.itemProjectID(ctx, request.GetId())
+		objectID = request.GetId()
 	default:
-		return "", ErrDenied
+		return "", "", ErrDenied
+	}
+	if objectID != "" {
+		projectID, err := guard.itemProjectID(ctx, objectID)
+		return projectID, objectID, err
 	}
 	if strings.TrimSpace(projectID) == "" {
-		return "", ErrDenied
+		return "", "", ErrDenied
 	}
-	return projectID, nil
+	return projectID, "", nil
 }
 
 func validInput(operation authz.OperationID, input any) bool {
