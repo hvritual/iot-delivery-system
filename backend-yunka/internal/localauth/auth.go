@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
@@ -198,25 +199,51 @@ func (grantResolver) ResolveGrants(_ context.Context, request authz.GrantRequest
 var permissionsByRole = map[string][]authz.PermissionKey{
 	RoleViewer: {
 		"delivery.dashboard.read",
-		"delivery.items.read",
+		"delivery.work-items.read",
+		"delivery.items.read", // Development-only alias for legacy extension operations.
 	},
 	RoleContributor: {
 		"delivery.dashboard.read",
-		"delivery.items.read",
-		"delivery.items.write",
+		"delivery.work-items.read",
+		"delivery.work-items.create",
+		"delivery.work-items.update",
+		"delivery.work-items.comment.create",
+		"delivery.work-items.context.update",
+		"delivery.items.read",  // Development-only alias for legacy extension operations.
+		"delivery.items.write", // Development-only alias for legacy saved views.
 	},
 	RoleReleaseManager: {
 		"delivery.dashboard.read",
-		"delivery.items.read",
-		"delivery.items.write",
-		"delivery.items.gate",
-		"delivery.items.close",
+		"delivery.work-items.read",
+		"delivery.work-items.create",
+		"delivery.work-items.update",
+		"delivery.work-items.comment.create",
+		"delivery.work-items.context.update",
+		"delivery.work-items.gate.advance",
+		"delivery.work-items.close",
+		"delivery.items.read",  // Development-only alias for legacy extension operations.
+		"delivery.items.write", // Development-only alias for legacy saved views.
 	},
 	RoleLocalAdmin: {
 		"delivery.dashboard.read",
-		"delivery.items.read",
-		"delivery.items.write",
-		"delivery.items.gate",
-		"delivery.items.close",
+		"delivery.work-items.read",
+		"delivery.work-items.create",
+		"delivery.work-items.update",
+		"delivery.work-items.comment.create",
+		"delivery.work-items.context.update",
+		"delivery.work-items.gate.advance",
+		"delivery.work-items.close",
+		"delivery.projects.create",
+		"delivery.releases.create",
+		"delivery.sprints.create",
+		"delivery.milestones.create",
+		"delivery.items.read",  // Development-only alias for legacy extension operations.
+		"delivery.items.write", // Development-only alias for legacy saved views.
 	},
+}
+
+// DevelopmentPermissionsForRole returns a copy of the explicit local
+// compatibility profile. It is not a production role-binding API.
+func DevelopmentPermissionsForRole(role string) []authz.PermissionKey {
+	return slices.Clone(permissionsByRole[role])
 }

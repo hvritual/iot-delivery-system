@@ -1654,7 +1654,7 @@
             "id": "delivery.items.advance-gate",
             "useCase": "advance_gate",
             "permissions": [
-              "delivery.items.gate"
+              "delivery.work-items.gate.advance"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -1671,7 +1671,7 @@
           "authorization": {
             "operationId": "delivery.items.advance-gate",
             "permissions": [
-              "delivery.items.gate"
+              "delivery.work-items.gate.advance"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -1690,7 +1690,7 @@
             "id": "delivery.items.close",
             "useCase": "close_item",
             "permissions": [
-              "delivery.items.close"
+              "delivery.work-items.close"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -1707,7 +1707,7 @@
           "authorization": {
             "operationId": "delivery.items.close",
             "permissions": [
-              "delivery.items.close"
+              "delivery.work-items.close"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -1726,7 +1726,7 @@
             "id": "delivery.items.create",
             "useCase": "create_item",
             "permissions": [
-              "delivery.items.write"
+              "delivery.work-items.create"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -1743,7 +1743,7 @@
           "authorization": {
             "operationId": "delivery.items.create",
             "permissions": [
-              "delivery.items.write"
+              "delivery.work-items.create"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -1762,7 +1762,7 @@
             "id": "delivery.items.comment.create",
             "useCase": "add_comment",
             "permissions": [
-              "delivery.items.write"
+              "delivery.work-items.comment.create"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -1779,7 +1779,7 @@
           "authorization": {
             "operationId": "delivery.items.comment.create",
             "permissions": [
-              "delivery.items.write"
+              "delivery.work-items.comment.create"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -1798,7 +1798,7 @@
             "id": "delivery.milestones.create",
             "useCase": "create_milestone",
             "permissions": [
-              "delivery.items.write"
+              "delivery.milestones.create"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -1815,7 +1815,7 @@
           "authorization": {
             "operationId": "delivery.milestones.create",
             "permissions": [
-              "delivery.items.write"
+              "delivery.milestones.create"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -1834,7 +1834,7 @@
             "id": "delivery.projects.create",
             "useCase": "create_project",
             "permissions": [
-              "delivery.items.write"
+              "delivery.projects.create"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -1851,7 +1851,7 @@
           "authorization": {
             "operationId": "delivery.projects.create",
             "permissions": [
-              "delivery.items.write"
+              "delivery.projects.create"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -1870,7 +1870,7 @@
             "id": "delivery.releases.create",
             "useCase": "create_release",
             "permissions": [
-              "delivery.items.write"
+              "delivery.releases.create"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -1887,7 +1887,7 @@
           "authorization": {
             "operationId": "delivery.releases.create",
             "permissions": [
-              "delivery.items.write"
+              "delivery.releases.create"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -1906,7 +1906,7 @@
             "id": "delivery.sprints.create",
             "useCase": "create_sprint",
             "permissions": [
-              "delivery.items.write"
+              "delivery.sprints.create"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -1923,7 +1923,7 @@
           "authorization": {
             "operationId": "delivery.sprints.create",
             "permissions": [
-              "delivery.items.write"
+              "delivery.sprints.create"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -1978,7 +1978,7 @@
             "id": "delivery.items.list",
             "useCase": "list_items",
             "permissions": [
-              "delivery.items.read"
+              "delivery.work-items.read"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -1995,7 +1995,7 @@
           "authorization": {
             "operationId": "delivery.items.list",
             "permissions": [
-              "delivery.items.read"
+              "delivery.work-items.read"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -2014,7 +2014,7 @@
             "id": "delivery.items.update",
             "useCase": "update_item",
             "permissions": [
-              "delivery.items.write"
+              "delivery.work-items.update"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -2031,7 +2031,7 @@
           "authorization": {
             "operationId": "delivery.items.update",
             "permissions": [
-              "delivery.items.write"
+              "delivery.work-items.update"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -2050,7 +2050,7 @@
             "id": "delivery.items.update-context",
             "useCase": "update_item_context",
             "permissions": [
-              "delivery.items.write"
+              "delivery.work-items.context.update"
             ],
             "permissionMode": "all",
             "authentication": [
@@ -2067,7 +2067,7 @@
           "authorization": {
             "operationId": "delivery.items.update-context",
             "permissions": [
-              "delivery.items.write"
+              "delivery.work-items.context.update"
             ],
             "permissionMode": "all",
             "authentication": [

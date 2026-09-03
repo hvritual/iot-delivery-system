@@ -44,7 +44,7 @@
           "service-token"
         ],
         "permissions": [
-          "delivery.items.gate"
+          "delivery.work-items.gate.advance"
         ],
         "permissionMode": "all"
       },
@@ -73,7 +73,7 @@
           "service-token"
         ],
         "permissions": [
-          "delivery.items.close"
+          "delivery.work-items.close"
         ],
         "permissionMode": "all"
       },
@@ -102,7 +102,7 @@
           "service-token"
         ],
         "permissions": [
-          "delivery.items.write"
+          "delivery.work-items.comment.create"
         ],
         "permissionMode": "all"
       },
@@ -131,7 +131,7 @@
           "service-token"
         ],
         "permissions": [
-          "delivery.items.write"
+          "delivery.work-items.create"
         ],
         "permissionMode": "all"
       },
@@ -160,7 +160,7 @@
           "service-token"
         ],
         "permissions": [
-          "delivery.items.read"
+          "delivery.work-items.read"
         ],
         "permissionMode": "all"
       },
@@ -189,7 +189,7 @@
           "service-token"
         ],
         "permissions": [
-          "delivery.items.write"
+          "delivery.work-items.update"
         ],
         "permissionMode": "all"
       },
@@ -218,7 +218,7 @@
           "service-token"
         ],
         "permissions": [
-          "delivery.items.write"
+          "delivery.work-items.context.update"
         ],
         "permissionMode": "all"
       },
@@ -247,7 +247,7 @@
           "service-token"
         ],
         "permissions": [
-          "delivery.items.write"
+          "delivery.milestones.create"
         ],
         "permissionMode": "all"
       },
@@ -276,7 +276,7 @@
           "service-token"
         ],
         "permissions": [
-          "delivery.items.write"
+          "delivery.projects.create"
         ],
         "permissionMode": "all"
       },
@@ -305,7 +305,7 @@
           "service-token"
         ],
         "permissions": [
-          "delivery.items.write"
+          "delivery.releases.create"
         ],
         "permissionMode": "all"
       },
@@ -334,7 +334,7 @@
           "service-token"
         ],
         "permissions": [
-          "delivery.items.write"
+          "delivery.sprints.create"
         ],
         "permissionMode": "all"
       },

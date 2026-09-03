@@ -57,13 +57,32 @@ func TestGrantResolverMapsRolesToExplicitPermissions(t *testing.T) {
 			Roles:         []string{localauth.RoleContributor},
 		},
 		Operation:   "delivery.items.create",
-		Permissions: []authz.PermissionKey{"delivery.items.write", "delivery.items.close"},
+		Permissions: []authz.PermissionKey{"delivery.work-items.create", "delivery.work-items.close"},
 	})
 	if err != nil {
 		t.Fatalf("resolve contributor grants: %v", err)
 	}
-	if len(grants) != 1 || grants[0].Permission != "delivery.items.write" || grants[0].RoleID != localauth.RoleContributor {
-		t.Fatalf("contributor grants = %#v, want only delivery.items.write", grants)
+	if len(grants) != 1 || grants[0].Permission != "delivery.work-items.create" || grants[0].RoleID != localauth.RoleContributor {
+		t.Fatalf("contributor grants = %#v, want only delivery.work-items.create", grants)
+	}
+}
+
+func TestGrantResolverKeepsDevelopmentOnlyLegacyExtensionAlias(t *testing.T) {
+	resolver := localauth.NewGrantResolver()
+	grants, err := resolver.ResolveGrants(context.Background(), authz.GrantRequest{
+		Principal: identity.Principal{
+			Authenticated: true,
+			AuthMethod:    identity.AuthMethodAPIKey,
+			Roles:         []string{localauth.RoleViewer},
+		},
+		Operation:   "delivery.projects.list",
+		Permissions: []authz.PermissionKey{"delivery.items.read"},
+	})
+	if err != nil {
+		t.Fatalf("resolve legacy development extension grant: %v", err)
+	}
+	if len(grants) != 1 || grants[0].Permission != "delivery.items.read" || grants[0].RoleID != localauth.RoleViewer || grants[0].Scope != "local" {
+		t.Fatalf("legacy extension grants = %#v, want development-only local read alias", grants)
 	}
 }
 

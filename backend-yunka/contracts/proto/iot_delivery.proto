@@ -31,7 +31,7 @@ service DeliveryService {
     option (yunka.dsl.v1.operation) = {
       id: "delivery.items.list"
       use_case: "list_items"
-      permissions: "delivery.items.read"
+      permissions: "delivery.work-items.read"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
       authentication: AUTHENTICATION_JWT
@@ -44,7 +44,7 @@ service DeliveryService {
     option (yunka.dsl.v1.operation) = {
       id: "delivery.items.create"
       use_case: "create_item"
-      permissions: "delivery.items.write"
+      permissions: "delivery.work-items.create"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
       authentication: AUTHENTICATION_JWT
@@ -57,7 +57,7 @@ service DeliveryService {
     option (yunka.dsl.v1.operation) = {
       id: "delivery.items.update"
       use_case: "update_item"
-      permissions: "delivery.items.write"
+      permissions: "delivery.work-items.update"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
       authentication: AUTHENTICATION_JWT
@@ -70,7 +70,7 @@ service DeliveryService {
     option (yunka.dsl.v1.operation) = {
       id: "delivery.items.comment.create"
       use_case: "add_comment"
-      permissions: "delivery.items.write"
+      permissions: "delivery.work-items.comment.create"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
       authentication: AUTHENTICATION_JWT
@@ -83,7 +83,7 @@ service DeliveryService {
     option (yunka.dsl.v1.operation) = {
       id: "delivery.items.update-context"
       use_case: "update_item_context"
-      permissions: "delivery.items.write"
+      permissions: "delivery.work-items.context.update"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
       authentication: AUTHENTICATION_JWT
@@ -96,7 +96,7 @@ service DeliveryService {
     option (yunka.dsl.v1.operation) = {
       id: "delivery.items.advance-gate"
       use_case: "advance_gate"
-      permissions: "delivery.items.gate"
+      permissions: "delivery.work-items.gate.advance"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
       authentication: AUTHENTICATION_JWT
@@ -109,7 +109,7 @@ service DeliveryService {
     option (yunka.dsl.v1.operation) = {
       id: "delivery.items.close"
       use_case: "close_item"
-      permissions: "delivery.items.close"
+      permissions: "delivery.work-items.close"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
       authentication: AUTHENTICATION_JWT
@@ -122,7 +122,7 @@ service DeliveryService {
     option (yunka.dsl.v1.operation) = {
       id: "delivery.projects.create"
       use_case: "create_project"
-      permissions: "delivery.items.write"
+      permissions: "delivery.projects.create"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
       authentication: AUTHENTICATION_JWT
@@ -135,7 +135,7 @@ service DeliveryService {
     option (yunka.dsl.v1.operation) = {
       id: "delivery.releases.create"
       use_case: "create_release"
-      permissions: "delivery.items.write"
+      permissions: "delivery.releases.create"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
       authentication: AUTHENTICATION_JWT
@@ -148,7 +148,7 @@ service DeliveryService {
     option (yunka.dsl.v1.operation) = {
       id: "delivery.sprints.create"
       use_case: "create_sprint"
-      permissions: "delivery.items.write"
+      permissions: "delivery.sprints.create"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
       authentication: AUTHENTICATION_JWT
@@ -161,7 +161,7 @@ service DeliveryService {
     option (yunka.dsl.v1.operation) = {
       id: "delivery.milestones.create"
       use_case: "create_milestone"
-      permissions: "delivery.items.write"
+      permissions: "delivery.milestones.create"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
       authentication: AUTHENTICATION_JWT

@@ -80,17 +80,17 @@ func TestGeneratedOperationPlansDeclareLocalAPIKeyAuthorizationAndTransactions(t
 		transaction string
 	}{
 		"delivery.dashboard.get":        {permission: "delivery.dashboard.read", transaction: "read_only"},
-		"delivery.items.list":           {permission: "delivery.items.read", transaction: "read_only"},
-		"delivery.items.create":         {permission: "delivery.items.write", transaction: "local"},
-		"delivery.items.update":         {permission: "delivery.items.write", transaction: "local"},
-		"delivery.items.comment.create": {permission: "delivery.items.write", transaction: "local"},
-		"delivery.items.update-context": {permission: "delivery.items.write", transaction: "local"},
-		"delivery.items.advance-gate":   {permission: "delivery.items.gate", transaction: "local"},
-		"delivery.items.close":          {permission: "delivery.items.close", transaction: "local"},
-		"delivery.projects.create":      {permission: "delivery.items.write", transaction: "local"},
-		"delivery.releases.create":      {permission: "delivery.items.write", transaction: "local"},
-		"delivery.sprints.create":       {permission: "delivery.items.write", transaction: "local"},
-		"delivery.milestones.create":    {permission: "delivery.items.write", transaction: "local"},
+		"delivery.items.list":           {permission: "delivery.work-items.read", transaction: "read_only"},
+		"delivery.items.create":         {permission: "delivery.work-items.create", transaction: "local"},
+		"delivery.items.update":         {permission: "delivery.work-items.update", transaction: "local"},
+		"delivery.items.comment.create": {permission: "delivery.work-items.comment.create", transaction: "local"},
+		"delivery.items.update-context": {permission: "delivery.work-items.context.update", transaction: "local"},
+		"delivery.items.advance-gate":   {permission: "delivery.work-items.gate.advance", transaction: "local"},
+		"delivery.items.close":          {permission: "delivery.work-items.close", transaction: "local"},
+		"delivery.projects.create":      {permission: "delivery.projects.create", transaction: "local"},
+		"delivery.releases.create":      {permission: "delivery.releases.create", transaction: "local"},
+		"delivery.sprints.create":       {permission: "delivery.sprints.create", transaction: "local"},
+		"delivery.milestones.create":    {permission: "delivery.milestones.create", transaction: "local"},
 	}
 	if len(plans.Operations) != len(want) {
 		t.Fatalf("generated operation count = %d, want %d", len(plans.Operations), len(want))
