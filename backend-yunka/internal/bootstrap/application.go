@@ -25,7 +25,9 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/obsidian"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/principalauthz"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/serviceauth"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/serviceauthz"
 	"google.golang.org/grpc"
 	"yunka.io/framework/core"
 	"yunka.io/framework/core/identity"
@@ -146,6 +148,7 @@ type Application struct {
 	dispatcher    *frameworkoutbox.Dispatcher
 	reminders     *delivery.DueReminderScheduler
 	serviceAuth   *serviceauth.Manager
+	serviceGrants *serviceauthz.Manager
 	app           *core.App
 
 	httpAddress string
@@ -185,6 +188,11 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	if err != nil {
 		_ = repository.Close()
 		return nil, fmt.Errorf("configure service credential manager: %w", err)
+	}
+	serviceGrantManager, err := serviceauthz.NewManager(repository.Database(), repository)
+	if err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("configure service grant manager: %w", err)
 	}
 	identityResolver, err := identitybinding.NewSQLiteResolver(repository.Database(), identitybinding.Config{})
 	if err != nil {
@@ -298,6 +306,7 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		dispatcher:    dispatcher,
 		reminders:     reminders,
 		serviceAuth:   serviceCredentialManager,
+		serviceGrants: serviceGrantManager,
 	}
 	var legacyGRPCFallback grpc.UnaryServerInterceptor
 	if authenticator != nil {
@@ -358,9 +367,17 @@ func configuredAuthorization(ctx context.Context, configuration Config, reposito
 		}
 		return authorizer, nil, nil
 	}
-	resolver, err := humanauthz.NewGrantResolver(repository.Database())
+	humanResolver, err := humanauthz.NewGrantResolver(repository.Database())
 	if err != nil {
 		return nil, nil, fmt.Errorf("create human grant resolver: %w", err)
+	}
+	serviceResolver, err := serviceauthz.NewGrantResolver(repository.Database())
+	if err != nil {
+		return nil, nil, fmt.Errorf("create service grant resolver: %w", err)
+	}
+	resolver, err := principalauthz.New(humanResolver, serviceResolver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("compose production grant resolver: %w", err)
 	}
 	authorizer, err := authz.NewGrantAuthorizerWithResolver(resolver)
 	if err != nil {
@@ -487,6 +504,15 @@ func (application *Application) ServiceCredentials() *serviceauth.Manager {
 		return nil
 	}
 	return application.serviceAuth
+}
+
+// ServiceGrants is the intentionally in-process management port for explicit
+// service-account grants. This slice defines no remote grant-management API.
+func (application *Application) ServiceGrants() *serviceauthz.Manager {
+	if application == nil {
+		return nil
+	}
+	return application.serviceGrants
 }
 
 func (application *Application) HTTPAddress() string {

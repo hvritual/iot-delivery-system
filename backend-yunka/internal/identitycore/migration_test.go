@@ -133,12 +133,12 @@ INSERT INTO service_accounts (id, organization_id, name) VALUES ('service-a', 'o
 	if err := rows.Err(); err != nil {
 		t.Fatalf("iterate upgraded identity tables: %v", err)
 	}
-	for _, table := range []string{"iotd_schema_migrations", "organizations", "users", "external_identities", "service_accounts", "service_account_credentials", "teams", "team_memberships", "roles", "permissions", "permission_allowed_scopes", "role_permission_grants", "role_permission_grant_allowed_scopes", "role_bindings"} {
+	for _, table := range []string{"iotd_schema_migrations", "organizations", "users", "external_identities", "service_accounts", "service_account_credentials", "teams", "team_memberships", "roles", "permissions", "permission_allowed_scopes", "role_permission_grants", "role_permission_grant_allowed_scopes", "role_bindings", "service_operations", "service_operation_grants"} {
 		if !tables[table] {
 			t.Fatalf("upgraded identity table set is missing %q: %v", table, tables)
 		}
 	}
-	if len(tables) != 14 {
+	if len(tables) != 16 {
 		t.Fatalf("upgrade added unexpected tables: %v", tables)
 	}
 	for table, want := range map[string]int{"organizations": 1, "users": 1, "external_identities": 1, "service_accounts": 1} {
@@ -147,7 +147,7 @@ INSERT INTO service_accounts (id, organization_id, name) VALUES ('service-a', 'o
 			t.Fatalf("upgraded table %s count = %d error=%v, want %d", table, count, err, want)
 		}
 	}
-	for _, migrationID := range []string{MigrationID, ServiceCredentialMigrationID, "S0-03-02_authorization_dictionary_v1"} {
+	for _, migrationID := range []string{MigrationID, ServiceCredentialMigrationID, AuthorizationMigrationID, ServiceGrantMigrationID} {
 		var count int
 		if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, migrationID).Scan(&count); err != nil || count != 1 {
 			t.Fatalf("migration ledger %q count = %d error=%v, want 1", migrationID, count, err)
@@ -157,7 +157,7 @@ INSERT INTO service_accounts (id, organization_id, name) VALUES ('service-a', 'o
 		t.Fatalf("repeat upgraded migration: %v", err)
 	}
 	var ledgerCount int
-	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations`).Scan(&ledgerCount); err != nil || ledgerCount != 3 {
-		t.Fatalf("repeat migration ledger count = %d error=%v, want 3", ledgerCount, err)
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations`).Scan(&ledgerCount); err != nil || ledgerCount != 4 {
+		t.Fatalf("repeat migration ledger count = %d error=%v, want 4", ledgerCount, err)
 	}
 }

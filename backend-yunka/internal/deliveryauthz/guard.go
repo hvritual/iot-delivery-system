@@ -133,7 +133,7 @@ func (guard *OperationGuard) Prepare(ctx context.Context, authorized authz.Autho
 		return nil, ErrDenied
 	}
 	tenantID := authorized.Principal.TenantID
-	if tenantID == "" || tenantID != strings.TrimSpace(tenantID) || !canonicalID(authorized.Principal.UserID) {
+	if tenantID == "" || tenantID != strings.TrimSpace(tenantID) {
 		return nil, ErrDenied
 	}
 	grants, err := guard.verifyGrants(ctx, authorized.Principal, authorized.Decision.Grants, operation)
@@ -187,6 +187,12 @@ func singlePermissionMatches(permissions []authz.PermissionKey, expected string)
 }
 
 func (guard *OperationGuard) verifyGrants(ctx context.Context, principal identity.Principal, grants []authz.Grant, operation authorization.Operation) ([]authz.Grant, error) {
+	if serviceAccountID, ok := serviceAccountIDFromPrincipal(principal); ok {
+		return guard.verifyServiceGrants(ctx, principal, serviceAccountID, grants, operation)
+	}
+	if !isHumanJWTPrincipal(principal) {
+		return nil, ErrDenied
+	}
 	if len(grants) == 0 {
 		return nil, ErrDenied
 	}
@@ -205,6 +211,34 @@ func (guard *OperationGuard) verifyGrants(ctx context.Context, principal identit
 		err := guard.database.QueryRowContext(ctx, activeBindingGrantQuery, principal.UserID, grant.RoleID, scopeType, scopeID, operation.Permission, operation.RequiredScope, principal.TenantID, principal.UserID).Scan(&found)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("verify delivery grant: %w", err)
+		}
+		if err != nil || found != 1 {
+			return nil, ErrDenied
+		}
+		verified = append(verified, grant)
+	}
+	return verified, nil
+}
+
+func (guard *OperationGuard) verifyServiceGrants(ctx context.Context, principal identity.Principal, serviceAccountID string, grants []authz.Grant, operation authorization.Operation) ([]authz.Grant, error) {
+	if len(grants) == 0 {
+		return nil, ErrDenied
+	}
+	verified := make([]authz.Grant, 0, len(grants))
+	seen := make(map[authz.Grant]struct{}, len(grants))
+	for _, grant := range grants {
+		projectID, ok := serviceProjectScope(grant.Scope)
+		if !ok || string(grant.Permission) != operation.Permission || grant.RoleID != "service-account:"+serviceAccountID {
+			return nil, ErrDenied
+		}
+		if _, exists := seen[grant]; exists {
+			return nil, ErrDenied
+		}
+		seen[grant] = struct{}{}
+		var found int
+		err := guard.database.QueryRowContext(ctx, activeServiceGrantQuery, principal.TenantID, serviceAccountID, operation.ID, operation.Permission, projectID).Scan(&found)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("verify delivery service grant: %w", err)
 		}
 		if err != nil || found != 1 {
 			return nil, ErrDenied
@@ -253,6 +287,48 @@ WHERE organizations.id = ?
         AND team_memberships.user_id = ?
     )
   )`
+
+const activeServiceGrantQuery = `
+SELECT 1
+FROM service_operation_grants grants
+JOIN service_accounts accounts
+  ON accounts.id = grants.service_account_id
+ AND accounts.organization_id = grants.organization_id
+ AND accounts.status = 'active'
+JOIN organizations organizations
+  ON organizations.id = grants.organization_id
+ AND organizations.status = 'active'
+JOIN service_operations operations
+  ON operations.id = grants.operation_id
+ AND operations.permission_id = grants.permission_id
+ AND operations.required_scope IN ('project', 'object')
+ AND operations.status = 'active'
+JOIN permissions permissions
+  ON permissions.id = grants.permission_id
+ AND permissions.status = 'active'
+WHERE grants.status = 'active'
+  AND grants.organization_id = ?
+  AND grants.service_account_id = ?
+  AND grants.operation_id = ?
+  AND grants.permission_id = ?
+  AND grants.project_id = ?`
+
+func isHumanJWTPrincipal(principal identity.Principal) bool {
+	return principal.Authenticated && principal.AuthMethod == identity.AuthMethodJWT && canonicalID(principal.UserID)
+}
+
+func serviceAccountIDFromPrincipal(principal identity.Principal) (string, bool) {
+	if !principal.Authenticated || principal.AuthMethod != identity.AuthMethodServiceToken || principal.UserID != "" || len(principal.Roles) != 0 {
+		return "", false
+	}
+	serviceAccountID, ok := strings.CutPrefix(principal.Subject, "service-account/")
+	return serviceAccountID, ok && canonicalID(serviceAccountID)
+}
+
+func serviceProjectScope(scope string) (string, bool) {
+	projectID, ok := strings.CutPrefix(scope, "project:")
+	return projectID, ok && canonicalID(projectID)
+}
 
 func bindingScope(scope, tenantID string) (string, string, bool) {
 	parts := strings.Split(scope, ":")

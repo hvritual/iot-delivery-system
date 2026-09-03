@@ -15,6 +15,8 @@ const ServiceCredentialMigrationID = "S0-02-07_service_credentials_v1"
 
 const AuthorizationMigrationID = "S0-03-02_authorization_dictionary_v1"
 
+const ServiceGrantMigrationID = "S0-03-06_service_operation_grants_v1"
+
 const identitySchema = `
 CREATE TABLE organizations (
     id TEXT PRIMARY KEY NOT NULL CHECK (length(trim(id)) > 0),
@@ -203,6 +205,90 @@ BEGIN
     SELECT RAISE(ABORT, 'team scope update would exceed an active role binding scope');
 END;`
 
+const serviceGrantSchema = `
+CREATE TABLE service_operations (
+    id TEXT PRIMARY KEY NOT NULL CHECK (length(trim(id)) > 0),
+    permission_id TEXT NOT NULL CHECK (length(trim(permission_id)) > 0),
+    required_scope TEXT NOT NULL CHECK (required_scope IN ('organization', 'project', 'object')),
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'disabled')),
+    FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE RESTRICT
+);
+CREATE TABLE service_operation_grants (
+    id TEXT PRIMARY KEY NOT NULL CHECK (length(trim(id)) > 0),
+    organization_id TEXT NOT NULL CHECK (length(trim(organization_id)) > 0),
+    service_account_id TEXT NOT NULL CHECK (length(trim(service_account_id)) > 0),
+    operation_id TEXT NOT NULL CHECK (length(trim(operation_id)) > 0),
+    permission_id TEXT NOT NULL CHECK (length(trim(permission_id)) > 0),
+    project_id TEXT NOT NULL CHECK (length(trim(project_id)) > 0),
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'revoked')),
+    revoked_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT,
+    FOREIGN KEY (service_account_id) REFERENCES service_accounts(id) ON DELETE RESTRICT,
+    FOREIGN KEY (operation_id) REFERENCES service_operations(id) ON DELETE RESTRICT,
+    FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE RESTRICT,
+    CHECK ((status = 'active' AND revoked_at IS NULL) OR (status = 'revoked' AND revoked_at IS NOT NULL))
+);
+CREATE UNIQUE INDEX service_operation_grants_active_unique
+    ON service_operation_grants (service_account_id, operation_id, permission_id, project_id)
+    WHERE status = 'active';
+CREATE TRIGGER service_operation_grants_service_account_organization_on_insert
+BEFORE INSERT ON service_operation_grants
+WHEN NOT EXISTS (
+    SELECT 1 FROM service_accounts
+    WHERE id = NEW.service_account_id AND organization_id = NEW.organization_id
+)
+BEGIN
+    SELECT RAISE(ABORT, 'service grant service account must belong to organization');
+END;
+CREATE TRIGGER service_operation_grants_operation_permission_on_insert
+BEFORE INSERT ON service_operation_grants
+WHEN NOT EXISTS (
+    SELECT 1 FROM service_operations
+    WHERE id = NEW.operation_id
+      AND permission_id = NEW.permission_id
+      AND required_scope IN ('project', 'object')
+      AND status = 'active'
+)
+BEGIN
+    SELECT RAISE(ABORT, 'service grant must target an active project or object operation');
+END;
+CREATE TRIGGER service_operation_grants_active_permission_on_insert
+BEFORE INSERT ON service_operation_grants
+WHEN NOT EXISTS (
+    SELECT 1 FROM permissions WHERE id = NEW.permission_id AND status = 'active'
+)
+BEGIN
+    SELECT RAISE(ABORT, 'service grant permission must be active');
+END;
+CREATE TRIGGER service_operation_grants_immutable_tuple_on_update
+BEFORE UPDATE OF id, organization_id, service_account_id, operation_id, permission_id, project_id ON service_operation_grants
+BEGIN
+    SELECT RAISE(ABORT, 'service grant tuple is immutable');
+END;
+CREATE TRIGGER service_operation_grants_one_way_revocation_on_update
+BEFORE UPDATE ON service_operation_grants
+WHEN NOT (
+    OLD.status = 'active'
+    AND OLD.revoked_at IS NULL
+    AND NEW.status = 'revoked'
+    AND NEW.revoked_at IS NOT NULL
+)
+BEGIN
+    SELECT RAISE(ABORT, 'service grant can only transition once from active to revoked');
+END;
+CREATE TRIGGER service_operations_immutable_on_update
+BEFORE UPDATE ON service_operations
+BEGIN
+    SELECT RAISE(ABORT, 'service operation dictionary is immutable');
+END;
+CREATE TRIGGER service_operations_immutable_on_delete
+BEFORE DELETE ON service_operations
+BEGIN
+    SELECT RAISE(ABORT, 'service operation dictionary is immutable');
+END;`
+
 func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	if database == nil {
 		return errors.New("identity SQLite database is required")
@@ -230,6 +316,7 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 		{id: MigrationID, schema: identitySchema, name: "identity core"},
 		{id: ServiceCredentialMigrationID, schema: serviceCredentialSchema, name: "service credential"},
 		{id: AuthorizationMigrationID, schema: authorizationSchema, name: "authorization dictionary"},
+		{id: ServiceGrantMigrationID, schema: serviceGrantSchema, name: "service operation grant"},
 	} {
 		var applied int
 		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, migration.id).Scan(&applied); err != nil {
@@ -246,12 +333,26 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 				return fmt.Errorf("seed authorization dictionary: %w", err)
 			}
 		}
+		if migration.id == ServiceGrantMigrationID {
+			if err := seedServiceOperations(ctx, tx, dictionary); err != nil {
+				return fmt.Errorf("seed service operations: %w", err)
+			}
+		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO iotd_schema_migrations (migration_id, applied_at) VALUES (?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`, migration.id); err != nil {
 			return fmt.Errorf("record %s migration: %w", migration.name, err)
 		}
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit identity migration: %w", err)
+	}
+	return nil
+}
+
+func seedServiceOperations(ctx context.Context, tx *sql.Tx, dictionary authorization.Dictionary) error {
+	for _, operation := range dictionary.Operations {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO service_operations (id, permission_id, required_scope, status) VALUES (?, ?, ?, 'active')`, operation.ID, operation.Permission, operation.RequiredScope); err != nil {
+			return fmt.Errorf("insert service operation %q: %w", operation.ID, err)
+		}
 	}
 	return nil
 }
