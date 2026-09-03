@@ -6,55 +6,30 @@ package mcpserver
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"yunka.io/framework/core/identity"
 )
 
-// Lifecycle is deliberately an application-use-case port rather than a
-// repository. This prevents MCP tools from bypassing task validation, Outbox
-// staging, and local authorization policy.
-type Lifecycle interface {
-	List(context.Context) ([]delivery.WorkItem, error)
-	Search(context.Context, delivery.WorkItemFilter) ([]delivery.WorkItem, error)
-	Create(context.Context, delivery.CreateInput) (delivery.WorkItem, error)
-	UpdateWorkItem(context.Context, string, delivery.WorkItemUpdate) (delivery.WorkItem, error)
-	AddComment(context.Context, string, delivery.CommentInput) (delivery.Comment, error)
-	AdvanceGate(context.Context, string, delivery.Gate, []delivery.Evidence) (delivery.WorkItem, error)
-	Close(context.Context, string, string) (delivery.WorkItem, error)
-	CreateProject(context.Context, delivery.ProjectInput) (delivery.Project, error)
-	ListProjects(context.Context) ([]delivery.Project, error)
-	FindSimilar(context.Context, delivery.SimilarityQuery) ([]delivery.SimilarityCandidate, error)
-	CreateRelease(context.Context, delivery.ReleaseInput) (delivery.Release, error)
-	ListReleases(context.Context, string) ([]delivery.Release, error)
-	CreateSprint(context.Context, delivery.SprintInput) (delivery.Sprint, error)
-	ListSprints(context.Context, string) ([]delivery.Sprint, error)
-	CreateMilestone(context.Context, delivery.MilestoneInput) (delivery.Milestone, error)
-	ListMilestones(context.Context, string) ([]delivery.Milestone, error)
-	SaveView(context.Context, delivery.SavedViewInput) (delivery.SavedView, error)
-	ListSavedViews(context.Context) ([]delivery.SavedView, error)
-	MemberWeek(context.Context, string, string) (delivery.MemberWeek, error)
-	ProjectProgress(context.Context, string) (delivery.ProjectProgress, error)
-	ProjectSchedule(context.Context, string) (delivery.ProjectSchedule, error)
-}
-
 type server struct {
-	lifecycle Lifecycle
-	principal identity.Principal
+	operations *application.Operations
+	principal  identity.Principal
 }
 
 // New creates an in-process MCP server. Run it over stdio from the local
 // command; it never exposes a remote MCP endpoint or sends notifications to a
 // third party by itself.
-func New(lifecycle Lifecycle, principal identity.Principal) *mcp.Server {
+func New(operations *application.Operations, principal identity.Principal) *mcp.Server {
 	implementation := mcp.NewServer(&mcp.Implementation{
 		Name:    "iot-delivery-system",
 		Version: "0.2.0",
 	}, &mcp.ServerOptions{
 		Instructions: "用于本地 IoT 研发交付生命周期管理。写操作仅改变本地交付系统；创建相似任务前必须先确认。",
 	})
-	current := &server{lifecycle: lifecycle, principal: principal}
+	current := &server{operations: operations, principal: principal}
 	current.addTools(implementation)
 	return implementation
 }
@@ -80,8 +55,8 @@ func (server *server) addTools(target *mcp.Server) {
 }
 
 func (server *server) toolContext(ctx context.Context) (context.Context, error) {
-	if server == nil || server.lifecycle == nil {
-		return nil, errors.New("delivery MCP lifecycle is not configured")
+	if server == nil || server.operations == nil {
+		return nil, errors.New("delivery MCP operations are not configured")
 	}
 	if !server.principal.Authenticated {
 		return nil, errors.New("local MCP principal is not authenticated")
@@ -105,7 +80,7 @@ func (server *server) createProject(ctx context.Context, _ *mcp.CallToolRequest,
 	if err != nil {
 		return nil, projectOutput{}, err
 	}
-	project, err := server.lifecycle.CreateProject(ctx, delivery.ProjectInput(args))
+	project, err := server.operations.CreateProject(ctx, delivery.ProjectInput(args))
 	return nil, projectOutput{Project: project}, err
 }
 
@@ -118,7 +93,7 @@ func (server *server) listProjects(ctx context.Context, _ *mcp.CallToolRequest, 
 	if err != nil {
 		return nil, projectsOutput{}, err
 	}
-	projects, err := server.lifecycle.ListProjects(ctx)
+	projects, err := server.operations.ListProjects(ctx)
 	return nil, projectsOutput{Projects: projects}, err
 }
 
@@ -147,7 +122,7 @@ func (server *server) listWorkItems(ctx context.Context, _ *mcp.CallToolRequest,
 		ProjectID: args.ProjectID, Board: args.Board, Owner: args.Owner, Status: args.Status, Kind: args.Kind,
 		ReleaseID: args.ReleaseID, SprintID: args.SprintID, MilestoneID: args.MilestoneID, Query: args.Query,
 	}
-	items, err := server.lifecycle.Search(ctx, filter)
+	items, err := server.operations.Search(ctx, filter)
 	if err != nil {
 		return nil, workItemsOutput{}, err
 	}
@@ -171,7 +146,7 @@ func (server *server) findSimilar(ctx context.Context, _ *mcp.CallToolRequest, a
 	if err != nil {
 		return nil, similarOutput{}, err
 	}
-	candidates, err := server.lifecycle.FindSimilar(ctx, delivery.SimilarityQuery(args))
+	candidates, err := server.operations.FindSimilar(ctx, delivery.SimilarityQuery(args))
 	return nil, similarOutput{Candidates: candidates}, err
 }
 
@@ -214,7 +189,7 @@ func (server *server) createWorkItem(ctx context.Context, _ *mcp.CallToolRequest
 	if kind == "" {
 		kind = delivery.WorkItemKindTask
 	}
-	candidates, err := server.lifecycle.FindSimilar(ctx, delivery.SimilarityQuery{
+	candidates, err := server.operations.FindSimilar(ctx, delivery.SimilarityQuery{
 		Title: args.Title, Board: args.Board, ProjectID: args.ProjectID, Kind: kind, Limit: 5,
 	})
 	if err != nil {
@@ -223,7 +198,7 @@ func (server *server) createWorkItem(ctx context.Context, _ *mcp.CallToolRequest
 	if len(candidates) > 0 && !args.ConfirmSimilar {
 		return nil, createWorkItemOutput{SimilarCandidates: candidates, RequiresConfirmation: true}, nil
 	}
-	created, err := server.lifecycle.Create(ctx, delivery.CreateInput{
+	created, err := server.operations.Create(ctx, delivery.CreateInput{
 		Title: args.Title, Board: args.Board, ProjectID: args.ProjectID, ParentID: args.ParentID, Kind: kind,
 		Dependencies: args.Dependencies, Type: args.Type, Owner: args.Owner, Priority: args.Priority,
 		ReleaseID: args.ReleaseID, SprintID: args.SprintID, MilestoneID: args.MilestoneID,
@@ -260,7 +235,7 @@ func (server *server) updateWorkItem(ctx context.Context, _ *mcp.CallToolRequest
 	if err != nil {
 		return nil, workItemOutput{}, err
 	}
-	item, err := server.lifecycle.UpdateWorkItem(ctx, args.ID, delivery.WorkItemUpdate{
+	item, err := server.operations.UpdateWorkItem(ctx, args.ID, delivery.WorkItemUpdate{
 		Title: args.Title, Owner: args.Owner, Priority: args.Priority, ReleaseID: args.ReleaseID, SprintID: args.SprintID,
 		MilestoneID: args.MilestoneID, StartDate: args.StartDate, DueDate: args.DueDate, EstimatePoints: args.EstimatePoints,
 		ProgressPercent: args.ProgressPercent, Dependencies: args.Dependencies, IoTBindings: args.IoTBindings, TraceLinks: args.TraceLinks,
@@ -282,14 +257,32 @@ func (server *server) addComment(ctx context.Context, _ *mcp.CallToolRequest, ar
 	if err != nil {
 		return nil, commentOutput{}, err
 	}
-	comment, err := server.lifecycle.AddComment(ctx, args.ID, delivery.CommentInput{Body: args.Body})
+	comment, err := server.operations.AddComment(ctx, args.ID, delivery.CommentInput{Body: args.Body})
 	return nil, commentOutput{Comment: comment}, err
 }
 
 type advanceGateArgs struct {
-	ID       string              `json:"id"`
-	Gate     delivery.Gate       `json:"gate"`
-	Evidence []delivery.Evidence `json:"evidence"`
+	ID       string         `json:"id"`
+	Gate     delivery.Gate  `json:"gate"`
+	Evidence []evidenceArgs `json:"evidence"`
+}
+
+// evidenceArgs keeps MCP's optional timestamp semantics aligned with the
+// generated gRPC request. A missing timestamp is passed through as a zero
+// time so the delivery service can assign its normal recorded time.
+type evidenceArgs struct {
+	Kind       string     `json:"kind"`
+	Title      string     `json:"title"`
+	Reference  string     `json:"reference,omitempty"`
+	RecordedAt *time.Time `json:"recordedAt,omitempty"`
+}
+
+func (args evidenceArgs) toDeliveryEvidence() delivery.Evidence {
+	value := delivery.Evidence{Kind: args.Kind, Title: args.Title, Reference: args.Reference}
+	if args.RecordedAt != nil {
+		value.RecordedAt = args.RecordedAt.UTC()
+	}
+	return value
 }
 
 func (server *server) advanceGate(ctx context.Context, _ *mcp.CallToolRequest, args advanceGateArgs) (*mcp.CallToolResult, workItemOutput, error) {
@@ -297,7 +290,11 @@ func (server *server) advanceGate(ctx context.Context, _ *mcp.CallToolRequest, a
 	if err != nil {
 		return nil, workItemOutput{}, err
 	}
-	item, err := server.lifecycle.AdvanceGate(ctx, args.ID, args.Gate, args.Evidence)
+	evidence := make([]delivery.Evidence, 0, len(args.Evidence))
+	for _, value := range args.Evidence {
+		evidence = append(evidence, value.toDeliveryEvidence())
+	}
+	item, err := server.operations.AdvanceGate(ctx, args.ID, args.Gate, evidence)
 	return nil, workItemOutput{Item: item}, err
 }
 
@@ -311,7 +308,7 @@ func (server *server) closeWorkItem(ctx context.Context, _ *mcp.CallToolRequest,
 	if err != nil {
 		return nil, workItemOutput{}, err
 	}
-	item, err := server.lifecycle.Close(ctx, args.ID, args.Retrospective)
+	item, err := server.operations.Close(ctx, args.ID, args.Retrospective)
 	return nil, workItemOutput{Item: item}, err
 }
 
@@ -325,7 +322,7 @@ func (server *server) createRelease(ctx context.Context, _ *mcp.CallToolRequest,
 	if err != nil {
 		return nil, releaseOutput{}, err
 	}
-	release, err := server.lifecycle.CreateRelease(ctx, delivery.ReleaseInput(args))
+	release, err := server.operations.CreateRelease(ctx, delivery.ReleaseInput(args))
 	return nil, releaseOutput{Release: release}, err
 }
 
@@ -339,7 +336,7 @@ func (server *server) createSprint(ctx context.Context, _ *mcp.CallToolRequest, 
 	if err != nil {
 		return nil, sprintOutput{}, err
 	}
-	sprint, err := server.lifecycle.CreateSprint(ctx, delivery.SprintInput(args))
+	sprint, err := server.operations.CreateSprint(ctx, delivery.SprintInput(args))
 	return nil, sprintOutput{Sprint: sprint}, err
 }
 
@@ -353,7 +350,7 @@ func (server *server) createMilestone(ctx context.Context, _ *mcp.CallToolReques
 	if err != nil {
 		return nil, milestoneOutput{}, err
 	}
-	milestone, err := server.lifecycle.CreateMilestone(ctx, delivery.MilestoneInput(args))
+	milestone, err := server.operations.CreateMilestone(ctx, delivery.MilestoneInput(args))
 	return nil, milestoneOutput{Milestone: milestone}, err
 }
 
@@ -371,7 +368,7 @@ func (server *server) memberWeek(ctx context.Context, _ *mcp.CallToolRequest, ar
 	if err != nil {
 		return nil, memberWeekOutput{}, err
 	}
-	week, err := server.lifecycle.MemberWeek(ctx, args.Member, args.WeekStart)
+	week, err := server.operations.MemberWeek(ctx, args.Member, args.WeekStart)
 	return nil, memberWeekOutput{Week: week}, err
 }
 
@@ -388,7 +385,7 @@ func (server *server) projectProgress(ctx context.Context, _ *mcp.CallToolReques
 	if err != nil {
 		return nil, projectProgressOutput{}, err
 	}
-	progress, err := server.lifecycle.ProjectProgress(ctx, args.ProjectID)
+	progress, err := server.operations.ProjectProgress(ctx, args.ProjectID)
 	return nil, projectProgressOutput{Progress: progress}, err
 }
 
@@ -401,7 +398,7 @@ func (server *server) projectSchedule(ctx context.Context, _ *mcp.CallToolReques
 	if err != nil {
 		return nil, projectScheduleOutput{}, err
 	}
-	schedule, err := server.lifecycle.ProjectSchedule(ctx, args.ProjectID)
+	schedule, err := server.operations.ProjectSchedule(ctx, args.ProjectID)
 	return nil, projectScheduleOutput{Schedule: schedule}, err
 }
 
@@ -419,7 +416,7 @@ func (server *server) saveView(ctx context.Context, _ *mcp.CallToolRequest, args
 	if err != nil {
 		return nil, savedViewOutput{}, err
 	}
-	view, err := server.lifecycle.SaveView(ctx, delivery.SavedViewInput{Name: args.Name, Filter: args.Filter})
+	view, err := server.operations.SaveView(ctx, delivery.SavedViewInput{Name: args.Name, Filter: args.Filter})
 	return nil, savedViewOutput{View: view}, err
 }
 
@@ -432,7 +429,7 @@ func (server *server) listSavedViews(ctx context.Context, _ *mcp.CallToolRequest
 	if err != nil {
 		return nil, savedViewsOutput{}, err
 	}
-	views, err := server.lifecycle.ListSavedViews(ctx)
+	views, err := server.operations.ListSavedViews(ctx)
 	return nil, savedViewsOutput{Views: views}, err
 }
 
