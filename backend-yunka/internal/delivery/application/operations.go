@@ -128,11 +128,6 @@ func (operations *Operations) Create(ctx context.Context, input delivery.CreateI
 }
 
 func (operations *Operations) UpdateContext(ctx context.Context, id string, input delivery.ContextUpdate) (delivery.WorkItem, error) {
-	if operations != nil && operations.service != nil {
-		return executeServiceExtension(operations, ctx, "delivery.items.context.update", "update_item_context", "delivery.items.write", "local", input, func(callContext context.Context) (delivery.WorkItem, error) {
-			return operations.service.UpdateContext(callContext, id, input)
-		})
-	}
 	if err := operations.ready(); err != nil {
 		return delivery.WorkItem{}, err
 	}
@@ -148,11 +143,6 @@ func (operations *Operations) UpdateContext(ctx context.Context, id string, inpu
 }
 
 func (operations *Operations) AdvanceGate(ctx context.Context, id string, next delivery.Gate, evidence []delivery.Evidence) (delivery.WorkItem, error) {
-	if operations != nil && operations.service != nil {
-		return executeServiceExtension(operations, ctx, "delivery.items.gate.advance", "advance_gate", "delivery.items.gate", "local", evidence, func(callContext context.Context) (delivery.WorkItem, error) {
-			return operations.service.AdvanceGate(callContext, id, next, evidence)
-		})
-	}
 	if err := operations.ready(); err != nil {
 		return delivery.WorkItem{}, err
 	}
@@ -177,11 +167,6 @@ func (operations *Operations) AdvanceGate(ctx context.Context, id string, next d
 }
 
 func (operations *Operations) Close(ctx context.Context, id, retrospective string) (delivery.WorkItem, error) {
-	if operations != nil && operations.service != nil {
-		return executeServiceExtension(operations, ctx, "delivery.items.close", "close_item", "delivery.items.close", "local", retrospective, func(callContext context.Context) (delivery.WorkItem, error) {
-			return operations.service.Close(callContext, id, retrospective)
-		})
-	}
 	if err := operations.ready(); err != nil {
 		return delivery.WorkItem{}, err
 	}
