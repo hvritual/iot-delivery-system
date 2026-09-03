@@ -66,3 +66,75 @@ type ServiceAccountCredential struct {
 	RevokedAt        *time.Time
 	CreatedAt        time.Time
 }
+
+type ScopeType string
+
+const (
+	ScopeTypeOrganization ScopeType = "organization"
+	ScopeTypeProject      ScopeType = "project"
+	ScopeTypeObject       ScopeType = "object"
+)
+
+type PermissionStatus string
+
+const (
+	PermissionStatusActive   PermissionStatus = "active"
+	PermissionStatusReserved PermissionStatus = "reserved"
+)
+
+// Team belongs to an organization and is scoped either to that organization
+// or to a project. Project ownership is introduced in S0-03-04.
+type Team struct {
+	ID             string
+	OrganizationID string
+	Name           string
+	ScopeType      ScopeType
+	ScopeID        string
+	Status         Status
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type Membership struct {
+	TeamID         string
+	OrganizationID string
+	UserID         string
+	CreatedAt      time.Time
+}
+
+// Role is a built-in dictionary definition that may be bound at BindingScope.
+type Role struct {
+	ID           string
+	BindingScope ScopeType
+}
+
+// Permission is a built-in dictionary definition. AllowedScopes is carried by
+// the relationship table instead of being an independently editable grant.
+type Permission struct {
+	ID            string
+	Resource      string
+	Action        string
+	AllowedScopes []ScopeType
+	Status        PermissionStatus
+}
+
+type RolePermissionGrant struct {
+	RoleID        string
+	PermissionID  string
+	AllowedScopes []ScopeType
+}
+
+// RoleBinding grants a built-in role to exactly one human user or team. A
+// service account is intentionally not a valid subject for this model.
+type RoleBinding struct {
+	ID             string
+	OrganizationID string
+	RoleID         string
+	ScopeType      ScopeType
+	ScopeID        string
+	UserID         *string
+	TeamID         *string
+	Status         Status
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}

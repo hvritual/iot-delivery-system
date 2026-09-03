@@ -63,20 +63,48 @@ func TestApplyMigrationsCreatesServiceCredentialSchemaWithoutPlaintextSecret(t *
 	}
 }
 
-func TestApplyMigrationsUpgradesExistingS00201LedgerWithoutChangingIdentityData(t *testing.T) {
+func TestApplyMigrationsCreatesAuthorizationDictionarySchema(t *testing.T) {
 	database, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("open temporary SQLite database: %v", err)
 	}
 	defer database.Close()
+	if _, err := database.Exec(`PRAGMA foreign_keys = ON`); err != nil {
+		t.Fatalf("enable foreign keys: %v", err)
+	}
+	var foreignKeys int
+	if err := database.QueryRow(`PRAGMA foreign_keys`).Scan(&foreignKeys); err != nil || foreignKeys != 1 {
+		t.Fatalf("foreign keys = %d error=%v, want 1", foreignKeys, err)
+	}
+
+	if err := ApplyMigrations(context.Background(), database); err != nil {
+		t.Fatalf("apply identity migrations: %v", err)
+	}
+	for _, table := range []string{"teams", "team_memberships", "roles", "permissions", "permission_allowed_scopes", "role_permission_grants", "role_permission_grant_allowed_scopes", "role_bindings"} {
+		var found string
+		if err := database.QueryRow(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`, table).Scan(&found); err != nil || found != table {
+			t.Fatalf("authorization table %q is required, found=%q error=%v", table, found, err)
+		}
+	}
+	var migrationCount int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = 'S0-03-02_authorization_dictionary_v1'`).Scan(&migrationCount); err != nil || migrationCount != 1 {
+		t.Fatalf("S0-03-02 migration ledger count = %d error=%v, want 1", migrationCount, err)
+	}
+}
+
+func TestApplyMigrationsUpgradesExistingS00201LedgerWithoutChangingIdentityData(t *testing.T) {
+	database := openAuthorizationTestDatabase(t)
 	if _, err := database.Exec(`CREATE TABLE iotd_schema_migrations (migration_id TEXT PRIMARY KEY NOT NULL, applied_at TEXT NOT NULL)`); err != nil {
 		t.Fatalf("create pre-S0-02-07 migration ledger: %v", err)
 	}
 	if _, err := database.Exec(identitySchema); err != nil {
 		t.Fatalf("create S0-02-01 identity schema: %v", err)
 	}
-	if _, err := database.Exec(`INSERT INTO iotd_schema_migrations (migration_id, applied_at) VALUES (?, '2026-09-03T00:00:00Z')`, MigrationID); err != nil {
-		t.Fatalf("record S0-02-01 migration: %v", err)
+	if _, err := database.Exec(serviceCredentialSchema); err != nil {
+		t.Fatalf("create S0-02-07 service credential schema: %v", err)
+	}
+	if _, err := database.Exec(`INSERT INTO iotd_schema_migrations (migration_id, applied_at) VALUES (?, '2026-09-03T00:00:00Z'), (?, '2026-09-03T00:00:00Z')`, MigrationID, ServiceCredentialMigrationID); err != nil {
+		t.Fatalf("record existing migrations: %v", err)
 	}
 	if _, err := database.Exec(`
 INSERT INTO organizations (id, slug, name) VALUES ('org-a', 'org-a', 'Organization A');
@@ -105,12 +133,12 @@ INSERT INTO service_accounts (id, organization_id, name) VALUES ('service-a', 'o
 	if err := rows.Err(); err != nil {
 		t.Fatalf("iterate upgraded identity tables: %v", err)
 	}
-	for _, table := range []string{"iotd_schema_migrations", "organizations", "users", "external_identities", "service_accounts", "service_account_credentials"} {
+	for _, table := range []string{"iotd_schema_migrations", "organizations", "users", "external_identities", "service_accounts", "service_account_credentials", "teams", "team_memberships", "roles", "permissions", "permission_allowed_scopes", "role_permission_grants", "role_permission_grant_allowed_scopes", "role_bindings"} {
 		if !tables[table] {
 			t.Fatalf("upgraded identity table set is missing %q: %v", table, tables)
 		}
 	}
-	if len(tables) != 6 {
+	if len(tables) != 14 {
 		t.Fatalf("upgrade added unexpected tables: %v", tables)
 	}
 	for table, want := range map[string]int{"organizations": 1, "users": 1, "external_identities": 1, "service_accounts": 1} {
@@ -119,7 +147,7 @@ INSERT INTO service_accounts (id, organization_id, name) VALUES ('service-a', 'o
 			t.Fatalf("upgraded table %s count = %d error=%v, want %d", table, count, err, want)
 		}
 	}
-	for _, migrationID := range []string{MigrationID, ServiceCredentialMigrationID} {
+	for _, migrationID := range []string{MigrationID, ServiceCredentialMigrationID, "S0-03-02_authorization_dictionary_v1"} {
 		var count int
 		if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, migrationID).Scan(&count); err != nil || count != 1 {
 			t.Fatalf("migration ledger %q count = %d error=%v, want 1", migrationID, count, err)
@@ -129,7 +157,7 @@ INSERT INTO service_accounts (id, organization_id, name) VALUES ('service-a', 'o
 		t.Fatalf("repeat upgraded migration: %v", err)
 	}
 	var ledgerCount int
-	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations`).Scan(&ledgerCount); err != nil || ledgerCount != 2 {
-		t.Fatalf("repeat migration ledger count = %d error=%v, want 2", ledgerCount, err)
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations`).Scan(&ledgerCount); err != nil || ledgerCount != 3 {
+		t.Fatalf("repeat migration ledger count = %d error=%v, want 3", ledgerCount, err)
 	}
 }
