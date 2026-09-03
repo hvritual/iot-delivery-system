@@ -103,8 +103,8 @@ func TestGeneratedOperationPlansDeclareLocalAPIKeyAuthorizationAndTransactions(t
 		if plan.Execution.Transaction != expected.transaction {
 			t.Fatalf("operation %s transaction = %q, want %q", plan.OperationID, plan.Execution.Transaction, expected.transaction)
 		}
-		if plan.Security.Public || len(plan.Security.Authentication) != 1 || plan.Security.Authentication[0] != "api-key" {
-			t.Fatalf("operation %s security = %#v, want local API key protection", plan.OperationID, plan.Security)
+		if plan.Security.Public || len(plan.Security.Authentication) != 2 || plan.Security.Authentication[0] != "api-key" || plan.Security.Authentication[1] != "jwt" {
+			t.Fatalf("operation %s security = %#v, want API key and JWT protection", plan.OperationID, plan.Security)
 		}
 		if len(plan.Security.Permissions) != 1 || plan.Security.Permissions[0] != expected.permission {
 			t.Fatalf("operation %s permissions = %#v, want %q", plan.OperationID, plan.Security.Permissions, expected.permission)

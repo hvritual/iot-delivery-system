@@ -1,6 +1,11 @@
+import { BFF_ASSERTION_HEADER, BFF_ASSERTION_SIGNATURE_HEADER, BFF_TRACE_HEADER, createBffAssertionHeaders } from "./bff-assertion";
+import type { VerifiedLogin } from "./oidc";
+
 export const DEFAULT_DELIVERY_API_TARGET = "http://127.0.0.1:8281";
 
 export type RuntimeEnvironment = Partial<NodeJS.ProcessEnv>;
+
+const FORWARD_REQUEST_HEADERS = new Set(["accept", "content-type", "if-match", "idempotency-key"]);
 
 function resolveRuntimeTarget(environment: RuntimeEnvironment): URL {
   const configured = environment.IOT_DELIVERY_API_TARGET?.trim() || DEFAULT_DELIVERY_API_TARGET;
@@ -44,20 +49,30 @@ export async function createRuntimeRequest(
   request: Request,
   pathSegments: readonly string[],
   environment: RuntimeEnvironment = process.env,
+  login?: VerifiedLogin,
+  traceId?: string,
 ): Promise<Request> {
   const incoming = new URL(request.url);
-  const headers = new Headers(request.headers);
-  headers.delete("host");
-  headers.delete("connection");
-  headers.delete("content-length");
+  const headers = new Headers();
+  for (const [name, value] of request.headers) {
+    if (FORWARD_REQUEST_HEADERS.has(name.toLowerCase())) {
+      headers.append(name, value);
+    }
+  }
 
   const apiKey = environment.IOT_DELIVERY_LOCAL_API_KEY?.trim();
   if (apiKey) headers.set("X-API-Key", apiKey);
 
   const method = request.method.toUpperCase();
-  const body = method === "GET" || method === "HEAD" ? undefined : await request.arrayBuffer();
+  const body = method === "GET" || method === "HEAD" ? undefined : new Uint8Array(await request.arrayBuffer());
+  const url = buildRuntimeUrl(requestPath(pathSegments), incoming.searchParams, environment);
+  if (login) {
+    const upstream = new URL(url);
+    const assertionHeaders = createBffAssertionHeaders(login, method, `${upstream.pathname}${upstream.search}`, body, environment, undefined, traceId);
+    assertionHeaders.forEach((value, name) => headers.set(name, value));
+  }
 
-  return new Request(buildRuntimeUrl(requestPath(pathSegments), incoming.searchParams, environment), {
+  return new Request(url, {
     method,
     headers,
     body,

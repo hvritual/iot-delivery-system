@@ -10,7 +10,8 @@
       "responseType": "iot.delivery.v1.GetDashboardResponse",
       "security": {
         "authentication": [
-          "api-key"
+          "api-key",
+          "jwt"
         ],
         "permissions": [
           "delivery.dashboard.read"
@@ -37,7 +38,8 @@
       "responseType": "iot.delivery.v1.WorkItemResponse",
       "security": {
         "authentication": [
-          "api-key"
+          "api-key",
+          "jwt"
         ],
         "permissions": [
           "delivery.items.gate"
@@ -64,7 +66,8 @@
       "responseType": "iot.delivery.v1.WorkItemResponse",
       "security": {
         "authentication": [
-          "api-key"
+          "api-key",
+          "jwt"
         ],
         "permissions": [
           "delivery.items.close"
@@ -91,7 +94,8 @@
       "responseType": "iot.delivery.v1.CommentResponse",
       "security": {
         "authentication": [
-          "api-key"
+          "api-key",
+          "jwt"
         ],
         "permissions": [
           "delivery.items.write"
@@ -118,7 +122,8 @@
       "responseType": "iot.delivery.v1.WorkItemResponse",
       "security": {
         "authentication": [
-          "api-key"
+          "api-key",
+          "jwt"
         ],
         "permissions": [
           "delivery.items.write"
@@ -145,7 +150,8 @@
       "responseType": "iot.delivery.v1.ListItemsResponse",
       "security": {
         "authentication": [
-          "api-key"
+          "api-key",
+          "jwt"
         ],
         "permissions": [
           "delivery.items.read"
@@ -172,7 +178,8 @@
       "responseType": "iot.delivery.v1.WorkItemResponse",
       "security": {
         "authentication": [
-          "api-key"
+          "api-key",
+          "jwt"
         ],
         "permissions": [
           "delivery.items.write"
@@ -199,7 +206,8 @@
       "responseType": "iot.delivery.v1.WorkItemResponse",
       "security": {
         "authentication": [
-          "api-key"
+          "api-key",
+          "jwt"
         ],
         "permissions": [
           "delivery.items.write"
@@ -226,7 +234,8 @@
       "responseType": "iot.delivery.v1.MilestoneResponse",
       "security": {
         "authentication": [
-          "api-key"
+          "api-key",
+          "jwt"
         ],
         "permissions": [
           "delivery.items.write"
@@ -253,7 +262,8 @@
       "responseType": "iot.delivery.v1.ProjectResponse",
       "security": {
         "authentication": [
-          "api-key"
+          "api-key",
+          "jwt"
         ],
         "permissions": [
           "delivery.items.write"
@@ -280,7 +290,8 @@
       "responseType": "iot.delivery.v1.ReleaseResponse",
       "security": {
         "authentication": [
-          "api-key"
+          "api-key",
+          "jwt"
         ],
         "permissions": [
           "delivery.items.write"
@@ -307,7 +318,8 @@
       "responseType": "iot.delivery.v1.SprintResponse",
       "security": {
         "authentication": [
-          "api-key"
+          "api-key",
+          "jwt"
         ],
         "permissions": [
           "delivery.items.write"

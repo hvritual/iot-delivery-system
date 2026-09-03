@@ -1,0 +1,253 @@
+// Package bffhttp adapts the local BFF trust contract to Yunka's execution
+// context. The browser is never an identity authority at this boundary.
+package bffhttp
+
+import (
+	"bytes"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"strings"
+
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/bffassertion"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitybinding"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localauth"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/oidcverify"
+	"yunka.io/framework/core/identity"
+	"yunka.io/framework/core/runtimecontext"
+)
+
+const (
+	maxRequestBodyBytes   = 1 << 20
+	maxErrorResponseBytes = 64 << 10
+)
+
+type Config struct {
+	Authenticator  *localauth.Authenticator
+	Verifier       *bffassertion.Verifier
+	Resolver       *identitybinding.Resolver
+	OrganizationID string
+}
+
+type Middleware struct {
+	authenticator  *localauth.Authenticator
+	verifier       *bffassertion.Verifier
+	resolver       *identitybinding.Resolver
+	organizationID string
+}
+
+func NewMiddleware(config Config) (*Middleware, error) {
+	if config.Authenticator == nil || config.Verifier == nil || config.Resolver == nil || strings.TrimSpace(config.OrganizationID) == "" {
+		return nil, errors.New("BFF HTTP middleware is not configured")
+	}
+	return &Middleware{
+		authenticator:  config.Authenticator,
+		verifier:       config.Verifier,
+		resolver:       config.Resolver,
+		organizationID: strings.TrimSpace(config.OrganizationID),
+	}, nil
+}
+
+// HTTPMiddleware authenticates the existing local key first. A missing
+// assertion remains an explicit legacy/bootstrap API-key call; an assertion
+// can only narrow that authenticated BFF channel into an OIDC person.
+func (middleware *Middleware) HTTPMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		traceID := newTraceID()
+		if middleware == nil || middleware.authenticator == nil {
+			writeError(writer, http.StatusServiceUnavailable, "service_unavailable", traceID)
+			return
+		}
+		channelPrincipal, err := middleware.authenticator.AuthenticateAPIKey(request.Header.Get(localauth.APIKeyHeader))
+		if err != nil {
+			writeError(writer, http.StatusUnauthorized, "unauthorized", traceID)
+			return
+		}
+		principal := channelPrincipal
+		if hasAssertionHeaders(request.Header) {
+			if middleware.verifier == nil || middleware.resolver == nil || middleware.organizationID == "" {
+				writeError(writer, http.StatusServiceUnavailable, "service_unavailable", traceID)
+				return
+			}
+			body, readErr := readAndRestoreBody(request)
+			if readErr != nil {
+				writeError(writer, http.StatusBadRequest, "invalid_request", traceID)
+				return
+			}
+			claims, verifyErr := middleware.verifier.Verify(request, body)
+			if verifyErr != nil {
+				writeError(writer, http.StatusUnauthorized, "unauthorized", traceID)
+				return
+			}
+			traceID = claims.TraceID
+			user, resolveErr := middleware.resolver.ResolveOrProvision(request.Context(), middleware.organizationID, oidcverify.VerifiedClaims{
+				Issuer: claims.Issuer, Subject: claims.Subject, Email: claims.Email, DisplayName: claims.DisplayName,
+			})
+			if resolveErr != nil {
+				writeError(writer, http.StatusForbidden, "forbidden", traceID)
+				return
+			}
+			principal = identity.Principal{
+				Subject:       "oidc-bff/" + user.ID,
+				TenantID:      user.OrganizationID,
+				UserID:        user.ID,
+				Roles:         append([]string(nil), channelPrincipal.Roles...),
+				AuthMethod:    identity.AuthMethodJWT,
+				Authenticated: true,
+			}
+		}
+		ctx := identity.WithPrincipal(request.Context(), principal)
+		ctx = runtimecontext.WithTraceID(ctx, traceID)
+		ctx = runtimecontext.WithMetadata(ctx, runtimecontext.Metadata{Transport: "http", Protocol: "http", Method: request.Method, Route: request.URL.EscapedPath(), RequestID: traceID})
+		traced := newTraceResponseWriter(writer, traceID)
+		next.ServeHTTP(traced, request.WithContext(ctx))
+		traced.commit()
+	})
+}
+
+// APIKeyTraceMiddleware keeps the explicit legacy/bootstrap route available
+// while giving every response the same server-generated trace contract.
+func APIKeyTraceMiddleware(authenticator *localauth.Authenticator) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			traceID := newTraceID()
+			if authenticator == nil {
+				writeError(writer, http.StatusServiceUnavailable, "service_unavailable", traceID)
+				return
+			}
+			principal, err := authenticator.AuthenticateAPIKey(request.Header.Get(localauth.APIKeyHeader))
+			if err != nil {
+				writeError(writer, http.StatusUnauthorized, "unauthorized", traceID)
+				return
+			}
+			if hasAssertionHeaders(request.Header) {
+				writeError(writer, http.StatusUnauthorized, "unauthorized", traceID)
+				return
+			}
+			ctx := identity.WithPrincipal(request.Context(), principal)
+			ctx = runtimecontext.WithTraceID(ctx, traceID)
+			ctx = runtimecontext.WithMetadata(ctx, runtimecontext.Metadata{Transport: "http", Protocol: "http", Method: request.Method, Route: request.URL.EscapedPath(), RequestID: traceID})
+			traced := newTraceResponseWriter(writer, traceID)
+			next.ServeHTTP(traced, request.WithContext(ctx))
+			traced.commit()
+		})
+	}
+}
+
+func hasAssertionHeaders(headers http.Header) bool {
+	return len(headers.Values(bffassertion.AssertionHeader)) > 0 || len(headers.Values(bffassertion.SignatureHeader)) > 0 || len(headers.Values(bffassertion.TraceHeader)) > 0
+}
+
+func readAndRestoreBody(request *http.Request) ([]byte, error) {
+	if request.Body == nil {
+		return nil, nil
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(nil, request.Body, maxRequestBodyBytes))
+	if err != nil {
+		return nil, err
+	}
+	request.Body = io.NopCloser(bytes.NewReader(body))
+	return body, nil
+}
+
+func newTraceID() string {
+	value := make([]byte, 16)
+	if _, err := rand.Read(value); err != nil {
+		return "00000000000000000000000000000000"
+	}
+	return hex.EncodeToString(value)
+}
+
+func writeError(writer http.ResponseWriter, status int, code, traceID string) {
+	writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+	writer.Header().Set(bffassertion.TraceHeader, traceID)
+	writer.WriteHeader(status)
+	_ = json.NewEncoder(writer).Encode(map[string]string{"error": code, "traceId": traceID})
+}
+
+type traceResponseWriter struct {
+	destination http.ResponseWriter
+	traceID     string
+	header      http.Header
+	body        bytes.Buffer
+	status      int
+	wroteHeader bool
+	buffered    bool
+}
+
+func newTraceResponseWriter(destination http.ResponseWriter, traceID string) *traceResponseWriter {
+	destination.Header().Set(bffassertion.TraceHeader, traceID)
+	return &traceResponseWriter{destination: destination, traceID: traceID}
+}
+
+func (writer *traceResponseWriter) Header() http.Header { return writer.destination.Header() }
+
+func (writer *traceResponseWriter) WriteHeader(status int) {
+	if writer.wroteHeader {
+		return
+	}
+	writer.wroteHeader = true
+	writer.status = status
+	if status >= http.StatusBadRequest {
+		writer.buffered = true
+		writer.header = writer.destination.Header().Clone()
+		clearHeader(writer.destination.Header())
+		return
+	}
+	writer.destination.WriteHeader(status)
+}
+
+func (writer *traceResponseWriter) Write(value []byte) (int, error) {
+	if !writer.wroteHeader {
+		writer.WriteHeader(http.StatusOK)
+	}
+	if writer.buffered {
+		remaining := maxErrorResponseBytes - writer.body.Len()
+		if remaining > 0 {
+			_, _ = writer.body.Write(value[:min(len(value), remaining)])
+		}
+		return len(value), nil
+	}
+	return writer.destination.Write(value)
+}
+
+func (writer *traceResponseWriter) commit() {
+	if !writer.buffered {
+		return
+	}
+	body := writer.body.Bytes()
+	payload := map[string]any{"error": "request_failed"}
+	if writer.status < http.StatusInternalServerError {
+		var candidate map[string]any
+		if err := json.Unmarshal(body, &candidate); err == nil && candidate != nil {
+			payload = candidate
+			if _, ok := payload["error"]; !ok {
+				payload["error"] = "request_failed"
+			}
+		}
+	} else {
+		payload["error"] = "internal_error"
+	}
+	payload["traceId"] = writer.traceID
+	body, _ = json.Marshal(payload)
+	body = append(body, '\n')
+	writer.header.Set("Content-Type", "application/json; charset=utf-8")
+	writer.header.Del("Content-Length")
+	for name, values := range writer.header {
+		for _, value := range values {
+			writer.destination.Header().Add(name, value)
+		}
+	}
+	writer.destination.Header().Set(bffassertion.TraceHeader, writer.traceID)
+	writer.destination.WriteHeader(writer.status)
+	_, _ = writer.destination.Write(body)
+}
+
+func clearHeader(header http.Header) {
+	for name := range header {
+		delete(header, name)
+	}
+}

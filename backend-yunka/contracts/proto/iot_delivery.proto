@@ -21,6 +21,7 @@ service DeliveryService {
       permissions: "delivery.dashboard.read"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
       composition: COMPOSITION_LOCAL
       execution: { transaction: TRANSACTION_READ_ONLY idempotency: IDEMPOTENCY_NONE }
     };
@@ -32,6 +33,7 @@ service DeliveryService {
       permissions: "delivery.items.read"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
       composition: COMPOSITION_LOCAL
       execution: { transaction: TRANSACTION_READ_ONLY idempotency: IDEMPOTENCY_NONE }
     };
@@ -43,6 +45,7 @@ service DeliveryService {
       permissions: "delivery.items.write"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
       composition: COMPOSITION_LOCAL
       execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
     };
@@ -54,6 +57,7 @@ service DeliveryService {
       permissions: "delivery.items.write"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
       composition: COMPOSITION_LOCAL
       execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
     };
@@ -65,6 +69,7 @@ service DeliveryService {
       permissions: "delivery.items.write"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
       composition: COMPOSITION_LOCAL
       execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
     };
@@ -76,6 +81,7 @@ service DeliveryService {
       permissions: "delivery.items.write"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
       composition: COMPOSITION_LOCAL
       execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
     };
@@ -87,6 +93,7 @@ service DeliveryService {
       permissions: "delivery.items.gate"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
       composition: COMPOSITION_LOCAL
       execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
     };
@@ -98,6 +105,7 @@ service DeliveryService {
       permissions: "delivery.items.close"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
       composition: COMPOSITION_LOCAL
       execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
     };
@@ -109,6 +117,7 @@ service DeliveryService {
       permissions: "delivery.items.write"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
       composition: COMPOSITION_LOCAL
       execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
     };
@@ -120,6 +129,7 @@ service DeliveryService {
       permissions: "delivery.items.write"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
       composition: COMPOSITION_LOCAL
       execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
     };
@@ -131,6 +141,7 @@ service DeliveryService {
       permissions: "delivery.items.write"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
       composition: COMPOSITION_LOCAL
       execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
     };
@@ -142,6 +153,7 @@ service DeliveryService {
       permissions: "delivery.items.write"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
       composition: COMPOSITION_LOCAL
       execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
     };

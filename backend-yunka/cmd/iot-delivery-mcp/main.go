@@ -54,10 +54,12 @@ func main() {
 
 func configurationFromEnv() bootstrap.Config {
 	return bootstrap.Config{
-		HTTPAddress:   valueOr("IOT_DELIVERY_MCP_HTTP_ADDR", "127.0.0.1:0"),
-		GRPCAddress:   valueOr("IOT_DELIVERY_MCP_GRPC_ADDR", "127.0.0.1:0"),
-		DatabasePath:  valueOr("IOT_DELIVERY_YUNKA_DB", "data/iot-delivery-yunka.db"),
-		ObsidianVault: valueOr("IOT_DELIVERY_YUNKA_OBSIDIAN_VAULT", "runtime-vault"),
+		HTTPAddress:       valueOr("IOT_DELIVERY_MCP_HTTP_ADDR", "127.0.0.1:0"),
+		GRPCAddress:       valueOr("IOT_DELIVERY_MCP_GRPC_ADDR", "127.0.0.1:0"),
+		DatabasePath:      valueOr("IOT_DELIVERY_YUNKA_DB", "data/iot-delivery-yunka.db"),
+		ObsidianVault:     valueOr("IOT_DELIVERY_YUNKA_OBSIDIAN_VAULT", "runtime-vault"),
+		BFFOrganizationID: strings.TrimSpace(os.Getenv("IOT_DELIVERY_BFF_ORGANIZATION_ID")),
+		BFFAssertionKey:   strings.TrimSpace(os.Getenv("IOT_DELIVERY_BFF_ASSERTION_KEY")),
 	}
 }
 

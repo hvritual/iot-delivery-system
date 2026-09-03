@@ -480,7 +480,7 @@ func extensionPlan(operationID, useCase, permission, transaction string) operati
 		Execution:   operationplan.Execution{Transaction: transaction, Idempotency: "none"},
 		Security: operationplan.Security{
 			Public:         false,
-			Authentication: []string{"api-key"},
+			Authentication: []string{"api-key", "jwt"},
 			Permissions:    []string{permission},
 			PermissionMode: "all",
 		},

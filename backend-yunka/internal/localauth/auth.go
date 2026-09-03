@@ -43,6 +43,17 @@ type credential struct {
 	role   string
 }
 
+// NewAuthenticator constructs the local API-key boundary from an explicit
+// server-supplied credential. It is used by composition roots and tests that
+// must not mutate process environment.
+func NewAuthenticator(apiKey string) (*Authenticator, error) {
+	apiKey = strings.TrimSpace(apiKey)
+	if apiKey == "" {
+		return nil, errors.New("local API key is required")
+	}
+	return &Authenticator{credentials: []credential{{apiKey: []byte(apiKey), role: RoleLocalAdmin}}}, nil
+}
+
 func FromEnvironment() (*Authenticator, error) {
 	apiKey := strings.TrimSpace(os.Getenv(APIKeyEnvironment))
 	if apiKey == "" {

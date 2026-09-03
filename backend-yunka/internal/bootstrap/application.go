@@ -2,15 +2,20 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
 	generatedassembly "github.com/hvritual/iot-delivery-system/backend-yunka/internal/assembly"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/bffassertion"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/bffhttp"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	deliveryapplication "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/httpapi"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitybinding"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitycore"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localauth"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localoutbox"
@@ -35,6 +40,8 @@ type Config struct {
 	ObsidianVault        string
 	NotificationChannels []notification.Channel
 	DueReminder          delivery.DueReminderConfig
+	BFFOrganizationID    string
+	BFFAssertionKey      string
 }
 
 type Application struct {
@@ -74,6 +81,11 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		_ = repository.Close()
 		return nil, fmt.Errorf("initialize identity core schema: %w", err)
 	}
+	identityResolver, err := identitybinding.NewSQLiteResolver(repository.Database(), identitybinding.Config{})
+	if err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("configure identity binding resolver: %w", err)
+	}
 	exporter := obsidian.NewExporter(configuration.ObsidianVault)
 	outboxStore, err := localoutbox.NewSQLiteStore(repository.Database())
 	if err != nil {
@@ -86,6 +98,11 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		return nil, err
 	}
 	authenticator, err := localauth.FromEnvironment()
+	if err != nil {
+		_ = repository.Close()
+		return nil, err
+	}
+	httpMiddleware, err := configuredHTTPMiddleware(authenticator, identityResolver, configuration)
 	if err != nil {
 		_ = repository.Close()
 		return nil, err
@@ -174,7 +191,7 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	started, err := runtimehost.Bootstrap(ctx, runtimehost.Options[generatedassembly.Applications]{
 		HTTPListenAddress: configuration.HTTPAddress,
 		GRPCListenAddress: configuration.GRPCAddress,
-		HTTPMiddleware:    authenticator.HTTPMiddleware,
+		HTTPMiddleware:    httpMiddleware,
 		GRPCServerOptions: []grpc.ServerOption{grpc.UnaryInterceptor(authenticator.GRPCUnaryServerInterceptor())},
 		HealthPath:        "/health",
 		DiagnosticsPath:   "/__yunka/diagnostics",
@@ -213,6 +230,35 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	application.httpAddress = started.HTTPAddress
 	application.grpcAddress = started.GRPCAddress
 	return application, nil
+}
+
+func configuredHTTPMiddleware(authenticator *localauth.Authenticator, resolver *identitybinding.Resolver, configuration Config) (func(http.Handler) http.Handler, error) {
+	organizationID := strings.TrimSpace(configuration.BFFOrganizationID)
+	encodedKey := strings.TrimSpace(configuration.BFFAssertionKey)
+	if organizationID == "" && encodedKey == "" {
+		return bffhttp.APIKeyTraceMiddleware(authenticator), nil
+	}
+	if organizationID == "" || encodedKey == "" {
+		return nil, errors.New("BFF organization and assertion key must be configured together")
+	}
+	key, err := base64.RawURLEncoding.DecodeString(encodedKey)
+	if err != nil || len(key) < 32 || base64.RawURLEncoding.EncodeToString(key) != encodedKey {
+		return nil, errors.New("BFF assertion key must be base64url and at least 32 bytes")
+	}
+	verifier, err := bffassertion.NewVerifier(bffassertion.Config{Key: key})
+	if err != nil {
+		return nil, fmt.Errorf("configure BFF assertion verifier: %w", err)
+	}
+	middleware, err := bffhttp.NewMiddleware(bffhttp.Config{
+		Authenticator:  authenticator,
+		Verifier:       verifier,
+		Resolver:       resolver,
+		OrganizationID: organizationID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("configure BFF HTTP middleware: %w", err)
+	}
+	return middleware.HTTPMiddleware, nil
 }
 
 type applicationFactories struct {

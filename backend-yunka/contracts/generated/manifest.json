@@ -1658,7 +1658,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ],
             "composition": "local",
             "execution": {
@@ -1673,7 +1674,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ]
           }
         },
@@ -1690,7 +1692,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ],
             "composition": "local",
             "execution": {
@@ -1705,7 +1708,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ]
           }
         },
@@ -1722,7 +1726,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ],
             "composition": "local",
             "execution": {
@@ -1737,7 +1742,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ]
           }
         },
@@ -1754,7 +1760,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ],
             "composition": "local",
             "execution": {
@@ -1769,7 +1776,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ]
           }
         },
@@ -1786,7 +1794,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ],
             "composition": "local",
             "execution": {
@@ -1801,7 +1810,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ]
           }
         },
@@ -1818,7 +1828,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ],
             "composition": "local",
             "execution": {
@@ -1833,7 +1844,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ]
           }
         },
@@ -1850,7 +1862,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ],
             "composition": "local",
             "execution": {
@@ -1865,7 +1878,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ]
           }
         },
@@ -1882,7 +1896,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ],
             "composition": "local",
             "execution": {
@@ -1897,7 +1912,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ]
           }
         },
@@ -1914,7 +1930,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ],
             "composition": "local",
             "execution": {
@@ -1929,7 +1946,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ]
           }
         },
@@ -1946,7 +1964,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ],
             "composition": "local",
             "execution": {
@@ -1961,7 +1980,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ]
           }
         },
@@ -1978,7 +1998,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ],
             "composition": "local",
             "execution": {
@@ -1993,7 +2014,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ]
           }
         },
@@ -2010,7 +2032,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ],
             "composition": "local",
             "execution": {
@@ -2025,7 +2048,8 @@
             ],
             "permissionMode": "all",
             "authentication": [
-              "api-key"
+              "api-key",
+              "jwt"
             ]
           }
         }

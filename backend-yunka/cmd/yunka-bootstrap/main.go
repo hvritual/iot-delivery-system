@@ -55,6 +55,8 @@ func configurationFromEnv() (bootstrap.Config, error) {
 		ObsidianVault:        valueOr("IOT_DELIVERY_YUNKA_OBSIDIAN_VAULT", "runtime-vault"),
 		NotificationChannels: channels,
 		DueReminder:          dueReminder,
+		BFFOrganizationID:    strings.TrimSpace(os.Getenv("IOT_DELIVERY_BFF_ORGANIZATION_ID")),
+		BFFAssertionKey:      strings.TrimSpace(os.Getenv("IOT_DELIVERY_BFF_ASSERTION_KEY")),
 	}, nil
 }
 
