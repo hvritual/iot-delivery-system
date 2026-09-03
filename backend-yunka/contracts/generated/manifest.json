@@ -203,6 +203,189 @@
       }
     },
     {
+      "name": "CreateMilestoneRequest",
+      "fullName": "iot.delivery.v1.CreateMilestoneRequest",
+      "fields": [
+        {
+          "name": "project_id",
+          "jsonName": "projectId",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "jsonName": "name",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "target_date",
+          "jsonName": "targetDate",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "jsonName": "status",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "description",
+          "jsonName": "description",
+          "number": 5,
+          "kind": "scalar",
+          "type": "string"
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "CreateProjectRequest",
+      "fullName": "iot.delivery.v1.CreateProjectRequest",
+      "fields": [
+        {
+          "name": "name",
+          "jsonName": "name",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "board",
+          "jsonName": "board",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "owner",
+          "jsonName": "owner",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "description",
+          "jsonName": "description",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "CreateReleaseRequest",
+      "fullName": "iot.delivery.v1.CreateReleaseRequest",
+      "fields": [
+        {
+          "name": "project_id",
+          "jsonName": "projectId",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "jsonName": "name",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "version",
+          "jsonName": "version",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "target_date",
+          "jsonName": "targetDate",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "jsonName": "status",
+          "number": 5,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "description",
+          "jsonName": "description",
+          "number": 6,
+          "kind": "scalar",
+          "type": "string"
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "CreateSprintRequest",
+      "fullName": "iot.delivery.v1.CreateSprintRequest",
+      "fields": [
+        {
+          "name": "project_id",
+          "jsonName": "projectId",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "jsonName": "name",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "goal",
+          "jsonName": "goal",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "start_date",
+          "jsonName": "startDate",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "end_date",
+          "jsonName": "endDate",
+          "number": 5,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "jsonName": "status",
+          "number": 6,
+          "kind": "scalar",
+          "type": "string"
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
       "name": "Dashboard",
       "fullName": "iot.delivery.v1.Dashboard",
       "fields": [
@@ -365,6 +548,337 @@
           "kind": "message",
           "type": "iot.delivery.v1.WorkItem",
           "repeated": true
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
+      "name": "Milestone",
+      "fullName": "iot.delivery.v1.Milestone",
+      "fields": [
+        {
+          "name": "id",
+          "jsonName": "id",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "project_id",
+          "jsonName": "projectId",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "jsonName": "name",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "target_date",
+          "jsonName": "targetDate",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "jsonName": "status",
+          "number": 5,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "description",
+          "jsonName": "description",
+          "number": 6,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "jsonName": "createdAt",
+          "number": 7,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        },
+        {
+          "name": "updated_at",
+          "jsonName": "updatedAt",
+          "number": 8,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
+      "name": "MilestoneResponse",
+      "fullName": "iot.delivery.v1.MilestoneResponse",
+      "fields": [
+        {
+          "name": "milestone",
+          "jsonName": "milestone",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.Milestone"
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
+      "name": "Project",
+      "fullName": "iot.delivery.v1.Project",
+      "fields": [
+        {
+          "name": "id",
+          "jsonName": "id",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "jsonName": "name",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "board",
+          "jsonName": "board",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "owner",
+          "jsonName": "owner",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "jsonName": "createdAt",
+          "number": 5,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        },
+        {
+          "name": "updated_at",
+          "jsonName": "updatedAt",
+          "number": 6,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        },
+        {
+          "name": "description",
+          "jsonName": "description",
+          "number": 7,
+          "kind": "scalar",
+          "type": "string"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
+      "name": "ProjectResponse",
+      "fullName": "iot.delivery.v1.ProjectResponse",
+      "fields": [
+        {
+          "name": "project",
+          "jsonName": "project",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.Project"
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
+      "name": "Release",
+      "fullName": "iot.delivery.v1.Release",
+      "fields": [
+        {
+          "name": "id",
+          "jsonName": "id",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "project_id",
+          "jsonName": "projectId",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "jsonName": "name",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "version",
+          "jsonName": "version",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "target_date",
+          "jsonName": "targetDate",
+          "number": 5,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "jsonName": "status",
+          "number": 6,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "description",
+          "jsonName": "description",
+          "number": 7,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "jsonName": "createdAt",
+          "number": 8,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        },
+        {
+          "name": "updated_at",
+          "jsonName": "updatedAt",
+          "number": 9,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
+      "name": "ReleaseResponse",
+      "fullName": "iot.delivery.v1.ReleaseResponse",
+      "fields": [
+        {
+          "name": "release",
+          "jsonName": "release",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.Release"
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
+      "name": "Sprint",
+      "fullName": "iot.delivery.v1.Sprint",
+      "fields": [
+        {
+          "name": "id",
+          "jsonName": "id",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "project_id",
+          "jsonName": "projectId",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "jsonName": "name",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "goal",
+          "jsonName": "goal",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "start_date",
+          "jsonName": "startDate",
+          "number": 5,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "end_date",
+          "jsonName": "endDate",
+          "number": 6,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "jsonName": "status",
+          "number": 7,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "jsonName": "createdAt",
+          "number": 8,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        },
+        {
+          "name": "updated_at",
+          "jsonName": "updatedAt",
+          "number": 9,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
+      "name": "SprintResponse",
+      "fullName": "iot.delivery.v1.SprintResponse",
+      "fields": [
+        {
+          "name": "sprint",
+          "jsonName": "sprint",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.Sprint"
         }
       ],
       "dto": {
@@ -675,6 +1189,134 @@
           },
           "authorization": {
             "operationId": "delivery.items.create",
+            "permissions": [
+              "delivery.items.write"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ]
+          }
+        },
+        {
+          "name": "CreateMilestone",
+          "fullName": "iot.delivery.v1.DeliveryService.CreateMilestone",
+          "request": "iot.delivery.v1.CreateMilestoneRequest",
+          "response": "iot.delivery.v1.MilestoneResponse",
+          "operation": {
+            "id": "delivery.milestones.create",
+            "useCase": "create_milestone",
+            "permissions": [
+              "delivery.items.write"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "local",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.milestones.create",
+            "permissions": [
+              "delivery.items.write"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ]
+          }
+        },
+        {
+          "name": "CreateProject",
+          "fullName": "iot.delivery.v1.DeliveryService.CreateProject",
+          "request": "iot.delivery.v1.CreateProjectRequest",
+          "response": "iot.delivery.v1.ProjectResponse",
+          "operation": {
+            "id": "delivery.projects.create",
+            "useCase": "create_project",
+            "permissions": [
+              "delivery.items.write"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "local",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.projects.create",
+            "permissions": [
+              "delivery.items.write"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ]
+          }
+        },
+        {
+          "name": "CreateRelease",
+          "fullName": "iot.delivery.v1.DeliveryService.CreateRelease",
+          "request": "iot.delivery.v1.CreateReleaseRequest",
+          "response": "iot.delivery.v1.ReleaseResponse",
+          "operation": {
+            "id": "delivery.releases.create",
+            "useCase": "create_release",
+            "permissions": [
+              "delivery.items.write"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "local",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.releases.create",
+            "permissions": [
+              "delivery.items.write"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ]
+          }
+        },
+        {
+          "name": "CreateSprint",
+          "fullName": "iot.delivery.v1.DeliveryService.CreateSprint",
+          "request": "iot.delivery.v1.CreateSprintRequest",
+          "response": "iot.delivery.v1.SprintResponse",
+          "operation": {
+            "id": "delivery.sprints.create",
+            "useCase": "create_sprint",
+            "permissions": [
+              "delivery.items.write"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "local",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.sprints.create",
             "permissions": [
               "delivery.items.write"
             ],

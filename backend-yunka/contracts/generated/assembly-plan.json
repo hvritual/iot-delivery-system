@@ -139,6 +139,90 @@
         "source": "operation-plans.json",
         "ref": "operations/delivery.items.update-context"
       }
+    },
+    {
+      "id": "delivery.milestones.create",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.milestones.create",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.milestones.create/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.milestones.create"
+      }
+    },
+    {
+      "id": "delivery.projects.create",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.projects.create",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.projects.create/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.projects.create"
+      }
+    },
+    {
+      "id": "delivery.releases.create",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.releases.create",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.releases.create/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.releases.create"
+      }
+    },
+    {
+      "id": "delivery.sprints.create",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.sprints.create",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.sprints.create/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.sprints.create"
+      }
     }
   ],
   "modules": [
@@ -168,7 +252,11 @@
         "delivery.items.close",
         "delivery.items.create",
         "delivery.items.list",
-        "delivery.items.update-context"
+        "delivery.items.update-context",
+        "delivery.milestones.create",
+        "delivery.projects.create",
+        "delivery.releases.create",
+        "delivery.sprints.create"
       ],
       "evidence": {
         "ownership": "derived",

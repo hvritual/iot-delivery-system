@@ -120,4 +120,4 @@ go run ./cmd generate --root $target --full --protoc (Join-Path $tools 'protoc-3
 go run ./cmd check --root $target --full --protoc (Join-Path $tools 'protoc-3.21.12/bin/protoc.exe') --proto-path (Join-Path $target '../third_party/yunka/contracts/proto')
 ```
 
-生成后的初始 `operation-plans.json`、应用端口、策略、RPC executor 和 `internal/assembly/` 都是受 Yunka 管理的派生内容；手写实现仅放在 `internal/delivery/application/`、`internal/localauth/`、`internal/localoutbox/`、`internal/localtx/`、`internal/notification/`、`internal/mcpserver/` 与 bootstrap 装配处。R2 的新增 operation plan 尚未加入生成合同，扩展 DSL/Protobuf 是后续硬化项。
+生成后的 `operation-plans.json`、应用端口、策略、RPC executor 和 `internal/assembly/` 都是受 Yunka 管理的派生内容；手写实现仅放在 `internal/delivery/application/`、`internal/localauth/`、`internal/localoutbox/`、`internal/localtx/`、`internal/notification/`、`internal/mcpserver/` 与 bootstrap 装配处。Project、Release、Sprint、Milestone 的创建 operation plan 已纳入生成合同；其余扩展 operation plan 仍由后续硬化项处理。

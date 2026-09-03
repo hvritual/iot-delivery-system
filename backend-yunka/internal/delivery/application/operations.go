@@ -206,20 +206,14 @@ func (operations *Operations) Close(ctx context.Context, id, retrospective strin
 }
 
 func (operations *Operations) CreateProject(ctx context.Context, input delivery.ProjectInput) (delivery.Project, error) {
-	if err := operations.extensionReady(); err != nil {
+	if err := operations.ready(); err != nil {
 		return delivery.Project{}, err
 	}
-	value, err := operations.executor.Execute(ctx, extensionPlan("delivery.projects.create", "create_project", "delivery.items.write", "local"), input, func(callContext context.Context) (any, error) {
-		return operations.service.CreateProject(callContext, input)
-	})
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanCreateProject(), &deliveryv1.CreateProjectRequest{Name: input.Name, Board: string(input.Board), Owner: input.Owner, Description: input.Description}, operations.application.CreateProject)
 	if err != nil {
 		return delivery.Project{}, err
 	}
-	project, ok := value.(delivery.Project)
-	if !ok {
-		return delivery.Project{}, errors.New("delivery project operation returned an unexpected result")
-	}
-	return project, nil
+	return projectFromProto(response.GetProject()), nil
 }
 
 func (operations *Operations) ListProjects(ctx context.Context) ([]delivery.Project, error) {
@@ -281,9 +275,14 @@ func (operations *Operations) Search(ctx context.Context, filter delivery.WorkIt
 }
 
 func (operations *Operations) CreateRelease(ctx context.Context, input delivery.ReleaseInput) (delivery.Release, error) {
-	return executeServiceExtension(operations, ctx, "delivery.releases.create", "create_release", "delivery.items.write", "local", input, func(callContext context.Context) (delivery.Release, error) {
-		return operations.service.CreateRelease(callContext, input)
-	})
+	if err := operations.ready(); err != nil {
+		return delivery.Release{}, err
+	}
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanCreateRelease(), &deliveryv1.CreateReleaseRequest{ProjectId: input.ProjectID, Name: input.Name, Version: input.Version, TargetDate: input.TargetDate, Status: input.Status, Description: input.Description}, operations.application.CreateRelease)
+	if err != nil {
+		return delivery.Release{}, err
+	}
+	return releaseFromProto(response.GetRelease()), nil
 }
 
 func (operations *Operations) ListReleases(ctx context.Context, projectID string) ([]delivery.Release, error) {
@@ -293,9 +292,14 @@ func (operations *Operations) ListReleases(ctx context.Context, projectID string
 }
 
 func (operations *Operations) CreateSprint(ctx context.Context, input delivery.SprintInput) (delivery.Sprint, error) {
-	return executeServiceExtension(operations, ctx, "delivery.sprints.create", "create_sprint", "delivery.items.write", "local", input, func(callContext context.Context) (delivery.Sprint, error) {
-		return operations.service.CreateSprint(callContext, input)
-	})
+	if err := operations.ready(); err != nil {
+		return delivery.Sprint{}, err
+	}
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanCreateSprint(), &deliveryv1.CreateSprintRequest{ProjectId: input.ProjectID, Name: input.Name, Goal: input.Goal, StartDate: input.StartDate, EndDate: input.EndDate, Status: input.Status}, operations.application.CreateSprint)
+	if err != nil {
+		return delivery.Sprint{}, err
+	}
+	return sprintFromProto(response.GetSprint()), nil
 }
 
 func (operations *Operations) ListSprints(ctx context.Context, projectID string) ([]delivery.Sprint, error) {
@@ -305,9 +309,14 @@ func (operations *Operations) ListSprints(ctx context.Context, projectID string)
 }
 
 func (operations *Operations) CreateMilestone(ctx context.Context, input delivery.MilestoneInput) (delivery.Milestone, error) {
-	return executeServiceExtension(operations, ctx, "delivery.milestones.create", "create_milestone", "delivery.items.write", "local", input, func(callContext context.Context) (delivery.Milestone, error) {
-		return operations.service.CreateMilestone(callContext, input)
-	})
+	if err := operations.ready(); err != nil {
+		return delivery.Milestone{}, err
+	}
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanCreateMilestone(), &deliveryv1.CreateMilestoneRequest{ProjectId: input.ProjectID, Name: input.Name, TargetDate: input.TargetDate, Status: input.Status, Description: input.Description}, operations.application.CreateMilestone)
+	if err != nil {
+		return delivery.Milestone{}, err
+	}
+	return milestoneFromProto(response.GetMilestone()), nil
 }
 
 func (operations *Operations) ListMilestones(ctx context.Context, projectID string) ([]delivery.Milestone, error) {
@@ -486,6 +495,34 @@ func workItemFromProto(value *deliveryv1.WorkItem) delivery.WorkItem {
 		})
 	}
 	return item
+}
+
+func projectFromProto(value *deliveryv1.Project) delivery.Project {
+	if value == nil {
+		return delivery.Project{}
+	}
+	return delivery.Project{ID: value.GetId(), Name: value.GetName(), Board: delivery.Board(value.GetBoard()), Owner: value.GetOwner(), Description: value.GetDescription(), CreatedAt: timeFromProto(value.GetCreatedAt()), UpdatedAt: timeFromProto(value.GetUpdatedAt())}
+}
+
+func releaseFromProto(value *deliveryv1.Release) delivery.Release {
+	if value == nil {
+		return delivery.Release{}
+	}
+	return delivery.Release{ID: value.GetId(), ProjectID: value.GetProjectId(), Name: value.GetName(), Version: value.GetVersion(), TargetDate: value.GetTargetDate(), Status: value.GetStatus(), Description: value.GetDescription(), CreatedAt: timeFromProto(value.GetCreatedAt()), UpdatedAt: timeFromProto(value.GetUpdatedAt())}
+}
+
+func sprintFromProto(value *deliveryv1.Sprint) delivery.Sprint {
+	if value == nil {
+		return delivery.Sprint{}
+	}
+	return delivery.Sprint{ID: value.GetId(), ProjectID: value.GetProjectId(), Name: value.GetName(), Goal: value.GetGoal(), StartDate: value.GetStartDate(), EndDate: value.GetEndDate(), Status: value.GetStatus(), CreatedAt: timeFromProto(value.GetCreatedAt()), UpdatedAt: timeFromProto(value.GetUpdatedAt())}
+}
+
+func milestoneFromProto(value *deliveryv1.Milestone) delivery.Milestone {
+	if value == nil {
+		return delivery.Milestone{}
+	}
+	return delivery.Milestone{ID: value.GetId(), ProjectID: value.GetProjectId(), Name: value.GetName(), TargetDate: value.GetTargetDate(), Status: value.GetStatus(), Description: value.GetDescription(), CreatedAt: timeFromProto(value.GetCreatedAt()), UpdatedAt: timeFromProto(value.GetUpdatedAt())}
 }
 
 func decisionToProto(value delivery.Decision) *deliveryv1.Decision {

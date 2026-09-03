@@ -66,6 +66,91 @@ func (adapter *Adapter) CreateItem(ctx context.Context, request *deliveryv1.Crea
 	return &deliveryv1.WorkItemResponse{Item: workItem(item)}, nil
 }
 
+func (adapter *Adapter) CreateProject(ctx context.Context, request *deliveryv1.CreateProjectRequest) (*deliveryv1.ProjectResponse, error) {
+	if request == nil {
+		return nil, errors.New("request is required")
+	}
+	service, err := adapter.deliveryService()
+	if err != nil {
+		return nil, err
+	}
+	project, err := service.CreateProject(ctx, delivery.ProjectInput{
+		Name:        request.GetName(),
+		Board:       delivery.Board(request.GetBoard()),
+		Owner:       request.GetOwner(),
+		Description: request.GetDescription(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &deliveryv1.ProjectResponse{Project: projectToProto(project)}, nil
+}
+
+func (adapter *Adapter) CreateRelease(ctx context.Context, request *deliveryv1.CreateReleaseRequest) (*deliveryv1.ReleaseResponse, error) {
+	if request == nil {
+		return nil, errors.New("request is required")
+	}
+	service, err := adapter.deliveryService()
+	if err != nil {
+		return nil, err
+	}
+	release, err := service.CreateRelease(ctx, delivery.ReleaseInput{
+		ProjectID:   request.GetProjectId(),
+		Name:        request.GetName(),
+		Version:     request.GetVersion(),
+		TargetDate:  request.GetTargetDate(),
+		Status:      request.GetStatus(),
+		Description: request.GetDescription(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &deliveryv1.ReleaseResponse{Release: releaseToProto(release)}, nil
+}
+
+func (adapter *Adapter) CreateSprint(ctx context.Context, request *deliveryv1.CreateSprintRequest) (*deliveryv1.SprintResponse, error) {
+	if request == nil {
+		return nil, errors.New("request is required")
+	}
+	service, err := adapter.deliveryService()
+	if err != nil {
+		return nil, err
+	}
+	sprint, err := service.CreateSprint(ctx, delivery.SprintInput{
+		ProjectID: request.GetProjectId(),
+		Name:      request.GetName(),
+		Goal:      request.GetGoal(),
+		StartDate: request.GetStartDate(),
+		EndDate:   request.GetEndDate(),
+		Status:    request.GetStatus(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &deliveryv1.SprintResponse{Sprint: sprintToProto(sprint)}, nil
+}
+
+func (adapter *Adapter) CreateMilestone(ctx context.Context, request *deliveryv1.CreateMilestoneRequest) (*deliveryv1.MilestoneResponse, error) {
+	if request == nil {
+		return nil, errors.New("request is required")
+	}
+	service, err := adapter.deliveryService()
+	if err != nil {
+		return nil, err
+	}
+	milestone, err := service.CreateMilestone(ctx, delivery.MilestoneInput{
+		ProjectID:   request.GetProjectId(),
+		Name:        request.GetName(),
+		TargetDate:  request.GetTargetDate(),
+		Status:      request.GetStatus(),
+		Description: request.GetDescription(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &deliveryv1.MilestoneResponse{Milestone: milestoneToProto(milestone)}, nil
+}
+
 func (adapter *Adapter) UpdateItemContext(ctx context.Context, request *deliveryv1.UpdateItemContextRequest) (*deliveryv1.WorkItemResponse, error) {
 	if request == nil {
 		return nil, errors.New("request is required")
@@ -191,6 +276,22 @@ func workItem(item delivery.WorkItem) *deliveryv1.WorkItem {
 		CreatedAt:     timestamp(item.CreatedAt),
 		UpdatedAt:     timestamp(item.UpdatedAt),
 	}
+}
+
+func projectToProto(value delivery.Project) *deliveryv1.Project {
+	return &deliveryv1.Project{Id: value.ID, Name: value.Name, Board: string(value.Board), Owner: value.Owner, CreatedAt: timestamp(value.CreatedAt), UpdatedAt: timestamp(value.UpdatedAt), Description: value.Description}
+}
+
+func releaseToProto(value delivery.Release) *deliveryv1.Release {
+	return &deliveryv1.Release{Id: value.ID, ProjectId: value.ProjectID, Name: value.Name, Version: value.Version, TargetDate: value.TargetDate, Status: value.Status, Description: value.Description, CreatedAt: timestamp(value.CreatedAt), UpdatedAt: timestamp(value.UpdatedAt)}
+}
+
+func sprintToProto(value delivery.Sprint) *deliveryv1.Sprint {
+	return &deliveryv1.Sprint{Id: value.ID, ProjectId: value.ProjectID, Name: value.Name, Goal: value.Goal, StartDate: value.StartDate, EndDate: value.EndDate, Status: value.Status, CreatedAt: timestamp(value.CreatedAt), UpdatedAt: timestamp(value.UpdatedAt)}
+}
+
+func milestoneToProto(value delivery.Milestone) *deliveryv1.Milestone {
+	return &deliveryv1.Milestone{Id: value.ID, ProjectId: value.ProjectID, Name: value.Name, TargetDate: value.TargetDate, Status: value.Status, Description: value.Description, CreatedAt: timestamp(value.CreatedAt), UpdatedAt: timestamp(value.UpdatedAt)}
 }
 
 func decisionFromProto(value *deliveryv1.Decision) *delivery.Decision {

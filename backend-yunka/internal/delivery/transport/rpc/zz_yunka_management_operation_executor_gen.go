@@ -74,6 +74,58 @@ func (server *OperationServer) CreateItem(ctx context.Context, request *delivery
 	return response, nil
 }
 
+func (server *OperationServer) CreateMilestone(ctx context.Context, request *deliveryv1.CreateMilestoneRequest) (*deliveryv1.MilestoneResponse, error) {
+	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
+		if values := metadata.Get("idempotency-key"); len(values) > 0 {
+			ctx = execution.WithIdempotencyKey(ctx, values[0])
+		}
+	}
+	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanCreateMilestone(), request, server.application.CreateMilestone)
+	if err != nil {
+		return nil, gatewaygrpc.OperationError(err)
+	}
+	return response, nil
+}
+
+func (server *OperationServer) CreateProject(ctx context.Context, request *deliveryv1.CreateProjectRequest) (*deliveryv1.ProjectResponse, error) {
+	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
+		if values := metadata.Get("idempotency-key"); len(values) > 0 {
+			ctx = execution.WithIdempotencyKey(ctx, values[0])
+		}
+	}
+	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanCreateProject(), request, server.application.CreateProject)
+	if err != nil {
+		return nil, gatewaygrpc.OperationError(err)
+	}
+	return response, nil
+}
+
+func (server *OperationServer) CreateRelease(ctx context.Context, request *deliveryv1.CreateReleaseRequest) (*deliveryv1.ReleaseResponse, error) {
+	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
+		if values := metadata.Get("idempotency-key"); len(values) > 0 {
+			ctx = execution.WithIdempotencyKey(ctx, values[0])
+		}
+	}
+	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanCreateRelease(), request, server.application.CreateRelease)
+	if err != nil {
+		return nil, gatewaygrpc.OperationError(err)
+	}
+	return response, nil
+}
+
+func (server *OperationServer) CreateSprint(ctx context.Context, request *deliveryv1.CreateSprintRequest) (*deliveryv1.SprintResponse, error) {
+	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
+		if values := metadata.Get("idempotency-key"); len(values) > 0 {
+			ctx = execution.WithIdempotencyKey(ctx, values[0])
+		}
+	}
+	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanCreateSprint(), request, server.application.CreateSprint)
+	if err != nil {
+		return nil, gatewaygrpc.OperationError(err)
+	}
+	return response, nil
+}
+
 func (server *OperationServer) GetDashboard(ctx context.Context, request *deliveryv1.GetDashboardRequest) (*deliveryv1.GetDashboardResponse, error) {
 	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
 		if values := metadata.Get("idempotency-key"); len(values) > 0 {

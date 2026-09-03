@@ -52,6 +52,39 @@ export interface Iot_Delivery_V1_CreateItemRequest {
   isSample?: boolean;
 }
 
+export interface Iot_Delivery_V1_CreateMilestoneRequest {
+  projectId?: string;
+  name?: string;
+  targetDate?: string;
+  status?: string;
+  description?: string;
+}
+
+export interface Iot_Delivery_V1_CreateProjectRequest {
+  name?: string;
+  board?: string;
+  owner?: string;
+  description?: string;
+}
+
+export interface Iot_Delivery_V1_CreateReleaseRequest {
+  projectId?: string;
+  name?: string;
+  version?: string;
+  targetDate?: string;
+  status?: string;
+  description?: string;
+}
+
+export interface Iot_Delivery_V1_CreateSprintRequest {
+  projectId?: string;
+  name?: string;
+  goal?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+}
+
 export interface Iot_Delivery_V1_Dashboard {
   boards?: readonly Iot_Delivery_V1_BoardSummary[];
   items?: readonly Iot_Delivery_V1_WorkItem[];
@@ -86,6 +119,67 @@ export interface Iot_Delivery_V1_ListItemsRequest {
 
 export interface Iot_Delivery_V1_ListItemsResponse {
   items?: readonly Iot_Delivery_V1_WorkItem[];
+}
+
+export interface Iot_Delivery_V1_Milestone {
+  id?: string;
+  projectId?: string;
+  name?: string;
+  targetDate?: string;
+  status?: string;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Iot_Delivery_V1_MilestoneResponse {
+  milestone?: Iot_Delivery_V1_Milestone;
+}
+
+export interface Iot_Delivery_V1_Project {
+  id?: string;
+  name?: string;
+  board?: string;
+  owner?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  description?: string;
+}
+
+export interface Iot_Delivery_V1_ProjectResponse {
+  project?: Iot_Delivery_V1_Project;
+}
+
+export interface Iot_Delivery_V1_Release {
+  id?: string;
+  projectId?: string;
+  name?: string;
+  version?: string;
+  targetDate?: string;
+  status?: string;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Iot_Delivery_V1_ReleaseResponse {
+  release?: Iot_Delivery_V1_Release;
+}
+
+export interface Iot_Delivery_V1_Sprint {
+  id?: string;
+  projectId?: string;
+  name?: string;
+  goal?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Iot_Delivery_V1_SprintResponse {
+  sprint?: Iot_Delivery_V1_Sprint;
 }
 
 export interface Iot_Delivery_V1_UpdateItemContextRequest {
@@ -140,6 +234,30 @@ export const operations = {
     requestType: "iot.delivery.v1.CreateItemRequest",
     responseType: "iot.delivery.v1.WorkItemResponse"
   },
+  "iot.delivery.v1.DeliveryService.CreateMilestone": {
+    fullName: "iot.delivery.v1.DeliveryService.CreateMilestone",
+    rpcPath: "/iot.delivery.v1.DeliveryService/CreateMilestone",
+    requestType: "iot.delivery.v1.CreateMilestoneRequest",
+    responseType: "iot.delivery.v1.MilestoneResponse"
+  },
+  "iot.delivery.v1.DeliveryService.CreateProject": {
+    fullName: "iot.delivery.v1.DeliveryService.CreateProject",
+    rpcPath: "/iot.delivery.v1.DeliveryService/CreateProject",
+    requestType: "iot.delivery.v1.CreateProjectRequest",
+    responseType: "iot.delivery.v1.ProjectResponse"
+  },
+  "iot.delivery.v1.DeliveryService.CreateRelease": {
+    fullName: "iot.delivery.v1.DeliveryService.CreateRelease",
+    rpcPath: "/iot.delivery.v1.DeliveryService/CreateRelease",
+    requestType: "iot.delivery.v1.CreateReleaseRequest",
+    responseType: "iot.delivery.v1.ReleaseResponse"
+  },
+  "iot.delivery.v1.DeliveryService.CreateSprint": {
+    fullName: "iot.delivery.v1.DeliveryService.CreateSprint",
+    rpcPath: "/iot.delivery.v1.DeliveryService/CreateSprint",
+    requestType: "iot.delivery.v1.CreateSprintRequest",
+    responseType: "iot.delivery.v1.SprintResponse"
+  },
   "iot.delivery.v1.DeliveryService.GetDashboard": {
     fullName: "iot.delivery.v1.DeliveryService.GetDashboard",
     rpcPath: "/iot.delivery.v1.DeliveryService/GetDashboard",
@@ -173,6 +291,22 @@ export class Iot_Delivery_V1_DeliveryServiceClient {
 
   createItem(request: Iot_Delivery_V1_CreateItemRequest): Promise<Iot_Delivery_V1_WorkItemResponse> {
     return this.transport.call<Iot_Delivery_V1_CreateItemRequest, Iot_Delivery_V1_WorkItemResponse>(operations["iot.delivery.v1.DeliveryService.CreateItem"], request);
+  }
+
+  createMilestone(request: Iot_Delivery_V1_CreateMilestoneRequest): Promise<Iot_Delivery_V1_MilestoneResponse> {
+    return this.transport.call<Iot_Delivery_V1_CreateMilestoneRequest, Iot_Delivery_V1_MilestoneResponse>(operations["iot.delivery.v1.DeliveryService.CreateMilestone"], request);
+  }
+
+  createProject(request: Iot_Delivery_V1_CreateProjectRequest): Promise<Iot_Delivery_V1_ProjectResponse> {
+    return this.transport.call<Iot_Delivery_V1_CreateProjectRequest, Iot_Delivery_V1_ProjectResponse>(operations["iot.delivery.v1.DeliveryService.CreateProject"], request);
+  }
+
+  createRelease(request: Iot_Delivery_V1_CreateReleaseRequest): Promise<Iot_Delivery_V1_ReleaseResponse> {
+    return this.transport.call<Iot_Delivery_V1_CreateReleaseRequest, Iot_Delivery_V1_ReleaseResponse>(operations["iot.delivery.v1.DeliveryService.CreateRelease"], request);
+  }
+
+  createSprint(request: Iot_Delivery_V1_CreateSprintRequest): Promise<Iot_Delivery_V1_SprintResponse> {
+    return this.transport.call<Iot_Delivery_V1_CreateSprintRequest, Iot_Delivery_V1_SprintResponse>(operations["iot.delivery.v1.DeliveryService.CreateSprint"], request);
   }
 
   getDashboard(request: Iot_Delivery_V1_GetDashboardRequest): Promise<Iot_Delivery_V1_GetDashboardResponse> {

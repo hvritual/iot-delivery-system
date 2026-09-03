@@ -33,6 +33,39 @@ func TestDeliveryContractDeclaresMVPReadAndGovernedMutationBoundaries(t *testing
 	}
 }
 
+func TestPlanningCreateOperationsAreGeneratedContractBoundaries(t *testing.T) {
+	contents, err := os.ReadFile("contracts/proto/iot_delivery.proto")
+	if err != nil {
+		t.Fatalf("read delivery proto contract: %v", err)
+	}
+	contract := string(contents)
+	for _, declaration := range []string{
+		"rpc CreateProject(CreateProjectRequest) returns (ProjectResponse)",
+		"rpc CreateRelease(CreateReleaseRequest) returns (ReleaseResponse)",
+		"rpc CreateSprint(CreateSprintRequest) returns (SprintResponse)",
+		"rpc CreateMilestone(CreateMilestoneRequest) returns (MilestoneResponse)",
+	} {
+		if !strings.Contains(contract, declaration) {
+			t.Errorf("delivery proto contract is missing %q", declaration)
+		}
+	}
+
+	for _, generatedPath := range []string{
+		"internal/delivery/application/zz_yunka_management_application_port_gen.go",
+		"internal/delivery/transport/rpc/zz_yunka_management_operation_executor_gen.go",
+	} {
+		generated, readErr := os.ReadFile(generatedPath)
+		if readErr != nil {
+			t.Fatalf("read generated contract artifact %s: %v", generatedPath, readErr)
+		}
+		for _, method := range []string{"CreateProject", "CreateRelease", "CreateSprint", "CreateMilestone"} {
+			if !strings.Contains(string(generated), method) {
+				t.Errorf("generated contract artifact %s is missing %q", generatedPath, method)
+			}
+		}
+	}
+}
+
 func TestGeneratedOperationPlansDeclareLocalAPIKeyAuthorizationAndTransactions(t *testing.T) {
 	contents, err := os.ReadFile("contracts/generated/operation-plans.json")
 	if err != nil {
@@ -52,6 +85,10 @@ func TestGeneratedOperationPlansDeclareLocalAPIKeyAuthorizationAndTransactions(t
 		"delivery.items.update-context": {permission: "delivery.items.write", transaction: "local"},
 		"delivery.items.advance-gate":   {permission: "delivery.items.gate", transaction: "local"},
 		"delivery.items.close":          {permission: "delivery.items.close", transaction: "local"},
+		"delivery.projects.create":       {permission: "delivery.items.write", transaction: "local"},
+		"delivery.releases.create":       {permission: "delivery.items.write", transaction: "local"},
+		"delivery.sprints.create":        {permission: "delivery.items.write", transaction: "local"},
+		"delivery.milestones.create":     {permission: "delivery.items.write", transaction: "local"},
 	}
 	if len(plans.Operations) != len(want) {
 		t.Fatalf("generated operation count = %d, want %d", len(plans.Operations), len(want))

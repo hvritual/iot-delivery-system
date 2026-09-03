@@ -16,7 +16,7 @@ import (
 	platform "yunka.io/framework/platform"
 )
 
-const AssemblyPlanDigest = "96f93356caadd57569d34f3c5501bdab75ef1a6e6f97cd5e62f014309565c21d"
+const AssemblyPlanDigest = "3f676154af9f5d25d82d6c1330ad1064bfb21589a9852eece090967d0b2c336b"
 
 type DeliveryManagementDependencies struct {
 }

@@ -25,6 +25,10 @@ const (
 	DeliveryService_UpdateItemContext_FullMethodName = "/iot.delivery.v1.DeliveryService/UpdateItemContext"
 	DeliveryService_AdvanceGate_FullMethodName       = "/iot.delivery.v1.DeliveryService/AdvanceGate"
 	DeliveryService_CloseItem_FullMethodName         = "/iot.delivery.v1.DeliveryService/CloseItem"
+	DeliveryService_CreateProject_FullMethodName     = "/iot.delivery.v1.DeliveryService/CreateProject"
+	DeliveryService_CreateRelease_FullMethodName     = "/iot.delivery.v1.DeliveryService/CreateRelease"
+	DeliveryService_CreateSprint_FullMethodName      = "/iot.delivery.v1.DeliveryService/CreateSprint"
+	DeliveryService_CreateMilestone_FullMethodName   = "/iot.delivery.v1.DeliveryService/CreateMilestone"
 )
 
 // DeliveryServiceClient is the client API for DeliveryService service.
@@ -41,6 +45,10 @@ type DeliveryServiceClient interface {
 	UpdateItemContext(ctx context.Context, in *UpdateItemContextRequest, opts ...grpc.CallOption) (*WorkItemResponse, error)
 	AdvanceGate(ctx context.Context, in *AdvanceGateRequest, opts ...grpc.CallOption) (*WorkItemResponse, error)
 	CloseItem(ctx context.Context, in *CloseItemRequest, opts ...grpc.CallOption) (*WorkItemResponse, error)
+	CreateProject(ctx context.Context, in *CreateProjectRequest, opts ...grpc.CallOption) (*ProjectResponse, error)
+	CreateRelease(ctx context.Context, in *CreateReleaseRequest, opts ...grpc.CallOption) (*ReleaseResponse, error)
+	CreateSprint(ctx context.Context, in *CreateSprintRequest, opts ...grpc.CallOption) (*SprintResponse, error)
+	CreateMilestone(ctx context.Context, in *CreateMilestoneRequest, opts ...grpc.CallOption) (*MilestoneResponse, error)
 }
 
 type deliveryServiceClient struct {
@@ -111,6 +119,46 @@ func (c *deliveryServiceClient) CloseItem(ctx context.Context, in *CloseItemRequ
 	return out, nil
 }
 
+func (c *deliveryServiceClient) CreateProject(ctx context.Context, in *CreateProjectRequest, opts ...grpc.CallOption) (*ProjectResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ProjectResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_CreateProject_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *deliveryServiceClient) CreateRelease(ctx context.Context, in *CreateReleaseRequest, opts ...grpc.CallOption) (*ReleaseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReleaseResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_CreateRelease_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *deliveryServiceClient) CreateSprint(ctx context.Context, in *CreateSprintRequest, opts ...grpc.CallOption) (*SprintResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SprintResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_CreateSprint_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *deliveryServiceClient) CreateMilestone(ctx context.Context, in *CreateMilestoneRequest, opts ...grpc.CallOption) (*MilestoneResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MilestoneResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_CreateMilestone_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DeliveryServiceServer is the server API for DeliveryService service.
 // All implementations should embed UnimplementedDeliveryServiceServer
 // for forward compatibility.
@@ -125,6 +173,10 @@ type DeliveryServiceServer interface {
 	UpdateItemContext(context.Context, *UpdateItemContextRequest) (*WorkItemResponse, error)
 	AdvanceGate(context.Context, *AdvanceGateRequest) (*WorkItemResponse, error)
 	CloseItem(context.Context, *CloseItemRequest) (*WorkItemResponse, error)
+	CreateProject(context.Context, *CreateProjectRequest) (*ProjectResponse, error)
+	CreateRelease(context.Context, *CreateReleaseRequest) (*ReleaseResponse, error)
+	CreateSprint(context.Context, *CreateSprintRequest) (*SprintResponse, error)
+	CreateMilestone(context.Context, *CreateMilestoneRequest) (*MilestoneResponse, error)
 }
 
 // UnimplementedDeliveryServiceServer should be embedded to have
@@ -151,6 +203,18 @@ func (UnimplementedDeliveryServiceServer) AdvanceGate(context.Context, *AdvanceG
 }
 func (UnimplementedDeliveryServiceServer) CloseItem(context.Context, *CloseItemRequest) (*WorkItemResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CloseItem not implemented")
+}
+func (UnimplementedDeliveryServiceServer) CreateProject(context.Context, *CreateProjectRequest) (*ProjectResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateProject not implemented")
+}
+func (UnimplementedDeliveryServiceServer) CreateRelease(context.Context, *CreateReleaseRequest) (*ReleaseResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateRelease not implemented")
+}
+func (UnimplementedDeliveryServiceServer) CreateSprint(context.Context, *CreateSprintRequest) (*SprintResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateSprint not implemented")
+}
+func (UnimplementedDeliveryServiceServer) CreateMilestone(context.Context, *CreateMilestoneRequest) (*MilestoneResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateMilestone not implemented")
 }
 func (UnimplementedDeliveryServiceServer) testEmbeddedByValue() {}
 
@@ -280,6 +344,78 @@ func _DeliveryService_CloseItem_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DeliveryService_CreateProject_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateProjectRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).CreateProject(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_CreateProject_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).CreateProject(ctx, req.(*CreateProjectRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DeliveryService_CreateRelease_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateReleaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).CreateRelease(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_CreateRelease_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).CreateRelease(ctx, req.(*CreateReleaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DeliveryService_CreateSprint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateSprintRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).CreateSprint(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_CreateSprint_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).CreateSprint(ctx, req.(*CreateSprintRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DeliveryService_CreateMilestone_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateMilestoneRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).CreateMilestone(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_CreateMilestone_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).CreateMilestone(ctx, req.(*CreateMilestoneRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DeliveryService_ServiceDesc is the grpc.ServiceDesc for DeliveryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -310,6 +446,22 @@ var DeliveryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CloseItem",
 			Handler:    _DeliveryService_CloseItem_Handler,
+		},
+		{
+			MethodName: "CreateProject",
+			Handler:    _DeliveryService_CreateProject_Handler,
+		},
+		{
+			MethodName: "CreateRelease",
+			Handler:    _DeliveryService_CreateRelease_Handler,
+		},
+		{
+			MethodName: "CreateSprint",
+			Handler:    _DeliveryService_CreateSprint_Handler,
+		},
+		{
+			MethodName: "CreateMilestone",
+			Handler:    _DeliveryService_CreateMilestone_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
