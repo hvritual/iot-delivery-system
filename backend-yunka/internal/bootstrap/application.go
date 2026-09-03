@@ -11,6 +11,7 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	deliveryapplication "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/httpapi"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitycore"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localauth"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localoutbox"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
@@ -68,6 +69,10 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	repository, err := delivery.NewSQLiteRepository(configuration.DatabasePath)
 	if err != nil {
 		return nil, err
+	}
+	if err := identitycore.ApplyMigrations(ctx, repository.Database()); err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("initialize identity core schema: %w", err)
 	}
 	exporter := obsidian.NewExporter(configuration.ObsidianVault)
 	outboxStore, err := localoutbox.NewSQLiteStore(repository.Database())

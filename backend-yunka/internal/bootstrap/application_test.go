@@ -125,6 +125,200 @@ func TestApplicationUsesYunkaRuntimeHostForDeliveryAPI(t *testing.T) {
 	}
 }
 
+func TestApplicationInitializesIdentityCoreSchemaInSharedSQLite(t *testing.T) {
+	t.Setenv(localauth.APIKeyEnvironment, "identity-core-schema-test-key")
+	databasePath := filepath.Join(t.TempDir(), "identity-core.db")
+	application, err := bootstrap.New(context.Background(), bootstrap.Config{
+		HTTPAddress:   "127.0.0.1:0",
+		GRPCAddress:   "127.0.0.1:0",
+		DatabasePath:  databasePath,
+		ObsidianVault: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("bootstrap application: %v", err)
+	}
+	closeApplication(t, application)
+
+	database, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open shared SQLite database: %v", err)
+	}
+	defer database.Close()
+	if _, err := database.Exec(`PRAGMA busy_timeout = 5000`); err != nil {
+		t.Fatalf("configure SQLite schema readback: %v", err)
+	}
+	for _, table := range []string{"organizations", "users", "external_identities", "service_accounts", "iotd_schema_migrations"} {
+		var name string
+		if err := database.QueryRow(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`, table).Scan(&name); err != nil {
+			t.Fatalf("identity table %q is required in shared SQLite: %v", table, err)
+		}
+	}
+	for _, table := range []string{"organizations", "users", "external_identities", "service_accounts"} {
+		var count int
+		if err := database.QueryRow(`SELECT COUNT(*) FROM ` + table).Scan(&count); err != nil {
+			t.Fatalf("count migrated identity table %q: %v", table, err)
+		}
+		if count != 0 {
+			t.Fatalf("migration must not create %s records, got %d", table, count)
+		}
+	}
+
+	var migrationCount int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = 'S0-02-01_identity_core_v1'`).Scan(&migrationCount); err != nil {
+		t.Fatalf("read identity migration ledger: %v", err)
+	}
+	if migrationCount != 1 {
+		t.Fatalf("identity migration ledger rows = %d, want 1", migrationCount)
+	}
+}
+
+func TestApplicationIdentityCoreMigrationPreservesDeliveryDataAndEnforcesDatabaseInvariants(t *testing.T) {
+	t.Setenv(localauth.APIKeyEnvironment, "identity-core-invariants-test-key")
+	databasePath := filepath.Join(t.TempDir(), "identity-core-invariants.db")
+	repository, err := delivery.NewSQLiteRepository(databasePath)
+	if err != nil {
+		t.Fatalf("create delivery SQLite database: %v", err)
+	}
+	if _, err := repository.Database().Exec(`INSERT INTO iotd_delivery_items (id, payload, updated_at) VALUES ('preexisting-delivery', '{}', '2026-09-03T00:00:00Z')`); err != nil {
+		t.Fatalf("insert preexisting delivery row: %v", err)
+	}
+	if err := repository.Close(); err != nil {
+		t.Fatalf("close delivery SQLite database: %v", err)
+	}
+
+	application, err := bootstrap.New(context.Background(), bootstrap.Config{
+		HTTPAddress:   "127.0.0.1:0",
+		GRPCAddress:   "127.0.0.1:0",
+		DatabasePath:  databasePath,
+		ObsidianVault: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("bootstrap application: %v", err)
+	}
+	closeApplication(t, application)
+
+	database, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open shared SQLite database: %v", err)
+	}
+	defer database.Close()
+	if _, err := database.Exec(`PRAGMA busy_timeout = 5000`); err != nil {
+		t.Fatalf("configure SQLite schema readback: %v", err)
+	}
+	if _, err := database.Exec(`PRAGMA foreign_keys = ON`); err != nil {
+		t.Fatalf("enable foreign keys for schema readback: %v", err)
+	}
+	var preserved int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_delivery_items WHERE id = 'preexisting-delivery'`).Scan(&preserved); err != nil || preserved != 1 {
+		t.Fatalf("preexisting delivery row count = %d, error=%v, want 1 without loss", preserved, err)
+	}
+
+	for _, table := range []string{"organizations", "users", "external_identities", "service_accounts"} {
+		rows, err := database.Query(`PRAGMA table_info(` + table + `)`)
+		if err != nil {
+			t.Fatalf("read table info for %s: %v", table, err)
+		}
+		columns := map[string]bool{}
+		for rows.Next() {
+			var cid int
+			var name, columnType string
+			var notNull, primaryKey int
+			var defaultValue any
+			if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+				t.Fatalf("scan table info for %s: %v", table, err)
+			}
+			columns[name] = true
+			if strings.Contains(strings.ToLower(name), "secret") || strings.Contains(strings.ToLower(name), "token") || strings.Contains(strings.ToLower(name), "password") || strings.Contains(strings.ToLower(name), "api_key") {
+				t.Fatalf("identity table %s must not contain credential column %q", table, name)
+			}
+		}
+		if err := rows.Close(); err != nil {
+			t.Fatalf("close table info for %s: %v", table, err)
+		}
+		for _, required := range []string{"id", "status", "created_at", "updated_at"} {
+			if !columns[required] {
+				t.Fatalf("identity table %s missing required column %q", table, required)
+			}
+		}
+		if table == "external_identities" {
+			if columns["profile_snapshot"] {
+				t.Fatal("external identities must not expose opaque profile_snapshot storage")
+			}
+			for _, required := range []string{"email_snapshot", "display_name_snapshot"} {
+				if !columns[required] {
+					t.Fatalf("external identities missing explicit non-sensitive snapshot column %q", required)
+				}
+			}
+		}
+	}
+
+	if _, err := database.Exec(`INSERT INTO organizations (id, slug, name) VALUES ('org-a', 'org-a', 'Organization A'), ('org-b', 'org-b', 'Organization B')`); err != nil {
+		t.Fatalf("insert organizations with active default: %v", err)
+	}
+	if _, err := database.Exec(`INSERT INTO users (id, organization_id, display_name, email) VALUES ('user-a', 'org-a', 'Alice', 'shared@example.test'), ('user-b', 'org-a', 'Bob', 'shared@example.test'), ('user-c', 'org-b', 'Carol', 'other@example.test')`); err != nil {
+		t.Fatalf("duplicate user emails in the same organization must be allowed: %v", err)
+	}
+	if _, err := database.Exec(`INSERT INTO service_accounts (id, organization_id, name) VALUES ('service-a', 'org-a', 'ci')`); err != nil {
+		t.Fatalf("insert service account with active default: %v", err)
+	}
+	if _, err := database.Exec(`INSERT INTO external_identities (id, organization_id, user_id, issuer, subject) VALUES ('identity-a', 'org-a', 'user-a', 'https://issuer.example.test', 'subject-a')`); err != nil {
+		t.Fatalf("insert external identity: %v", err)
+	}
+	var organizationStatus, userStatus, identityStatus, serviceAccountStatus string
+	if err := database.QueryRow(`SELECT status FROM organizations WHERE id = 'org-a'`).Scan(&organizationStatus); err != nil {
+		t.Fatalf("read organization default status: %v", err)
+	}
+	if err := database.QueryRow(`SELECT status FROM users WHERE id = 'user-a'`).Scan(&userStatus); err != nil {
+		t.Fatalf("read user default status: %v", err)
+	}
+	if err := database.QueryRow(`SELECT status FROM external_identities WHERE id = 'identity-a'`).Scan(&identityStatus); err != nil {
+		t.Fatalf("read external identity default status: %v", err)
+	}
+	if err := database.QueryRow(`SELECT status FROM service_accounts WHERE id = 'service-a'`).Scan(&serviceAccountStatus); err != nil {
+		t.Fatalf("read service-account default status: %v", err)
+	}
+	if organizationStatus != "active" || userStatus != "active" || identityStatus != "active" || serviceAccountStatus != "active" {
+		t.Fatalf("identity default statuses = organization=%q user=%q externalIdentity=%q serviceAccount=%q, want active", organizationStatus, userStatus, identityStatus, serviceAccountStatus)
+	}
+	var users, serviceAccounts int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM users`).Scan(&users); err != nil {
+		t.Fatalf("count human users: %v", err)
+	}
+	if err := database.QueryRow(`SELECT COUNT(*) FROM service_accounts`).Scan(&serviceAccounts); err != nil {
+		t.Fatalf("count service accounts: %v", err)
+	}
+	if users != 3 || serviceAccounts != 1 {
+		t.Fatalf("human and service records must remain physically separate: users=%d service_accounts=%d", users, serviceAccounts)
+	}
+	for _, statement := range []string{
+		`INSERT INTO external_identities (id, organization_id, user_id, issuer, subject) VALUES ('identity-duplicate', 'org-a', 'user-a', 'https://issuer.example.test', 'subject-a')`,
+		`INSERT INTO external_identities (id, organization_id, user_id, issuer, subject) VALUES ('identity-cross-org', 'org-b', 'user-a', 'https://issuer.example.test', 'subject-b')`,
+		`INSERT INTO service_accounts (id, organization_id, name) VALUES ('service-duplicate', 'org-a', 'ci')`,
+		`INSERT INTO users (id, organization_id, display_name, status) VALUES ('user-invalid-status', 'org-a', 'Invalid', 'pending')`,
+		`DELETE FROM users WHERE id = 'user-a'`,
+		`DELETE FROM organizations WHERE id = 'org-a'`,
+	} {
+		if _, err := database.Exec(statement); err == nil {
+			t.Fatalf("identity invariant statement unexpectedly succeeded: %s", statement)
+		}
+	}
+
+	application, err = bootstrap.New(context.Background(), bootstrap.Config{
+		HTTPAddress:   "127.0.0.1:0",
+		GRPCAddress:   "127.0.0.1:0",
+		DatabasePath:  databasePath,
+		ObsidianVault: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("bootstrap application second time: %v", err)
+	}
+	closeApplication(t, application)
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = 'S0-02-01_identity_core_v1'`).Scan(&preserved); err != nil || preserved != 1 {
+		t.Fatalf("idempotent identity migration ledger rows = %d, error=%v, want 1", preserved, err)
+	}
+	t.Log("schema readback: four identity tables are empty after bootstrap; migration ledger=1; delivery row preserved; same-organization duplicate email allowed; explicit non-sensitive snapshots present; duplicate issuer+subject, cross-organization identity, invalid status, duplicate service name, and user/organization restricted deletes rejected")
+}
+
 func TestBootstrapSeedIsAnAuthorizedTransactionalOutboxOperation(t *testing.T) {
 	_, sourcePath, _, ok := runtime.Caller(0)
 	if !ok {
