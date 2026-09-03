@@ -140,14 +140,6 @@ const globalTransactionStore = globalThis as typeof globalThis & {
 export const loginTransactions = globalTransactionStore[transactionStoreKey]
   ?? (globalTransactionStore[transactionStoreKey] = new InMemoryLoginTransactionStore());
 
-export interface VerifiedLoginCompleter {
-  complete(login: VerifiedLogin): Promise<void> | void;
-}
-
-const noSessionLoginCompleter: VerifiedLoginCompleter = {
-  complete: () => undefined,
-};
-
 type CallbackErrorCode = "invalid_state" | "missing_code" | "provider_access_denied" | "provider_temporarily_unavailable" | "provider_server_error" | "provider_error" | "authentication_failed" | "configuration_error";
 
 export class OidcCallbackError extends Error {
@@ -183,8 +175,7 @@ export async function startOidcLogin(store: InMemoryLoginTransactionStore = logi
 export async function finishOidcLogin(
   request: Request,
   store: LoginTransactionStore = loginTransactions,
-  completer: VerifiedLoginCompleter = noSessionLoginCompleter,
-): Promise<void> {
+): Promise<VerifiedLogin> {
   const callback = new URL(request.url);
   const state = callback.searchParams.get("state");
   if (!state) throw new OidcCallbackError("invalid_state", 400);
@@ -230,12 +221,12 @@ export async function finishOidcLogin(
     if (typeof verified.payload.sub !== "string" || verified.payload.sub.length === 0 || verified.payload.nonce !== transaction.nonce) {
       throw new Error("missing subject");
     }
-    await completer.complete({
+    return {
       issuer: settings.issuerIdentifier,
       subject: verified.payload.sub,
       ...(typeof verified.payload.email === "string" ? { email: verified.payload.email } : {}),
       ...(typeof verified.payload.name === "string" ? { displayName: verified.payload.name } : {}),
-    });
+    };
   } catch {
     throw new OidcCallbackError("authentication_failed", 401);
   }

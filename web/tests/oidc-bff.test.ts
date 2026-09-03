@@ -2,7 +2,9 @@ import { once } from "node:events";
 import { createPublicKey, createSign, generateKeyPairSync, randomBytes } from "node:crypto";
 import { createServer, type Server } from "node:http";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+import { serverSessions, SessionCapacityError } from "@/lib/server/session";
 
 let provider: Server;
 let issuer = "";
@@ -104,6 +106,7 @@ describe("OIDC BFF login", () => {
       expect(location.searchParams.get("state")).toMatch(/^[A-Za-z0-9_-]{32,}$/);
       expect(location.searchParams.get("nonce")).toMatch(/^[A-Za-z0-9_-]{32,}$/);
       expect(location.searchParams.get("code_challenge")).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expectCookie(response.headers.get("set-cookie"), "__Host-iotd_login", location.searchParams.get("state")!, 600);
     } finally {
       for (const key of Object.keys(process.env)) {
         if (!(key in priorEnvironment)) delete process.env[key];
@@ -119,14 +122,18 @@ describe("OIDC BFF login", () => {
     await withOidcEnvironment(async () => {
       tokenMode = "valid";
       const login = await beginLogin();
-      const response = await callback!.GET(new Request(`http://127.0.0.1:5173/auth/callback?code=accepted-code&state=${login.state}`));
+      const response = await callback!.GET(callbackRequest(`http://127.0.0.1:5173/auth/callback?code=accepted-code&state=${login.state}`, login));
       expect(response.status).toBe(200);
       expect(response.headers.get("cache-control")).toContain("no-store");
-      await expect(response.json()).resolves.toEqual({ status: "verified" });
+      expectCookie(response.headers.get("set-cookie"), "__Host-iotd_session", undefined, 28_800);
+      expect(response.headers.get("set-cookie")).toContain("__Host-iotd_login=; Max-Age=0;");
+      await expect(response.json()).resolves.toEqual({ authenticated: true });
       expect(observedTokenRequest).toContain("grant_type=authorization_code");
       expect(new URLSearchParams(observedTokenRequest).get("code_verifier")).toMatch(/^[A-Za-z0-9_-]{43,128}$/);
       expect(JSON.stringify({ location: login.location.href, result: { status: "verified" } })).not.toContain(testClientSecret);
       expect(JSON.stringify({ location: login.location.href, result: { status: "verified" } })).not.toContain(mockAccessToken);
+      expect(response.headers.get("set-cookie")).not.toContain(mockAccessToken);
+      expect(response.headers.get("set-cookie")).not.toContain("user@example.test");
     });
   });
 
@@ -136,16 +143,17 @@ describe("OIDC BFF login", () => {
 
     await withOidcEnvironment(async () => {
       const login = await beginLogin();
-      const denied = await callback!.GET(new Request(`http://127.0.0.1:5173/auth/callback?error=access_denied&error_description=do-not-reflect&state=${login.state}`));
+      const denied = await callback!.GET(callbackRequest(`http://127.0.0.1:5173/auth/callback?error=access_denied&error_description=do-not-reflect&state=${login.state}`, login));
       expect(denied.status).toBe(400);
       await expect(denied.json()).resolves.toEqual({ error: "provider_access_denied" });
+      expect(denied.headers.get("set-cookie")).toContain("__Host-iotd_login=; Max-Age=0;");
 
       const replay = await callback!.GET(new Request(`http://127.0.0.1:5173/auth/callback?error=access_denied&state=${login.state}`));
       expect(replay.status).toBe(400);
       await expect(replay.json()).resolves.toEqual({ error: "invalid_state" });
 
       const unknownProviderError = await beginLogin();
-      const unknownProviderResponse = await callback!.GET(new Request(`http://127.0.0.1:5173/auth/callback?error=unlisted_provider_error&error_description=do-not-reflect&state=${unknownProviderError.state}`));
+      const unknownProviderResponse = await callback!.GET(callbackRequest(`http://127.0.0.1:5173/auth/callback?error=unlisted_provider_error&error_description=do-not-reflect&state=${unknownProviderError.state}`, unknownProviderError));
       expect(unknownProviderResponse.status).toBe(400);
       await expect(unknownProviderResponse.json()).resolves.toEqual({ error: "provider_error" });
 
@@ -161,17 +169,85 @@ describe("OIDC BFF login", () => {
 
     await withOidcEnvironment(async () => {
       const missingCode = await beginLogin();
-      const missingCodeResponse = await callback!.GET(new Request(`http://127.0.0.1:5173/auth/callback?state=${missingCode.state}`));
+      const missingCodeResponse = await callback!.GET(callbackRequest(`http://127.0.0.1:5173/auth/callback?state=${missingCode.state}`, missingCode));
       expect(missingCodeResponse.status).toBe(400);
       await expect(missingCodeResponse.json()).resolves.toEqual({ error: "missing_code" });
+      expect(missingCodeResponse.headers.get("set-cookie")).toContain("__Host-iotd_login=; Max-Age=0;");
 
       for (const mode of ["nonce", "issuer", "audience", "expiry", "signature", "failure"] as const) {
         tokenMode = mode;
         const login = await beginLogin();
-        const response = await callback!.GET(new Request(`http://127.0.0.1:5173/auth/callback?code=accepted-code&state=${login.state}`));
+        const response = await callback!.GET(callbackRequest(`http://127.0.0.1:5173/auth/callback?code=accepted-code&state=${login.state}`, login));
         expect(response.status, mode).toBe(401);
         expect(response.headers.get("cache-control")).toContain("no-store");
         await expect(response.json()).resolves.toEqual({ error: "authentication_failed" });
+        expect(response.headers.get("set-cookie")).toContain("__Host-iotd_login=; Max-Age=0;");
+        expect(response.headers.get("set-cookie")).not.toContain("__Host-iotd_session=");
+        expect(JSON.stringify({ headers: response.headers.get("set-cookie") })).not.toContain(mockAccessToken);
+        expect(JSON.stringify({ headers: response.headers.get("set-cookie") })).not.toContain("user@example.test");
+      }
+    });
+  });
+
+  it("rejects an absent or mismatched browser binding without consuming a legitimate transaction", async () => {
+    const callback = await import("@/app/auth/callback/route");
+    await withOidcEnvironment(async () => {
+      tokenMode = "valid";
+      const missingBinding = await beginLogin();
+      const missingResponse = await callback.GET(new Request(`http://127.0.0.1:5173/auth/callback?code=accepted-code&state=${missingBinding.state}`));
+      expect(missingResponse.status).toBe(400);
+      await expect(missingResponse.json()).resolves.toEqual({ error: "invalid_state" });
+
+      const recovered = await callback.GET(callbackRequest(`http://127.0.0.1:5173/auth/callback?code=accepted-code&state=${missingBinding.state}`, missingBinding));
+      expect(recovered.status).toBe(200);
+
+      const mismatchedBinding = await beginLogin();
+      const mismatchResponse = await callback.GET(new Request(`http://127.0.0.1:5173/auth/callback?code=accepted-code&state=${mismatchedBinding.state}`, {
+        headers: { cookie: "__Host-iotd_login=wrong-browser-binding-value-which-is-long-enough" },
+      }));
+      expect(mismatchResponse.status).toBe(400);
+      await expect(mismatchResponse.json()).resolves.toEqual({ error: "invalid_state" });
+
+      const recoveredAgain = await callback.GET(callbackRequest(`http://127.0.0.1:5173/auth/callback?code=accepted-code&state=${mismatchedBinding.state}`, mismatchedBinding));
+      expect(recoveredAgain.status).toBe(200);
+    });
+  });
+
+  it("rotates an existing browser session only after a verified callback", async () => {
+    const callback = await import("@/app/auth/callback/route");
+    await withOidcEnvironment(async () => {
+      const oldSession = serverSessions.create({ issuer: "https://prior.example", subject: "prior-subject" });
+      const login = await beginLogin();
+      tokenMode = "valid";
+      const success = await callback.GET(callbackRequest(`http://127.0.0.1:5173/auth/callback?code=accepted-code&state=${login.state}`, login, oldSession.id));
+      expect(success.status).toBe(200);
+      expect(serverSessions.read(oldSession.id)).toBeUndefined();
+
+      const preservedSession = serverSessions.create({ issuer: "https://prior.example", subject: "preserved-subject" });
+      const failedLogin = await beginLogin();
+      tokenMode = "signature";
+      const failure = await callback.GET(callbackRequest(`http://127.0.0.1:5173/auth/callback?code=accepted-code&state=${failedLogin.state}`, failedLogin, preservedSession.id));
+      expect(failure.status).toBe(401);
+      expect(serverSessions.read(preservedSession.id)).toBeDefined();
+    });
+  });
+
+  it("reports session capacity exhaustion without replacing an existing browser session", async () => {
+    const callback = await import("@/app/auth/callback/route");
+    await withOidcEnvironment(async () => {
+      const oldSession = serverSessions.create({ issuer: "https://prior.example", subject: "capacity-subject" });
+      const create = vi.spyOn(serverSessions, "create").mockImplementation(() => { throw new SessionCapacityError(); });
+      try {
+        tokenMode = "valid";
+        const login = await beginLogin();
+        const response = await callback.GET(callbackRequest(`http://127.0.0.1:5173/auth/callback?code=accepted-code&state=${login.state}`, login, oldSession.id));
+        expect(response.status).toBe(503);
+        await expect(response.json()).resolves.toEqual({ error: "session_unavailable" });
+        expect(response.headers.get("set-cookie")).toContain("__Host-iotd_login=; Max-Age=0;");
+        expect(response.headers.get("set-cookie")).not.toContain("__Host-iotd_session=");
+        expect(serverSessions.read(oldSession.id)).toBeDefined();
+      } finally {
+        create.mockRestore();
       }
     });
   });
@@ -202,7 +278,35 @@ async function beginLogin() {
   const response = await login.GET(new Request("http://127.0.0.1:5173/auth/login"));
   const location = new URL(response.headers.get("location")!);
   expectedNonce = location.searchParams.get("nonce")!;
-  return { location, state: location.searchParams.get("state")! };
+  const state = location.searchParams.get("state")!;
+  const loginCookie = readCookie(response.headers.get("set-cookie"), "__Host-iotd_login");
+  return { location, state, loginCookie };
+}
+
+function callbackRequest(url: string, login: { loginCookie: string | undefined }, sessionId?: string) {
+  const cookies = [
+    ...(login.loginCookie ? [`__Host-iotd_login=${login.loginCookie}`] : []),
+    ...(sessionId ? [`__Host-iotd_session=${sessionId}`] : []),
+  ];
+  return new Request(url, { headers: cookies.length > 0 ? { cookie: cookies.join("; ") } : {} });
+}
+
+function readCookie(header: string | null, name: string): string | undefined {
+  return header?.match(new RegExp(`(?:^|, )${name}=([^;]+)`))?.[1];
+}
+
+function expectCookie(header: string | null, name: string, expectedValue: string | undefined, maxAge: number) {
+  expect(header).not.toBeNull();
+  const value = readCookie(header, name);
+  if (expectedValue) expect(value).toBe(expectedValue);
+  else expect(value).toMatch(/^[A-Za-z0-9_-]{32,}$/);
+  const cookie = header!.match(new RegExp(`${name}=[^,]+`))?.[0];
+  expect(cookie).toContain(`Max-Age=${maxAge}`);
+  expect(cookie).toContain("Path=/");
+  expect(cookie).toContain("HttpOnly");
+  expect(cookie).toContain("Secure");
+  expect(cookie).toContain("SameSite=Lax");
+  expect(cookie).not.toContain("Domain=");
 }
 
 async function withOidcEnvironment(action: () => Promise<void>) {
