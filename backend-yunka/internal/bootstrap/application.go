@@ -1,0 +1,405 @@
+package bootstrap
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	generatedassembly "github.com/hvritual/iot-delivery-system/backend-yunka/internal/assembly"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
+	deliveryapplication "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/httpapi"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localauth"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localoutbox"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/obsidian"
+	"google.golang.org/grpc"
+	"yunka.io/framework/core"
+	"yunka.io/framework/event"
+	frameworkoutbox "yunka.io/framework/event/outbox"
+	"yunka.io/framework/kernel"
+	"yunka.io/framework/operation"
+	"yunka.io/framework/runtimehost"
+	"yunka.io/gateway/authz"
+)
+
+type Config struct {
+	HTTPAddress          string
+	GRPCAddress          string
+	DatabasePath         string
+	ObsidianVault        string
+	NotificationChannels []notification.Channel
+	DueReminder          delivery.DueReminderConfig
+}
+
+type Application struct {
+	repository    *delivery.SQLiteRepository
+	service       *delivery.Service
+	adapter       *deliveryapplication.Adapter
+	operations    *deliveryapplication.Operations
+	executor      operation.Executor
+	outbox        *localoutbox.SQLiteStore
+	broker        *event.LocalBroker
+	subscriptions []event.Subscription
+	dispatcher    *frameworkoutbox.Dispatcher
+	reminders     *delivery.DueReminderScheduler
+	app           *core.App
+
+	httpAddress string
+	grpcAddress string
+}
+
+// New constructs the business services and then delegates process ownership to
+// Yunka runtimehost. The host owns HTTP/gRPC listeners, health, diagnostics and
+// lifecycle; this package owns only the delivery assembly and persistence.
+func New(ctx context.Context, configuration Config) (*Application, error) {
+	configuration.HTTPAddress = strings.TrimSpace(configuration.HTTPAddress)
+	configuration.GRPCAddress = strings.TrimSpace(configuration.GRPCAddress)
+	configuration.DatabasePath = strings.TrimSpace(configuration.DatabasePath)
+	configuration.ObsidianVault = strings.TrimSpace(configuration.ObsidianVault)
+	if configuration.HTTPAddress == "" || configuration.GRPCAddress == "" || configuration.DatabasePath == "" || configuration.ObsidianVault == "" {
+		return nil, errors.New("HTTP address, gRPC address, database path, and Obsidian vault are required")
+	}
+
+	repository, err := delivery.NewSQLiteRepository(configuration.DatabasePath)
+	if err != nil {
+		return nil, err
+	}
+	exporter := obsidian.NewExporter(configuration.ObsidianVault)
+	seedService := delivery.NewService(repository, exporter)
+	if err := seedExample(ctx, seedService); err != nil {
+		_ = repository.Close()
+		return nil, err
+	}
+	if err := seedService.Sync(ctx); err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("refresh Obsidian projection: %w", err)
+	}
+	outboxStore, err := localoutbox.NewSQLiteStore(repository.Database())
+	if err != nil {
+		_ = repository.Close()
+		return nil, err
+	}
+	notificationStore, err := notification.NewSQLiteStore(repository.Database())
+	if err != nil {
+		_ = repository.Close()
+		return nil, err
+	}
+	authenticator, err := localauth.FromEnvironment()
+	if err != nil {
+		_ = repository.Close()
+		return nil, err
+	}
+	authorizer, err := localauth.NewAuthorizer()
+	if err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("create local authorizer: %w", err)
+	}
+	security, err := authz.NewExecutionSecurity(authorizer, nil)
+	if err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("create operation security: %w", err)
+	}
+	service := delivery.NewService(repository, exporter, delivery.NewTransactionalOutboxStager(outboxStore))
+	reminders, err := delivery.NewDueReminderScheduler(service, outboxStore, configuration.DueReminder)
+	if err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("configure due reminder scheduler: %w", err)
+	}
+	adapter := deliveryapplication.NewAdapter(service)
+	executor := operation.NewExecutorWithOptions(security, operation.ExecutorOptions{
+		Transactions: localtx.NewSQLiteFactory(repository.Database()),
+	})
+	operations := deliveryapplication.NewOperations(adapter, executor, service).WithNotificationReader(notificationStore)
+	broker := event.NewLocalBroker(nil)
+	subscriptions := make([]event.Subscription, 0, 2)
+	obsidianSubscription, err := broker.Subscribe(ctx, "delivery.work-item", obsidian.NewProjectionConsumer(service).Handle)
+	if err != nil {
+		_ = broker.Close()
+		_ = repository.Close()
+		return nil, fmt.Errorf("subscribe local Obsidian projection: %w", err)
+	}
+	subscriptions = append(subscriptions, obsidianSubscription)
+	channels := make([]notification.Channel, 0, 1+len(configuration.NotificationChannels))
+	channels = append(channels, notification.NewLocalInboxChannel(notificationStore))
+	channels = append(channels, configuration.NotificationChannels...)
+	router, err := notification.NewRouter(channels...)
+	if err != nil {
+		_ = closeSubscriptions(subscriptions)
+		_ = broker.Close()
+		_ = repository.Close()
+		return nil, fmt.Errorf("configure local notification router: %w", err)
+	}
+	notificationSubscription, err := broker.Subscribe(ctx, notification.DeliveryTopic, notification.NewConsumer(router).Handle)
+	if err != nil {
+		_ = closeSubscriptions(subscriptions)
+		_ = broker.Close()
+		_ = repository.Close()
+		return nil, fmt.Errorf("subscribe local notification delivery: %w", err)
+	}
+	subscriptions = append(subscriptions, notificationSubscription)
+	dispatcher, err := frameworkoutbox.NewDispatcher(outboxStore, broker, frameworkoutbox.DispatcherConfig{
+		WorkerID:       "iot-delivery-local-outbox",
+		PollInterval:   50 * time.Millisecond,
+		BatchSize:      10,
+		Concurrency:    1,
+		LeaseDuration:  30 * time.Second,
+		PublishTimeout: 2 * time.Second,
+		RetryBase:      100 * time.Millisecond,
+		RetryMax:       2 * time.Second,
+	})
+	if err != nil {
+		_ = closeSubscriptions(subscriptions)
+		_ = broker.Close()
+		_ = repository.Close()
+		return nil, fmt.Errorf("create local outbox dispatcher: %w", err)
+	}
+
+	application := &Application{
+		repository:    repository,
+		service:       service,
+		adapter:       adapter,
+		operations:    operations,
+		executor:      executor,
+		outbox:        outboxStore,
+		broker:        broker,
+		subscriptions: subscriptions,
+		dispatcher:    dispatcher,
+		reminders:     reminders,
+	}
+	started, err := runtimehost.Bootstrap(ctx, runtimehost.Options[generatedassembly.Applications]{
+		HTTPListenAddress: configuration.HTTPAddress,
+		GRPCListenAddress: configuration.GRPCAddress,
+		HTTPMiddleware:    authenticator.HTTPMiddleware,
+		GRPCServerOptions: []grpc.ServerOption{grpc.UnaryInterceptor(authenticator.GRPCUnaryServerInterceptor())},
+		HealthPath:        "/health",
+		DiagnosticsPath:   "/__yunka/diagnostics",
+		Bootstrap: func(bootstrapCtx context.Context, runtime runtimehost.Runtime) (kernel.BootstrapResult[generatedassembly.Applications], error) {
+			components := append([]core.RuntimeComponent{
+				application.sqliteRuntimeComponent(),
+				application.outboxBrokerRuntimeComponent(),
+				application.outboxDispatcherRuntimeComponent(),
+				application.dueReminderRuntimeComponent(),
+			}, runtime.RuntimeComponents...)
+			if application == nil || application.adapter == nil || application.operations == nil || application.executor == nil {
+				return kernel.BootstrapResult[generatedassembly.Applications]{}, errors.New("delivery application is not configured")
+			}
+			result, bootstrapErr := generatedassembly.Bootstrap(bootstrapCtx, generatedassembly.BootstrapOptions{
+				Factories: applicationFactories{deliveryManagement: application.adapter},
+				Executor:  application.executor,
+				Transports: generatedassembly.TransportBindings{
+					RPC: runtime.RPC,
+				},
+				RuntimeComponents: components,
+			})
+			if bootstrapErr != nil {
+				return kernel.BootstrapResult[generatedassembly.Applications]{}, bootstrapErr
+			}
+			httpapi.Register(runtime.HTTP, application.operations)
+			return result, nil
+		},
+	})
+	if err != nil {
+		_ = closeSubscriptions(subscriptions)
+		_ = broker.Close()
+		_ = repository.Close()
+		return nil, fmt.Errorf("bootstrap Yunka runtime host: %w", err)
+	}
+	application.app = started.App
+	application.httpAddress = started.HTTPAddress
+	application.grpcAddress = started.GRPCAddress
+	return application, nil
+}
+
+type applicationFactories struct {
+	deliveryManagement deliveryapplication.DeliveryService
+}
+
+func (factories applicationFactories) BuildDeliveryManagement(generatedassembly.DeliveryManagementDependencies) (deliveryapplication.DeliveryService, error) {
+	if factories.deliveryManagement == nil {
+		return nil, errors.New("delivery management application adapter is not configured")
+	}
+	return factories.deliveryManagement, nil
+}
+
+func (application *Application) Service() *delivery.Service {
+	if application == nil {
+		return nil
+	}
+	return application.service
+}
+
+// Operations exposes the application-use-case boundary for local adapters
+// such as the stdio MCP server. Callers must still establish an authenticated
+// principal; Operations keeps Yunka execution security and transactions.
+func (application *Application) Operations() *deliveryapplication.Operations {
+	if application == nil {
+		return nil
+	}
+	return application.operations
+}
+
+func (application *Application) HTTPAddress() string {
+	if application == nil {
+		return ""
+	}
+	return application.httpAddress
+}
+
+func (application *Application) GRPCAddress() string {
+	if application == nil {
+		return ""
+	}
+	return application.grpcAddress
+}
+
+func (application *Application) Close(ctx context.Context) error {
+	if application == nil {
+		return nil
+	}
+	if application.app != nil {
+		return application.app.Shutdown(ctx)
+	}
+	if application.repository != nil {
+		return application.repository.Close()
+	}
+	return nil
+}
+
+func (application *Application) sqliteRuntimeComponent() core.RuntimeComponent {
+	return core.RuntimeComponent{
+		Name: "delivery-sqlite",
+		StartFunc: func(ctx context.Context) error {
+			return application.repository.Ping(ctx)
+		},
+		HealthFunc: func(ctx context.Context) error {
+			return application.repository.Ping(ctx)
+		},
+		ShutdownFunc: func(context.Context) error {
+			return application.repository.Close()
+		},
+	}
+}
+
+func (application *Application) outboxBrokerRuntimeComponent() core.RuntimeComponent {
+	return core.RuntimeComponent{
+		Name: "delivery-sqlite-outbox-broker",
+		StartFunc: func(context.Context) error {
+			if application == nil || application.broker == nil {
+				return errors.New("local event broker is not configured")
+			}
+			return nil
+		},
+		HealthFunc: func(context.Context) error {
+			if application == nil || application.broker == nil {
+				return errors.New("local event broker is not configured")
+			}
+			return nil
+		},
+		ShutdownFunc: func(context.Context) error {
+			if application == nil {
+				return nil
+			}
+			var closeErr error
+			closeErr = errors.Join(closeErr, closeSubscriptions(application.subscriptions))
+			if application.broker != nil {
+				closeErr = errors.Join(closeErr, application.broker.Close())
+			}
+			return closeErr
+		},
+	}
+}
+
+func closeSubscriptions(subscriptions []event.Subscription) error {
+	var closeErr error
+	for index := len(subscriptions) - 1; index >= 0; index-- {
+		if subscriptions[index] != nil {
+			closeErr = errors.Join(closeErr, subscriptions[index].Close())
+		}
+	}
+	return closeErr
+}
+
+func (application *Application) outboxDispatcherRuntimeComponent() core.RuntimeComponent {
+	return core.RuntimeComponent{
+		Name: "delivery-sqlite-outbox-dispatcher",
+		StartFunc: func(ctx context.Context) error {
+			if application == nil || application.dispatcher == nil {
+				return errors.New("local outbox dispatcher is not configured")
+			}
+			return application.dispatcher.Start(ctx)
+		},
+		HealthFunc: func(ctx context.Context) error {
+			if application == nil || application.dispatcher == nil {
+				return errors.New("local outbox dispatcher is not configured")
+			}
+			return application.dispatcher.Health(ctx)
+		},
+		ShutdownFunc: func(ctx context.Context) error {
+			if application == nil || application.dispatcher == nil {
+				return nil
+			}
+			return application.dispatcher.Shutdown(ctx)
+		},
+	}
+}
+
+func (application *Application) dueReminderRuntimeComponent() core.RuntimeComponent {
+	return core.RuntimeComponent{
+		Name: "delivery-due-reminders",
+		StartFunc: func(ctx context.Context) error {
+			if application == nil || application.reminders == nil {
+				return errors.New("due reminder scheduler is not configured")
+			}
+			return application.reminders.Start(ctx)
+		},
+		HealthFunc: func(ctx context.Context) error {
+			if application == nil || application.reminders == nil {
+				return errors.New("due reminder scheduler is not configured")
+			}
+			return application.reminders.Health(ctx)
+		},
+		ShutdownFunc: func(ctx context.Context) error {
+			if application == nil || application.reminders == nil {
+				return nil
+			}
+			return application.reminders.Stop(ctx)
+		},
+	}
+}
+
+func seedExample(ctx context.Context, service *delivery.Service) error {
+	items, err := service.List(ctx)
+	if err != nil {
+		return fmt.Errorf("inspect existing delivery items: %w", err)
+	}
+	if len(items) > 0 {
+		return nil
+	}
+	item, err := service.Create(ctx, delivery.CreateInput{
+		Title:    "样例：设备 OTA 发布验收",
+		Board:    delivery.BoardResearchDelivery,
+		Type:     "release",
+		Owner:    "待分配",
+		Priority: delivery.PriorityP0,
+		Plan:     "验证分组灰度、回滚演练和发布验收证据。",
+		Solution: "按设备分组推进灰度发布，并把回滚结果作为发布门禁证据。",
+		IsSample: true,
+	})
+	if err != nil {
+		return fmt.Errorf("seed sample delivery item: %w", err)
+	}
+	_, err = service.UpdateContext(ctx, item.ID, delivery.ContextUpdate{Decision: &delivery.Decision{
+		Title:        "将回滚演练纳入发布门禁",
+		Context:      "OTA 发布存在设备型号和网络差异。",
+		Outcome:      "发布前必须附上灰度与回滚证据。",
+		Consequences: "发布负责人需要维护证据链接。",
+	}})
+	if err != nil {
+		return fmt.Errorf("seed sample decision: %w", err)
+	}
+	return nil
+}

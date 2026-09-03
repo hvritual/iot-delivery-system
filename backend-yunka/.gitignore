@@ -1,0 +1,4 @@
+# Local, reproducible tooling and runtime state
+.tools/
+data/
+runtime-vault/

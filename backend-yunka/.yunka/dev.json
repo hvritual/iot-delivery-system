@@ -1,0 +1,18 @@
+{
+  "processes": [
+    {
+      "command": [
+        "go",
+        "run",
+        "./cmd/yunka-bootstrap"
+      ],
+      "name": "app",
+      "readiness": {
+        "expectedStatus": 200,
+        "timeout": "30s",
+        "url": "http://127.0.0.1:8281/health"
+      }
+    }
+  ],
+  "schemaVersion": 2
+}

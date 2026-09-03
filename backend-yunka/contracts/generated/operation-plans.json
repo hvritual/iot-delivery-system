@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 2,
+  "operations": [
+    {
+      "operationId": "delivery.dashboard.get",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "get_dashboard",
+      "requestType": "iot.delivery.v1.GetDashboardRequest",
+      "responseType": "iot.delivery.v1.GetDashboardResponse",
+      "security": {
+        "authentication": [
+          "api-key"
+        ],
+        "permissions": [
+          "delivery.dashboard.read"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "read_only",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/GetDashboard"
+      }
+    },
+    {
+      "operationId": "delivery.items.advance-gate",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "advance_gate",
+      "requestType": "iot.delivery.v1.AdvanceGateRequest",
+      "responseType": "iot.delivery.v1.WorkItemResponse",
+      "security": {
+        "authentication": [
+          "api-key"
+        ],
+        "permissions": [
+          "delivery.items.gate"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "local",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/AdvanceGate"
+      }
+    },
+    {
+      "operationId": "delivery.items.close",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "close_item",
+      "requestType": "iot.delivery.v1.CloseItemRequest",
+      "responseType": "iot.delivery.v1.WorkItemResponse",
+      "security": {
+        "authentication": [
+          "api-key"
+        ],
+        "permissions": [
+          "delivery.items.close"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "local",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/CloseItem"
+      }
+    },
+    {
+      "operationId": "delivery.items.create",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "create_item",
+      "requestType": "iot.delivery.v1.CreateItemRequest",
+      "responseType": "iot.delivery.v1.WorkItemResponse",
+      "security": {
+        "authentication": [
+          "api-key"
+        ],
+        "permissions": [
+          "delivery.items.write"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "local",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/CreateItem"
+      }
+    },
+    {
+      "operationId": "delivery.items.list",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "list_items",
+      "requestType": "iot.delivery.v1.ListItemsRequest",
+      "responseType": "iot.delivery.v1.ListItemsResponse",
+      "security": {
+        "authentication": [
+          "api-key"
+        ],
+        "permissions": [
+          "delivery.items.read"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "read_only",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/ListItems"
+      }
+    },
+    {
+      "operationId": "delivery.items.update-context",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "update_item_context",
+      "requestType": "iot.delivery.v1.UpdateItemContextRequest",
+      "responseType": "iot.delivery.v1.WorkItemResponse",
+      "security": {
+        "authentication": [
+          "api-key"
+        ],
+        "permissions": [
+          "delivery.items.write"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "local",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/UpdateItemContext"
+      }
+    }
+  ]
+}

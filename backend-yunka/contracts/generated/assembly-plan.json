@@ -1,0 +1,180 @@
+{
+  "schemaVersion": 1,
+  "identity": "root",
+  "applications": [
+    {
+      "id": "delivery/management",
+      "domain": "delivery",
+      "name": "management",
+      "evidence": {
+        "ownership": "reused",
+        "source": "manifest.json",
+        "ref": "applications/delivery/management"
+      }
+    }
+  ],
+  "operations": [
+    {
+      "id": "delivery.dashboard.get",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.dashboard.get",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.dashboard.get/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.dashboard.get"
+      }
+    },
+    {
+      "id": "delivery.items.advance-gate",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.items.advance-gate",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.items.advance-gate/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.items.advance-gate"
+      }
+    },
+    {
+      "id": "delivery.items.close",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.items.close",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.items.close/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.items.close"
+      }
+    },
+    {
+      "id": "delivery.items.create",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.items.create",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.items.create/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.items.create"
+      }
+    },
+    {
+      "id": "delivery.items.list",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.items.list",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.items.list/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.items.list"
+      }
+    },
+    {
+      "id": "delivery.items.update-context",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.items.update-context",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.items.update-context/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.items.update-context"
+      }
+    }
+  ],
+  "modules": [
+    {
+      "name": "delivery",
+      "version": "v0.1.0",
+      "requirements": {},
+      "evidence": {
+        "ownership": "reused",
+        "source": "generated-module-source",
+        "ref": "delivery/zz_yunka_module_gen.go"
+      }
+    }
+  ],
+  "targets": [
+    {
+      "name": "root",
+      "applications": [
+        "delivery/management"
+      ],
+      "modules": [
+        "delivery"
+      ],
+      "externalOperations": [
+        "delivery.dashboard.get",
+        "delivery.items.advance-gate",
+        "delivery.items.close",
+        "delivery.items.create",
+        "delivery.items.list",
+        "delivery.items.update-context"
+      ],
+      "evidence": {
+        "ownership": "derived",
+        "source": "assemblyplan",
+        "ref": "targets/root"
+      }
+    }
+  ]
+}

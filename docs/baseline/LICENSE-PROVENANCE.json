@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "as_of": "2026-09-03",
+  "policy": "Unverified or absent licenses are not treated as permission for external distribution. They are permitted here only as explicitly scoped internal baseline evidence or pinned dependencies.",
+  "components": [
+    {
+      "component": "backend-yunka, backend, web, and root workspace source",
+      "license_expression": "NOASSERTION",
+      "evidence": "No top-level LICENSE, COPYING, or NOTICE file was found during S0-00 inventory.",
+      "allowed_use": "local internal baseline and evaluation only",
+      "release_gate": "External publication, binary distribution, or customer delivery requires ownership and license confirmation."
+    },
+    {
+      "component": "third_party/yunka",
+      "source": "https://github.com/hvritual/yunka.io.git",
+      "pinned_commit": "9a51562aa7bcef42f6861bd91abd30aae13ed6ef",
+      "license_expression": "NOASSERTION",
+      "evidence": "No LICENSE, COPYING, or NOTICE file was present at the pinned submodule root during S0-00 inventory.",
+      "allowed_use": "existing pinned submodule for internal project evaluation only",
+      "release_gate": "Obtain explicit license or rights confirmation before update, redistribution, or external delivery."
+    },
+    {
+      "component": "goclaw-team-runtime",
+      "source": "documented in docs/SOURCE-MANIFEST.md",
+      "license_expression": "MIT as recorded by the existing human-readable manifest; not independently reverified in S0-00",
+      "allowed_use": "behavioral and information-architecture evidence only; no source files are included or copied",
+      "release_gate": "Any future code reuse requires source and license verification at that time."
+    }
+  ]
+}

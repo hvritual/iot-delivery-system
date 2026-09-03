@@ -1,0 +1,28 @@
+# Local delivery state
+backend/data/
+backend-yunka/.tools/
+backend-yunka/data/
+backend-yunka/runtime-vault/
+backend-yunka/.yunka/cache/
+*.db
+*.db-shm
+*.db-wal
+
+# Local credentials (examples remain explicitly named and reviewable)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.p12
+*.pfx
+
+# JavaScript dependencies and build output
+web/node_modules/
+web/dist/
+web/.next/
+web/tsconfig.tsbuildinfo
+
+# Local tool output
+coverage/

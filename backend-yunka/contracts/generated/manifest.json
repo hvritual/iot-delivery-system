@@ -1,0 +1,786 @@
+{
+  "schemaVersion": 3,
+  "files": [
+    {
+      "name": "iot_delivery.proto",
+      "package": "iot.delivery.v1",
+      "syntax": "proto3",
+      "goPackage": "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1",
+      "domain": {
+        "name": "delivery",
+        "version": "v1"
+      }
+    },
+    {
+      "name": "yunka_bootstrap.proto",
+      "package": "yunka.bootstrap.v1",
+      "syntax": "proto3"
+    }
+  ],
+  "messages": [
+    {
+      "name": "AdvanceGateRequest",
+      "fullName": "iot.delivery.v1.AdvanceGateRequest",
+      "fields": [
+        {
+          "name": "id",
+          "jsonName": "id",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "gate",
+          "jsonName": "gate",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "evidence",
+          "jsonName": "evidence",
+          "number": 3,
+          "kind": "message",
+          "type": "iot.delivery.v1.Evidence",
+          "repeated": true
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "BoardSummary",
+      "fullName": "iot.delivery.v1.BoardSummary",
+      "fields": [
+        {
+          "name": "board",
+          "jsonName": "board",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "total",
+          "jsonName": "total",
+          "number": 2,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "active",
+          "jsonName": "active",
+          "number": 3,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "blocked",
+          "jsonName": "blocked",
+          "number": 4,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "verifying",
+          "jsonName": "verifying",
+          "number": 5,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "released",
+          "jsonName": "released",
+          "number": 6,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "closed",
+          "jsonName": "closed",
+          "number": 7,
+          "kind": "scalar",
+          "type": "int32"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
+      "name": "CloseItemRequest",
+      "fullName": "iot.delivery.v1.CloseItemRequest",
+      "fields": [
+        {
+          "name": "id",
+          "jsonName": "id",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "retrospective",
+          "jsonName": "retrospective",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "CreateItemRequest",
+      "fullName": "iot.delivery.v1.CreateItemRequest",
+      "fields": [
+        {
+          "name": "title",
+          "jsonName": "title",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "board",
+          "jsonName": "board",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "type",
+          "jsonName": "type",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "owner",
+          "jsonName": "owner",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "priority",
+          "jsonName": "priority",
+          "number": 5,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "due_date",
+          "jsonName": "dueDate",
+          "number": 6,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "plan",
+          "jsonName": "plan",
+          "number": 7,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "solution",
+          "jsonName": "solution",
+          "number": 8,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "is_sample",
+          "jsonName": "isSample",
+          "number": 9,
+          "kind": "scalar",
+          "type": "bool"
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "Dashboard",
+      "fullName": "iot.delivery.v1.Dashboard",
+      "fields": [
+        {
+          "name": "boards",
+          "jsonName": "boards",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.BoardSummary",
+          "repeated": true
+        },
+        {
+          "name": "items",
+          "jsonName": "items",
+          "number": 2,
+          "kind": "message",
+          "type": "iot.delivery.v1.WorkItem",
+          "repeated": true
+        },
+        {
+          "name": "generated_at",
+          "jsonName": "generatedAt",
+          "number": 3,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
+      "name": "Decision",
+      "fullName": "iot.delivery.v1.Decision",
+      "fields": [
+        {
+          "name": "id",
+          "jsonName": "id",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "jsonName": "title",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "context",
+          "jsonName": "context",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "outcome",
+          "jsonName": "outcome",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "consequences",
+          "jsonName": "consequences",
+          "number": 5,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "jsonName": "createdAt",
+          "number": 6,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
+      "name": "Evidence",
+      "fullName": "iot.delivery.v1.Evidence",
+      "fields": [
+        {
+          "name": "kind",
+          "jsonName": "kind",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "jsonName": "title",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "reference",
+          "jsonName": "reference",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "recorded_at",
+          "jsonName": "recordedAt",
+          "number": 4,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
+      "name": "GetDashboardRequest",
+      "fullName": "iot.delivery.v1.GetDashboardRequest",
+      "fields": null,
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "GetDashboardResponse",
+      "fullName": "iot.delivery.v1.GetDashboardResponse",
+      "fields": [
+        {
+          "name": "dashboard",
+          "jsonName": "dashboard",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.Dashboard"
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
+      "name": "ListItemsRequest",
+      "fullName": "iot.delivery.v1.ListItemsRequest",
+      "fields": null,
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "ListItemsResponse",
+      "fullName": "iot.delivery.v1.ListItemsResponse",
+      "fields": [
+        {
+          "name": "items",
+          "jsonName": "items",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.WorkItem",
+          "repeated": true
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
+      "name": "UpdateItemContextRequest",
+      "fullName": "iot.delivery.v1.UpdateItemContextRequest",
+      "fields": [
+        {
+          "name": "id",
+          "jsonName": "id",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "plan",
+          "jsonName": "plan",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string",
+          "optional": true
+        },
+        {
+          "name": "solution",
+          "jsonName": "solution",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string",
+          "optional": true
+        },
+        {
+          "name": "blocker",
+          "jsonName": "blocker",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string",
+          "optional": true
+        },
+        {
+          "name": "decision",
+          "jsonName": "decision",
+          "number": 5,
+          "kind": "message",
+          "type": "iot.delivery.v1.Decision",
+          "optional": true
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "WorkItem",
+      "fullName": "iot.delivery.v1.WorkItem",
+      "fields": [
+        {
+          "name": "id",
+          "jsonName": "id",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "jsonName": "title",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "board",
+          "jsonName": "board",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "type",
+          "jsonName": "type",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "owner",
+          "jsonName": "owner",
+          "number": 5,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "priority",
+          "jsonName": "priority",
+          "number": 6,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "jsonName": "status",
+          "number": 7,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "gate",
+          "jsonName": "gate",
+          "number": 8,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "due_date",
+          "jsonName": "dueDate",
+          "number": 9,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "plan",
+          "jsonName": "plan",
+          "number": 10,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "solution",
+          "jsonName": "solution",
+          "number": 11,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "decisions",
+          "jsonName": "decisions",
+          "number": 12,
+          "kind": "message",
+          "type": "iot.delivery.v1.Decision",
+          "repeated": true
+        },
+        {
+          "name": "evidence",
+          "jsonName": "evidence",
+          "number": 13,
+          "kind": "message",
+          "type": "iot.delivery.v1.Evidence",
+          "repeated": true
+        },
+        {
+          "name": "retrospective",
+          "jsonName": "retrospective",
+          "number": 14,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "blocker",
+          "jsonName": "blocker",
+          "number": 15,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "is_sample",
+          "jsonName": "isSample",
+          "number": 16,
+          "kind": "scalar",
+          "type": "bool"
+        },
+        {
+          "name": "created_at",
+          "jsonName": "createdAt",
+          "number": 17,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        },
+        {
+          "name": "updated_at",
+          "jsonName": "updatedAt",
+          "number": 18,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
+      "name": "WorkItemResponse",
+      "fullName": "iot.delivery.v1.WorkItemResponse",
+      "fields": [
+        {
+          "name": "item",
+          "jsonName": "item",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.WorkItem"
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
+      "name": "Bootstrap",
+      "fullName": "yunka.bootstrap.v1.Bootstrap",
+      "fields": null
+    }
+  ],
+  "enums": null,
+  "services": [
+    {
+      "name": "DeliveryService",
+      "fullName": "iot.delivery.v1.DeliveryService",
+      "domain": "delivery",
+      "application": {
+        "name": "management"
+      },
+      "methods": [
+        {
+          "name": "AdvanceGate",
+          "fullName": "iot.delivery.v1.DeliveryService.AdvanceGate",
+          "request": "iot.delivery.v1.AdvanceGateRequest",
+          "response": "iot.delivery.v1.WorkItemResponse",
+          "operation": {
+            "id": "delivery.items.advance-gate",
+            "useCase": "advance_gate",
+            "permissions": [
+              "delivery.items.gate"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "local",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.items.advance-gate",
+            "permissions": [
+              "delivery.items.gate"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ]
+          }
+        },
+        {
+          "name": "CloseItem",
+          "fullName": "iot.delivery.v1.DeliveryService.CloseItem",
+          "request": "iot.delivery.v1.CloseItemRequest",
+          "response": "iot.delivery.v1.WorkItemResponse",
+          "operation": {
+            "id": "delivery.items.close",
+            "useCase": "close_item",
+            "permissions": [
+              "delivery.items.close"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "local",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.items.close",
+            "permissions": [
+              "delivery.items.close"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ]
+          }
+        },
+        {
+          "name": "CreateItem",
+          "fullName": "iot.delivery.v1.DeliveryService.CreateItem",
+          "request": "iot.delivery.v1.CreateItemRequest",
+          "response": "iot.delivery.v1.WorkItemResponse",
+          "operation": {
+            "id": "delivery.items.create",
+            "useCase": "create_item",
+            "permissions": [
+              "delivery.items.write"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "local",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.items.create",
+            "permissions": [
+              "delivery.items.write"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ]
+          }
+        },
+        {
+          "name": "GetDashboard",
+          "fullName": "iot.delivery.v1.DeliveryService.GetDashboard",
+          "request": "iot.delivery.v1.GetDashboardRequest",
+          "response": "iot.delivery.v1.GetDashboardResponse",
+          "operation": {
+            "id": "delivery.dashboard.get",
+            "useCase": "get_dashboard",
+            "permissions": [
+              "delivery.dashboard.read"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "read_only",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.dashboard.get",
+            "permissions": [
+              "delivery.dashboard.read"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ]
+          }
+        },
+        {
+          "name": "ListItems",
+          "fullName": "iot.delivery.v1.DeliveryService.ListItems",
+          "request": "iot.delivery.v1.ListItemsRequest",
+          "response": "iot.delivery.v1.ListItemsResponse",
+          "operation": {
+            "id": "delivery.items.list",
+            "useCase": "list_items",
+            "permissions": [
+              "delivery.items.read"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "read_only",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.items.list",
+            "permissions": [
+              "delivery.items.read"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ]
+          }
+        },
+        {
+          "name": "UpdateItemContext",
+          "fullName": "iot.delivery.v1.DeliveryService.UpdateItemContext",
+          "request": "iot.delivery.v1.UpdateItemContextRequest",
+          "response": "iot.delivery.v1.WorkItemResponse",
+          "operation": {
+            "id": "delivery.items.update-context",
+            "useCase": "update_item_context",
+            "permissions": [
+              "delivery.items.write"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "local",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.items.update-context",
+            "permissions": [
+              "delivery.items.write"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

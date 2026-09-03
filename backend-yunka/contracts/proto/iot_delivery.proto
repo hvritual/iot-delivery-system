@@ -1,0 +1,199 @@
+syntax = "proto3";
+
+package iot.delivery.v1;
+
+import "google/protobuf/timestamp.proto";
+import "yunka/dsl/v1/options.proto";
+
+option go_package = "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1";
+option (yunka.dsl.v1.domain) = { name: "delivery" version: "v1" };
+
+// DeliveryService is the transport-neutral contract for the existing desktop
+// MVP. HTTP remains the compatibility adapter; generated gRPC types establish
+// an explicit evolution boundary for future integrations.
+service DeliveryService {
+  option (yunka.dsl.v1.application) = { name: "management" };
+
+  rpc GetDashboard(GetDashboardRequest) returns (GetDashboardResponse) {
+    option (yunka.dsl.v1.operation) = {
+      id: "delivery.dashboard.get"
+      use_case: "get_dashboard"
+      permissions: "delivery.dashboard.read"
+      permission_mode: PERMISSION_ALL
+      authentication: AUTHENTICATION_API_KEY
+      composition: COMPOSITION_LOCAL
+      execution: { transaction: TRANSACTION_READ_ONLY idempotency: IDEMPOTENCY_NONE }
+    };
+  }
+  rpc ListItems(ListItemsRequest) returns (ListItemsResponse) {
+    option (yunka.dsl.v1.operation) = {
+      id: "delivery.items.list"
+      use_case: "list_items"
+      permissions: "delivery.items.read"
+      permission_mode: PERMISSION_ALL
+      authentication: AUTHENTICATION_API_KEY
+      composition: COMPOSITION_LOCAL
+      execution: { transaction: TRANSACTION_READ_ONLY idempotency: IDEMPOTENCY_NONE }
+    };
+  }
+  rpc CreateItem(CreateItemRequest) returns (WorkItemResponse) {
+    option (yunka.dsl.v1.operation) = {
+      id: "delivery.items.create"
+      use_case: "create_item"
+      permissions: "delivery.items.write"
+      permission_mode: PERMISSION_ALL
+      authentication: AUTHENTICATION_API_KEY
+      composition: COMPOSITION_LOCAL
+      execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
+    };
+  }
+  rpc UpdateItemContext(UpdateItemContextRequest) returns (WorkItemResponse) {
+    option (yunka.dsl.v1.operation) = {
+      id: "delivery.items.update-context"
+      use_case: "update_item_context"
+      permissions: "delivery.items.write"
+      permission_mode: PERMISSION_ALL
+      authentication: AUTHENTICATION_API_KEY
+      composition: COMPOSITION_LOCAL
+      execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
+    };
+  }
+  rpc AdvanceGate(AdvanceGateRequest) returns (WorkItemResponse) {
+    option (yunka.dsl.v1.operation) = {
+      id: "delivery.items.advance-gate"
+      use_case: "advance_gate"
+      permissions: "delivery.items.gate"
+      permission_mode: PERMISSION_ALL
+      authentication: AUTHENTICATION_API_KEY
+      composition: COMPOSITION_LOCAL
+      execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
+    };
+  }
+  rpc CloseItem(CloseItemRequest) returns (WorkItemResponse) {
+    option (yunka.dsl.v1.operation) = {
+      id: "delivery.items.close"
+      use_case: "close_item"
+      permissions: "delivery.items.close"
+      permission_mode: PERMISSION_ALL
+      authentication: AUTHENTICATION_API_KEY
+      composition: COMPOSITION_LOCAL
+      execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
+    };
+  }
+}
+
+message GetDashboardRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+}
+
+message GetDashboardResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  Dashboard dashboard = 1;
+}
+
+message ListItemsRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+}
+
+message ListItemsResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  repeated WorkItem items = 1;
+}
+
+message WorkItemResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  WorkItem item = 1;
+}
+
+message Dashboard {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  repeated BoardSummary boards = 1;
+  repeated WorkItem items = 2;
+  google.protobuf.Timestamp generated_at = 3;
+}
+
+message BoardSummary {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string board = 1;
+  int32 total = 2;
+  int32 active = 3;
+  int32 blocked = 4;
+  int32 verifying = 5;
+  int32 released = 6;
+  int32 closed = 7;
+}
+
+message WorkItem {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string id = 1;
+  string title = 2;
+  string board = 3;
+  string type = 4;
+  string owner = 5;
+  string priority = 6;
+  string status = 7;
+  string gate = 8;
+  string due_date = 9;
+  string plan = 10;
+  string solution = 11;
+  repeated Decision decisions = 12;
+  repeated Evidence evidence = 13;
+  string retrospective = 14;
+  string blocker = 15;
+  bool is_sample = 16;
+  google.protobuf.Timestamp created_at = 17;
+  google.protobuf.Timestamp updated_at = 18;
+}
+
+message Evidence {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string kind = 1;
+  string title = 2;
+  string reference = 3;
+  google.protobuf.Timestamp recorded_at = 4;
+}
+
+message Decision {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string id = 1;
+  string title = 2;
+  string context = 3;
+  string outcome = 4;
+  string consequences = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message CreateItemRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string title = 1;
+  string board = 2;
+  string type = 3;
+  string owner = 4;
+  string priority = 5;
+  string due_date = 6;
+  string plan = 7;
+  string solution = 8;
+  bool is_sample = 9;
+}
+
+message UpdateItemContextRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string id = 1;
+  optional string plan = 2;
+  optional string solution = 3;
+  optional string blocker = 4;
+  optional Decision decision = 5;
+}
+
+message AdvanceGateRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string id = 1;
+  string gate = 2;
+  repeated Evidence evidence = 3;
+}
+
+message CloseItemRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string id = 1;
+  string retrospective = 2;
+}

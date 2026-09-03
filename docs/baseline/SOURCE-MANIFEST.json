@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "as_of": "2026-09-03",
+  "repository_root": "F:/code/iot-delivery-system",
+  "current_facts": {
+    "target_implementation": "backend-yunka",
+    "legacy_behavior_evidence": "backend",
+    "pinned_submodule": {
+      "path": "third_party/yunka",
+      "commit": "9a51562aa7bcef42f6861bd91abd30aae13ed6ef",
+      "update_permitted_in_s0": false
+    }
+  },
+  "entries": [
+    {
+      "path": "backend-yunka",
+      "origin": "project worktree source",
+      "role": "target implementation",
+      "reuse": "internal project development only; external redistribution is not approved by this manifest",
+      "evidence_only": false
+    },
+    {
+      "path": "backend",
+      "origin": "project worktree source",
+      "role": "legacy migration and regression behavior evidence",
+      "reuse": "read-only comparison; no new implementation work is authorized here in S0",
+      "evidence_only": true
+    },
+    {
+      "path": "third_party/yunka",
+      "origin": "https://github.com/hvritual/yunka.io.git",
+      "role": "pinned framework dependency",
+      "reuse": "only the already-pinned submodule may be used for this internal baseline; update and external distribution require separate approval",
+      "evidence_only": false
+    },
+    {
+      "path": "docs/SOURCE-MANIFEST.md",
+      "origin": "existing project provenance record",
+      "role": "human-readable source boundary",
+      "reuse": "reference only; this JSON is the machine-readable S0 companion",
+      "evidence_only": true
+    },
+    {
+      "path": "goclaw-team-runtime",
+      "origin": "documented upstream behavioral reference; no source path is included in this repository",
+      "role": "behavior and information-architecture evidence only",
+      "reuse": "no source, style, agent, runner, queue, or plugin code reuse is authorized by this baseline",
+      "evidence_only": true
+    }
+  ],
+  "unverified_assumptions": [
+    "No complete third-party package license inventory has been generated from package-lock.json or Go module metadata.",
+    "This manifest does not establish ownership or an external publication license for project-authored code."
+  ]
+}

@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package yunka.bootstrap.v1;
+
+// Bootstrap keeps a newly initialized project generatable before its first
+// business contract is added. Delete this file once real contracts exist.
+message Bootstrap {}
