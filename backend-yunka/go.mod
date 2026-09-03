@@ -7,6 +7,7 @@ toolchain go1.25.13
 require modernc.org/sqlite v1.58.0
 
 require (
+	github.com/coreos/go-oidc/v3 v3.21.0
 	google.golang.org/grpc v1.82.1
 	google.golang.org/protobuf v1.36.11
 	yunka.io/framework v0.0.0-00010101000000-000000000000
