@@ -2987,36 +2987,36 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\bevidence\x18\x03 \x03(\v2\x19.iot.delivery.v1.EvidenceR\bevidence:\x06\xd2\xf3\x18\x02\b\x01\"P\n" +
 	"\x10CloseItemRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12$\n" +
-	"\rretrospective\x18\x02 \x01(\tR\rretrospective:\x06\xd2\xf3\x18\x02\b\x012\xac\x10\n" +
-	"\x0fDeliveryService\x12\xad\x01\n" +
-	"\fGetDashboard\x12$.iot.delivery.v1.GetDashboardRequest\x1a%.iot.delivery.v1.GetDashboardResponse\"P\xe2\xf3\x18L\n" +
-	"\x16delivery.dashboard.get\x12\rget_dashboard\x1a\x17delivery.dashboard.read2\x02\x02\x01H\x01R\x04\b\x02\x10\x01\x12\x9a\x01\n" +
-	"\tListItems\x12!.iot.delivery.v1.ListItemsRequest\x1a\".iot.delivery.v1.ListItemsResponse\"F\xe2\xf3\x18B\n" +
+	"\rretrospective\x18\x02 \x01(\tR\rretrospective:\x06\xd2\xf3\x18\x02\b\x012\xb8\x10\n" +
+	"\x0fDeliveryService\x12\xae\x01\n" +
+	"\fGetDashboard\x12$.iot.delivery.v1.GetDashboardRequest\x1a%.iot.delivery.v1.GetDashboardResponse\"Q\xe2\xf3\x18M\n" +
+	"\x16delivery.dashboard.get\x12\rget_dashboard\x1a\x17delivery.dashboard.read2\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\x9b\x01\n" +
+	"\tListItems\x12!.iot.delivery.v1.ListItemsRequest\x1a\".iot.delivery.v1.ListItemsResponse\"G\xe2\xf3\x18C\n" +
 	"\x13delivery.items.list\x12\n" +
-	"list_items\x1a\x13delivery.items.read2\x02\x02\x01H\x01R\x04\b\x02\x10\x01\x12\x9f\x01\n" +
+	"list_items\x1a\x13delivery.items.read2\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\xa0\x01\n" +
 	"\n" +
-	"CreateItem\x12\".iot.delivery.v1.CreateItemRequest\x1a!.iot.delivery.v1.WorkItemResponse\"J\xe2\xf3\x18F\n" +
-	"\x15delivery.items.create\x12\vcreate_item\x1a\x14delivery.items.write2\x02\x02\x01H\x01R\x04\b\x03\x10\x01\x12\x9f\x01\n" +
+	"CreateItem\x12\".iot.delivery.v1.CreateItemRequest\x1a!.iot.delivery.v1.WorkItemResponse\"K\xe2\xf3\x18G\n" +
+	"\x15delivery.items.create\x12\vcreate_item\x1a\x14delivery.items.write2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xa0\x01\n" +
 	"\n" +
-	"UpdateItem\x12\".iot.delivery.v1.UpdateItemRequest\x1a!.iot.delivery.v1.WorkItemResponse\"J\xe2\xf3\x18F\n" +
-	"\x15delivery.items.update\x12\vupdate_item\x1a\x14delivery.items.write2\x02\x02\x01H\x01R\x04\b\x03\x10\x01\x12\xb4\x01\n" +
-	"\x11CreateItemComment\x12).iot.delivery.v1.CreateItemCommentRequest\x1a .iot.delivery.v1.CommentResponse\"R\xe2\xf3\x18N\n" +
-	"\x1ddelivery.items.comment.create\x12\vadd_comment\x1a\x14delivery.items.write2\x02\x02\x01H\x01R\x04\b\x03\x10\x01\x12\xbd\x01\n" +
-	"\x11UpdateItemContext\x12).iot.delivery.v1.UpdateItemContextRequest\x1a!.iot.delivery.v1.WorkItemResponse\"Z\xe2\xf3\x18V\n" +
-	"\x1ddelivery.items.update-context\x12\x13update_item_context\x1a\x14delivery.items.write2\x02\x02\x01H\x01R\x04\b\x03\x10\x01\x12\xa7\x01\n" +
-	"\vAdvanceGate\x12#.iot.delivery.v1.AdvanceGateRequest\x1a!.iot.delivery.v1.WorkItemResponse\"P\xe2\xf3\x18L\n" +
-	"\x1bdelivery.items.advance-gate\x12\fadvance_gate\x1a\x13delivery.items.gate2\x02\x02\x01H\x01R\x04\b\x03\x10\x01\x12\x9b\x01\n" +
-	"\tCloseItem\x12!.iot.delivery.v1.CloseItemRequest\x1a!.iot.delivery.v1.WorkItemResponse\"H\xe2\xf3\x18D\n" +
+	"UpdateItem\x12\".iot.delivery.v1.UpdateItemRequest\x1a!.iot.delivery.v1.WorkItemResponse\"K\xe2\xf3\x18G\n" +
+	"\x15delivery.items.update\x12\vupdate_item\x1a\x14delivery.items.write2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xb5\x01\n" +
+	"\x11CreateItemComment\x12).iot.delivery.v1.CreateItemCommentRequest\x1a .iot.delivery.v1.CommentResponse\"S\xe2\xf3\x18O\n" +
+	"\x1ddelivery.items.comment.create\x12\vadd_comment\x1a\x14delivery.items.write2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xbe\x01\n" +
+	"\x11UpdateItemContext\x12).iot.delivery.v1.UpdateItemContextRequest\x1a!.iot.delivery.v1.WorkItemResponse\"[\xe2\xf3\x18W\n" +
+	"\x1ddelivery.items.update-context\x12\x13update_item_context\x1a\x14delivery.items.write2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xa8\x01\n" +
+	"\vAdvanceGate\x12#.iot.delivery.v1.AdvanceGateRequest\x1a!.iot.delivery.v1.WorkItemResponse\"Q\xe2\xf3\x18M\n" +
+	"\x1bdelivery.items.advance-gate\x12\fadvance_gate\x1a\x13delivery.items.gate2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\x9c\x01\n" +
+	"\tCloseItem\x12!.iot.delivery.v1.CloseItemRequest\x1a!.iot.delivery.v1.WorkItemResponse\"I\xe2\xf3\x18E\n" +
 	"\x14delivery.items.close\x12\n" +
-	"close_item\x1a\x14delivery.items.close2\x02\x02\x01H\x01R\x04\b\x03\x10\x01\x12\xaa\x01\n" +
-	"\rCreateProject\x12%.iot.delivery.v1.CreateProjectRequest\x1a .iot.delivery.v1.ProjectResponse\"P\xe2\xf3\x18L\n" +
-	"\x18delivery.projects.create\x12\x0ecreate_project\x1a\x14delivery.items.write2\x02\x02\x01H\x01R\x04\b\x03\x10\x01\x12\xaa\x01\n" +
-	"\rCreateRelease\x12%.iot.delivery.v1.CreateReleaseRequest\x1a .iot.delivery.v1.ReleaseResponse\"P\xe2\xf3\x18L\n" +
-	"\x18delivery.releases.create\x12\x0ecreate_release\x1a\x14delivery.items.write2\x02\x02\x01H\x01R\x04\b\x03\x10\x01\x12\xa5\x01\n" +
-	"\fCreateSprint\x12$.iot.delivery.v1.CreateSprintRequest\x1a\x1f.iot.delivery.v1.SprintResponse\"N\xe2\xf3\x18J\n" +
-	"\x17delivery.sprints.create\x12\rcreate_sprint\x1a\x14delivery.items.write2\x02\x02\x01H\x01R\x04\b\x03\x10\x01\x12\xb4\x01\n" +
-	"\x0fCreateMilestone\x12'.iot.delivery.v1.CreateMilestoneRequest\x1a\".iot.delivery.v1.MilestoneResponse\"T\xe2\xf3\x18P\n" +
-	"\x1adelivery.milestones.create\x12\x10create_milestone\x1a\x14delivery.items.write2\x02\x02\x01H\x01R\x04\b\x03\x10\x01\x1a\x10\xda\xf3\x18\f\n" +
+	"close_item\x1a\x14delivery.items.close2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xab\x01\n" +
+	"\rCreateProject\x12%.iot.delivery.v1.CreateProjectRequest\x1a .iot.delivery.v1.ProjectResponse\"Q\xe2\xf3\x18M\n" +
+	"\x18delivery.projects.create\x12\x0ecreate_project\x1a\x14delivery.items.write2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xab\x01\n" +
+	"\rCreateRelease\x12%.iot.delivery.v1.CreateReleaseRequest\x1a .iot.delivery.v1.ReleaseResponse\"Q\xe2\xf3\x18M\n" +
+	"\x18delivery.releases.create\x12\x0ecreate_release\x1a\x14delivery.items.write2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xa6\x01\n" +
+	"\fCreateSprint\x12$.iot.delivery.v1.CreateSprintRequest\x1a\x1f.iot.delivery.v1.SprintResponse\"O\xe2\xf3\x18K\n" +
+	"\x17delivery.sprints.create\x12\rcreate_sprint\x1a\x14delivery.items.write2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xb5\x01\n" +
+	"\x0fCreateMilestone\x12'.iot.delivery.v1.CreateMilestoneRequest\x1a\".iot.delivery.v1.MilestoneResponse\"U\xe2\xf3\x18Q\n" +
+	"\x1adelivery.milestones.create\x12\x10create_milestone\x1a\x14delivery.items.write2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x1a\x10\xda\xf3\x18\f\n" +
 	"\n" +
 	"managementBj\xca\xf3\x18\x0e\n" +
 	"\bdelivery\x12\x02v1ZVgithub.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1b\x06proto3"

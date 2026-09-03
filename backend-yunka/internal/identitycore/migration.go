@@ -9,6 +9,8 @@ import (
 
 const MigrationID = "S0-02-01_identity_core_v1"
 
+const ServiceCredentialMigrationID = "S0-02-07_service_credentials_v1"
+
 const identitySchema = `
 CREATE TABLE organizations (
     id TEXT PRIMARY KEY NOT NULL CHECK (length(trim(id)) > 0),
@@ -57,6 +59,19 @@ CREATE TABLE service_accounts (
     UNIQUE (organization_id, name)
 );`
 
+const serviceCredentialSchema = `
+CREATE TABLE service_account_credentials (
+    id TEXT PRIMARY KEY NOT NULL CHECK (length(trim(id)) > 0),
+    service_account_id TEXT NOT NULL CHECK (length(trim(service_account_id)) > 0),
+    credential_hash BLOB NOT NULL UNIQUE CHECK (length(credential_hash) = 32),
+    expires_at TEXT NOT NULL CHECK (length(trim(expires_at)) > 0),
+    revoked_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    FOREIGN KEY (service_account_id) REFERENCES service_accounts(id) ON DELETE RESTRICT
+);
+CREATE INDEX service_account_credentials_active_lookup
+    ON service_account_credentials (service_account_id, expires_at, revoked_at);`
+
 func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	if database == nil {
 		return errors.New("identity SQLite database is required")
@@ -69,16 +84,26 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	if _, err := tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS iotd_schema_migrations (migration_id TEXT PRIMARY KEY NOT NULL, applied_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))`); err != nil {
 		return fmt.Errorf("create identity migration ledger: %w", err)
 	}
-	var applied int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, MigrationID).Scan(&applied); err != nil {
-		return fmt.Errorf("read identity migration ledger: %w", err)
-	}
-	if applied == 0 {
-		if _, err := tx.ExecContext(ctx, identitySchema); err != nil {
-			return fmt.Errorf("apply identity core schema: %w", err)
+	for _, migration := range []struct {
+		id     string
+		schema string
+		name   string
+	}{
+		{id: MigrationID, schema: identitySchema, name: "identity core"},
+		{id: ServiceCredentialMigrationID, schema: serviceCredentialSchema, name: "service credential"},
+	} {
+		var applied int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, migration.id).Scan(&applied); err != nil {
+			return fmt.Errorf("read %s migration ledger: %w", migration.name, err)
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO iotd_schema_migrations (migration_id) VALUES (?)`, MigrationID); err != nil {
-			return fmt.Errorf("record identity migration: %w", err)
+		if applied != 0 {
+			continue
+		}
+		if _, err := tx.ExecContext(ctx, migration.schema); err != nil {
+			return fmt.Errorf("apply %s schema: %w", migration.name, err)
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO iotd_schema_migrations (migration_id, applied_at) VALUES (?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`, migration.id); err != nil {
+			return fmt.Errorf("record %s migration: %w", migration.name, err)
 		}
 	}
 	if err := tx.Commit(); err != nil {

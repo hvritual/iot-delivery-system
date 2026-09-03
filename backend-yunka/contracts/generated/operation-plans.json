@@ -11,7 +11,8 @@
       "security": {
         "authentication": [
           "api-key",
-          "jwt"
+          "jwt",
+          "service-token"
         ],
         "permissions": [
           "delivery.dashboard.read"
@@ -39,7 +40,8 @@
       "security": {
         "authentication": [
           "api-key",
-          "jwt"
+          "jwt",
+          "service-token"
         ],
         "permissions": [
           "delivery.items.gate"
@@ -67,7 +69,8 @@
       "security": {
         "authentication": [
           "api-key",
-          "jwt"
+          "jwt",
+          "service-token"
         ],
         "permissions": [
           "delivery.items.close"
@@ -95,7 +98,8 @@
       "security": {
         "authentication": [
           "api-key",
-          "jwt"
+          "jwt",
+          "service-token"
         ],
         "permissions": [
           "delivery.items.write"
@@ -123,7 +127,8 @@
       "security": {
         "authentication": [
           "api-key",
-          "jwt"
+          "jwt",
+          "service-token"
         ],
         "permissions": [
           "delivery.items.write"
@@ -151,7 +156,8 @@
       "security": {
         "authentication": [
           "api-key",
-          "jwt"
+          "jwt",
+          "service-token"
         ],
         "permissions": [
           "delivery.items.read"
@@ -179,7 +185,8 @@
       "security": {
         "authentication": [
           "api-key",
-          "jwt"
+          "jwt",
+          "service-token"
         ],
         "permissions": [
           "delivery.items.write"
@@ -207,7 +214,8 @@
       "security": {
         "authentication": [
           "api-key",
-          "jwt"
+          "jwt",
+          "service-token"
         ],
         "permissions": [
           "delivery.items.write"
@@ -235,7 +243,8 @@
       "security": {
         "authentication": [
           "api-key",
-          "jwt"
+          "jwt",
+          "service-token"
         ],
         "permissions": [
           "delivery.items.write"
@@ -263,7 +272,8 @@
       "security": {
         "authentication": [
           "api-key",
-          "jwt"
+          "jwt",
+          "service-token"
         ],
         "permissions": [
           "delivery.items.write"
@@ -291,7 +301,8 @@
       "security": {
         "authentication": [
           "api-key",
-          "jwt"
+          "jwt",
+          "service-token"
         ],
         "permissions": [
           "delivery.items.write"
@@ -319,7 +330,8 @@
       "security": {
         "authentication": [
           "api-key",
-          "jwt"
+          "jwt",
+          "service-token"
         ],
         "permissions": [
           "delivery.items.write"

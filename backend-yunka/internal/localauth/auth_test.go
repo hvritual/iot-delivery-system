@@ -89,3 +89,25 @@ func TestHTTPMiddlewareUsesOptionalRoleSpecificEnvironmentKey(t *testing.T) {
 		t.Fatalf("viewer API key status = %d, want %d", response.Code, http.StatusNoContent)
 	}
 }
+
+func TestLocalAPIKeyAuthenticatorRejectsServiceCredentialNamespace(t *testing.T) {
+	serviceCredential := "svc.credential-test.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+	if _, err := localauth.NewAuthenticator(serviceCredential); err == nil {
+		t.Fatal("local API-key authenticator accepted service credential namespace")
+	}
+
+	for name, environment := range map[string]string{
+		"administrator":   localauth.APIKeyEnvironment,
+		"viewer":          localauth.ViewerAPIKeyEnvironment,
+		"contributor":     localauth.ContributorAPIKeyEnvironment,
+		"release manager": localauth.ReleaseManagerAPIKeyEnvironment,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv(localauth.APIKeyEnvironment, "ordinary-local-key")
+			t.Setenv(environment, serviceCredential)
+			if _, err := localauth.FromEnvironment(); err == nil {
+				t.Fatalf("local API-key environment %s accepted service credential namespace", environment)
+			}
+		})
+	}
+}

@@ -18,6 +18,7 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/bootstrap"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/httpapi"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitycore"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localauth"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
 	"google.golang.org/grpc"
@@ -26,6 +27,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	_ "modernc.org/sqlite"
+	yunkagrpc "yunka.io/gateway/rpc/transport/grpc"
 )
 
 func TestApplicationUsesYunkaRuntimeHostForDeliveryAPI(t *testing.T) {
@@ -122,6 +124,69 @@ func TestApplicationUsesYunkaRuntimeHostForDeliveryAPI(t *testing.T) {
 			t.Fatalf("outbox projection did not reach %s before deadline: %v", overviewPath, readErr)
 		}
 		time.Sleep(25 * time.Millisecond)
+	}
+}
+
+func TestApplicationAcceptsServiceCredentialOnlyThroughGRPCAndKeepsItUnauthorizedForRoles(t *testing.T) {
+	t.Setenv(localauth.APIKeyEnvironment, "service-runtime-local-key")
+	databasePath := filepath.Join(t.TempDir(), "service-runtime.db")
+	database, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open service credential database: %v", err)
+	}
+	if err := identitycore.ApplyMigrations(t.Context(), database); err != nil {
+		_ = database.Close()
+		t.Fatalf("apply identity migrations: %v", err)
+	}
+	if _, err := database.Exec(`INSERT INTO organizations (id, slug, name) VALUES ('org-service', 'org-service', 'Service organization')`); err != nil {
+		_ = database.Close()
+		t.Fatalf("create service organization: %v", err)
+	}
+	if _, err := database.Exec(`INSERT INTO service_accounts (id, organization_id, name) VALUES ('service-ci', 'org-service', 'ci')`); err != nil {
+		_ = database.Close()
+		t.Fatalf("create service account: %v", err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatalf("close prepared service credential database: %v", err)
+	}
+	application, err := bootstrap.New(t.Context(), bootstrap.Config{
+		HTTPAddress:   "127.0.0.1:0",
+		GRPCAddress:   "127.0.0.1:0",
+		DatabasePath:  databasePath,
+		ObsidianVault: t.TempDir(),
+		AllowInsecureServiceCredentialsForDevelopment: true,
+	})
+	if err != nil {
+		t.Fatalf("bootstrap service credential application: %v", err)
+	}
+	t.Cleanup(func() { closeApplication(t, application) })
+	issued, err := application.ServiceCredentials().Issue(t.Context(), "service-ci", time.Now().UTC().Add(time.Hour))
+	if err != nil {
+		t.Fatalf("issue service credential through in-process management port: %v", err)
+	}
+	connection, err := grpc.NewClient(application.GRPCAddress(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("connect generated gRPC contract: %v", err)
+	}
+	t.Cleanup(func() { _ = connection.Close() })
+	serviceContext := metadata.AppendToOutgoingContext(t.Context(), yunkagrpc.ServiceAuthorizationMetadata, "Bearer "+issued.Credential)
+	_, err = deliveryv1.NewDeliveryServiceClient(connection).GetDashboard(serviceContext, &deliveryv1.GetDashboardRequest{})
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("service credential call error = %v, want PermissionDenied after authentication without S0-03 roles", err)
+	}
+}
+
+func TestApplicationRejectsInsecureServiceCredentialModeOnNonLoopbackGRPC(t *testing.T) {
+	t.Setenv(localauth.APIKeyEnvironment, "service-runtime-local-key")
+	application, err := bootstrap.New(t.Context(), bootstrap.Config{
+		HTTPAddress:   "127.0.0.1:0",
+		GRPCAddress:   "0.0.0.0:0",
+		DatabasePath:  filepath.Join(t.TempDir(), "service-runtime.db"),
+		ObsidianVault: t.TempDir(),
+		AllowInsecureServiceCredentialsForDevelopment: true,
+	})
+	if application != nil || err == nil || !strings.Contains(err.Error(), "loopback") {
+		t.Fatalf("non-loopback insecure service credential bootstrap = application=%#v error=%v, want loopback rejection", application, err)
 	}
 }
 

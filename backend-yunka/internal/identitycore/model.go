@@ -54,3 +54,15 @@ type ServiceAccount struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
+
+// ServiceAccountCredential is the durable, non-secret record for a service
+// credential. CredentialHash is a one-way SHA-256 digest; the issued secret is
+// never represented by this persistent model.
+type ServiceAccountCredential struct {
+	ID               string
+	ServiceAccountID string
+	CredentialHash   []byte
+	ExpiresAt        time.Time
+	RevokedAt        *time.Time
+	CreatedAt        time.Time
+}

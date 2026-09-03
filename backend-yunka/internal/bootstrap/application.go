@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/obsidian"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/serviceauth"
 	"google.golang.org/grpc"
 	"yunka.io/framework/core"
 	"yunka.io/framework/core/identity"
@@ -42,6 +44,11 @@ type Config struct {
 	DueReminder          delivery.DueReminderConfig
 	BFFOrganizationID    string
 	BFFAssertionKey      string
+	// AllowInsecureServiceCredentialsForDevelopment permits service credentials
+	// only on a loopback gRPC listener for hermetic tests or local development.
+	// Its zero value is false; deployed callers require transport privacy and
+	// integrity through Yunka's service credential verifier.
+	AllowInsecureServiceCredentialsForDevelopment bool
 }
 
 type Application struct {
@@ -55,6 +62,7 @@ type Application struct {
 	subscriptions []event.Subscription
 	dispatcher    *frameworkoutbox.Dispatcher
 	reminders     *delivery.DueReminderScheduler
+	serviceAuth   *serviceauth.Manager
 	app           *core.App
 
 	httpAddress string
@@ -72,6 +80,9 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	if configuration.HTTPAddress == "" || configuration.GRPCAddress == "" || configuration.DatabasePath == "" || configuration.ObsidianVault == "" {
 		return nil, errors.New("HTTP address, gRPC address, database path, and Obsidian vault are required")
 	}
+	if configuration.AllowInsecureServiceCredentialsForDevelopment && !loopbackAddress(configuration.GRPCAddress) {
+		return nil, errors.New("insecure service credentials require a loopback gRPC listener")
+	}
 
 	repository, err := delivery.NewSQLiteRepository(configuration.DatabasePath)
 	if err != nil {
@@ -80,6 +91,11 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	if err := identitycore.ApplyMigrations(ctx, repository.Database()); err != nil {
 		_ = repository.Close()
 		return nil, fmt.Errorf("initialize identity core schema: %w", err)
+	}
+	serviceCredentialManager, err := serviceauth.NewManager(repository.Database(), serviceauth.Config{AllowInsecureTransportForDevelopment: configuration.AllowInsecureServiceCredentialsForDevelopment})
+	if err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("configure service credential manager: %w", err)
 	}
 	identityResolver, err := identitybinding.NewSQLiteResolver(repository.Database(), identitybinding.Config{})
 	if err != nil {
@@ -187,12 +203,13 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		subscriptions: subscriptions,
 		dispatcher:    dispatcher,
 		reminders:     reminders,
+		serviceAuth:   serviceCredentialManager,
 	}
 	started, err := runtimehost.Bootstrap(ctx, runtimehost.Options[generatedassembly.Applications]{
 		HTTPListenAddress: configuration.HTTPAddress,
 		GRPCListenAddress: configuration.GRPCAddress,
 		HTTPMiddleware:    httpMiddleware,
-		GRPCServerOptions: []grpc.ServerOption{grpc.UnaryInterceptor(authenticator.GRPCUnaryServerInterceptor())},
+		GRPCServerOptions: []grpc.ServerOption{grpc.UnaryInterceptor(serviceCredentialManager.GRPCUnaryServerInterceptor(authenticator.GRPCUnaryServerInterceptor()))},
 		HealthPath:        "/health",
 		DiagnosticsPath:   "/__yunka/diagnostics",
 		Bootstrap: func(bootstrapCtx context.Context, runtime runtimehost.Runtime) (kernel.BootstrapResult[generatedassembly.Applications], error) {
@@ -261,6 +278,17 @@ func configuredHTTPMiddleware(authenticator *localauth.Authenticator, resolver *
 	return middleware.HTTPMiddleware, nil
 }
 
+func loopbackAddress(address string) bool {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return false
+	}
+	if host == "localhost" {
+		return true
+	}
+	return net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback()
+}
+
 type applicationFactories struct {
 	deliveryManagement deliveryapplication.DeliveryService
 }
@@ -280,6 +308,18 @@ func (application *Application) Operations() *deliveryapplication.Operations {
 		return nil
 	}
 	return application.operations
+}
+
+// ServiceCredentials is the intentionally in-process management port for
+// issuing, rotating, revoking, and disabling service credentials. S0-02-07
+// exposes no service-credential write transport, so such writes cannot bypass
+// the generated Operation Plan, Executor, authorization, transaction, and
+// Outbox boundary required for future remote management APIs.
+func (application *Application) ServiceCredentials() *serviceauth.Manager {
+	if application == nil {
+		return nil
+	}
+	return application.serviceAuth
 }
 
 func (application *Application) HTTPAddress() string {

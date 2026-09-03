@@ -87,10 +87,10 @@ func TestGeneratedOperationPlansDeclareLocalAPIKeyAuthorizationAndTransactions(t
 		"delivery.items.update-context": {permission: "delivery.items.write", transaction: "local"},
 		"delivery.items.advance-gate":   {permission: "delivery.items.gate", transaction: "local"},
 		"delivery.items.close":          {permission: "delivery.items.close", transaction: "local"},
-		"delivery.projects.create":       {permission: "delivery.items.write", transaction: "local"},
-		"delivery.releases.create":       {permission: "delivery.items.write", transaction: "local"},
-		"delivery.sprints.create":        {permission: "delivery.items.write", transaction: "local"},
-		"delivery.milestones.create":     {permission: "delivery.items.write", transaction: "local"},
+		"delivery.projects.create":      {permission: "delivery.items.write", transaction: "local"},
+		"delivery.releases.create":      {permission: "delivery.items.write", transaction: "local"},
+		"delivery.sprints.create":       {permission: "delivery.items.write", transaction: "local"},
+		"delivery.milestones.create":    {permission: "delivery.items.write", transaction: "local"},
 	}
 	if len(plans.Operations) != len(want) {
 		t.Fatalf("generated operation count = %d, want %d", len(plans.Operations), len(want))
@@ -103,8 +103,8 @@ func TestGeneratedOperationPlansDeclareLocalAPIKeyAuthorizationAndTransactions(t
 		if plan.Execution.Transaction != expected.transaction {
 			t.Fatalf("operation %s transaction = %q, want %q", plan.OperationID, plan.Execution.Transaction, expected.transaction)
 		}
-		if plan.Security.Public || len(plan.Security.Authentication) != 2 || plan.Security.Authentication[0] != "api-key" || plan.Security.Authentication[1] != "jwt" {
-			t.Fatalf("operation %s security = %#v, want API key and JWT protection", plan.OperationID, plan.Security)
+		if plan.Security.Public || len(plan.Security.Authentication) != 3 || plan.Security.Authentication[0] != "api-key" || plan.Security.Authentication[1] != "jwt" || plan.Security.Authentication[2] != "service-token" {
+			t.Fatalf("operation %s security = %#v, want API key, JWT, and service-token protection", plan.OperationID, plan.Security)
 		}
 		if len(plan.Security.Permissions) != 1 || plan.Security.Permissions[0] != expected.permission {
 			t.Fatalf("operation %s permissions = %#v, want %q", plan.OperationID, plan.Security.Permissions, expected.permission)

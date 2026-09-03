@@ -30,6 +30,8 @@ const (
 	RoleContributor    = "contributor"
 	RoleReleaseManager = "release-manager"
 	RoleLocalAdmin     = "local-admin"
+
+	serviceCredentialPrefix = "svc."
 )
 
 var errInvalidAPIKey = errors.New("local API key is required")
@@ -51,6 +53,9 @@ func NewAuthenticator(apiKey string) (*Authenticator, error) {
 	if apiKey == "" {
 		return nil, errors.New("local API key is required")
 	}
+	if isServiceCredential(apiKey) {
+		return nil, errors.New("local API key must use the legacy credential namespace")
+	}
 	return &Authenticator{credentials: []credential{{apiKey: []byte(apiKey), role: RoleLocalAdmin}}}, nil
 }
 
@@ -58,6 +63,9 @@ func FromEnvironment() (*Authenticator, error) {
 	apiKey := strings.TrimSpace(os.Getenv(APIKeyEnvironment))
 	if apiKey == "" {
 		return nil, errors.New("local API key environment is required")
+	}
+	if isServiceCredential(apiKey) {
+		return nil, errors.New("local API key must use the legacy credential namespace")
 	}
 	credentials := []credential{{apiKey: []byte(apiKey), role: RoleLocalAdmin}}
 	for _, value := range []struct {
@@ -71,6 +79,9 @@ func FromEnvironment() (*Authenticator, error) {
 		apiKey = strings.TrimSpace(os.Getenv(value.environment))
 		if apiKey == "" {
 			continue
+		}
+		if isServiceCredential(apiKey) {
+			return nil, errors.New("local API key must use the legacy credential namespace")
 		}
 		credentials = append(credentials, credential{apiKey: []byte(apiKey), role: value.role})
 	}
@@ -125,7 +136,7 @@ func (authenticator *Authenticator) authenticate(candidate string) (identity.Pri
 		return identity.Principal{}, errInvalidAPIKey
 	}
 	candidate = strings.TrimSpace(candidate)
-	if candidate == "" {
+	if candidate == "" || isServiceCredential(candidate) {
 		return identity.Principal{}, errInvalidAPIKey
 	}
 	var role string
@@ -147,6 +158,8 @@ func (authenticator *Authenticator) authenticate(candidate string) (identity.Pri
 		Authenticated: true,
 	}, nil
 }
+
+func isServiceCredential(value string) bool { return strings.HasPrefix(value, serviceCredentialPrefix) }
 
 type grantResolver struct{}
 
