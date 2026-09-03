@@ -2,6 +2,7 @@ package application_test
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -79,6 +80,445 @@ func TestOperationsUsesGeneratedPolicyForAuthorizationAndLocalOutbox(t *testing.
 	}
 	if snapshot.Pending != 1 {
 		t.Fatalf("allowed operation queued %d events, want 1", snapshot.Pending)
+	}
+}
+
+func TestOperationsCreatePreservesNestedWriteContract(t *testing.T) {
+	ctx := context.Background()
+	repository, err := delivery.NewSQLiteRepository(filepath.Join(t.TempDir(), "delivery.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = repository.Close() })
+	store, err := localoutbox.NewSQLiteStore(repository.Database())
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorizer, err := localauth.NewAuthorizer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	security, err := authz.NewExecutionSecurity(authorizer, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := delivery.NewService(repository, nil, delivery.NewTransactionalOutboxStager(store))
+	operations := application.NewOperations(application.NewAdapter(service), operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())}))
+	admin := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, Roles: []string{localauth.RoleLocalAdmin}})
+	project, err := operations.CreateProject(admin, delivery.ProjectInput{Name: "nested", Board: delivery.BoardResearchDelivery, Owner: "owner"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	release, err := operations.CreateRelease(admin, delivery.ReleaseInput{ProjectID: project.ID, Name: "release", Version: "v1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sprint, err := operations.CreateSprint(admin, delivery.SprintInput{ProjectID: project.ID, Name: "sprint", StartDate: "2026-09-01", EndDate: "2026-09-10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	milestone, err := operations.CreateMilestone(admin, delivery.MilestoneInput{ProjectID: project.ID, Name: "milestone", TargetDate: "2026-09-10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent, err := operations.Create(admin, delivery.CreateInput{Title: "parent", Board: delivery.BoardResearchDelivery, ProjectID: project.ID, Kind: delivery.WorkItemKindEpic, Owner: "owner"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dependency, err := operations.Create(admin, delivery.CreateInput{Title: "dependency", Board: delivery.BoardResearchDelivery, ProjectID: project.ID, Owner: "owner"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recordedAt := time.Date(2026, 9, 3, 12, 0, 0, 0, time.UTC)
+	item, err := operations.Create(admin, delivery.CreateInput{Title: "target", Board: delivery.BoardResearchDelivery, ProjectID: project.ID, ParentID: parent.ID, Kind: delivery.WorkItemKindSubtask, Owner: "owner", Type: "defect", Priority: delivery.PriorityP0, ReleaseID: release.ID, SprintID: sprint.ID, MilestoneID: milestone.ID, StartDate: "2026-09-02", DueDate: "2026-09-09", EstimatePoints: 3.5, ProgressPercent: 40, Plan: "plan", Solution: "solution", IsSample: true, Dependencies: []delivery.WorkItemDependency{{ItemID: dependency.ID, Relation: delivery.DependencyDependsOn}}, IoTBindings: []delivery.IoTBinding{{Kind: delivery.IoTBindingDevice, Reference: "SN-1", Label: "device", Attributes: map[string]string{"site": "A"}}}, TraceLinks: []delivery.TraceLink{{Kind: delivery.TraceBuild, Reference: "build-1", Title: "build", URL: "https://example.test/build-1", Status: "passed", RecordedAt: recordedAt}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if item.ProjectID != project.ID || item.ParentID != parent.ID || item.Kind != delivery.WorkItemKindSubtask || item.ReleaseID != release.ID || item.SprintID != sprint.ID || item.MilestoneID != milestone.ID || item.StartDate != "2026-09-02" || item.DueDate != "2026-09-09" || item.EstimatePoints != 3.5 || item.ProgressPercent != 40 || item.Plan != "plan" || item.Solution != "solution" || !item.IsSample || len(item.Dependencies) != 1 || len(item.IoTBindings) != 1 || item.IoTBindings[0].Attributes["site"] != "A" || len(item.TraceLinks) != 1 {
+		t.Fatalf("generated create lost nested fields: %#v", item)
+	}
+	stored, err := repository.Get(ctx, item.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if item.Title != "target" || item.Board != delivery.BoardResearchDelivery || item.Owner != "owner" || item.Type != "defect" || item.Priority != delivery.PriorityP0 || item.Dependencies[0].ItemID != dependency.ID || item.Dependencies[0].Relation != delivery.DependencyDependsOn || item.IoTBindings[0].Kind != delivery.IoTBindingDevice || item.IoTBindings[0].Reference != "SN-1" || item.IoTBindings[0].Label != "device" || item.TraceLinks[0].Kind != delivery.TraceBuild || item.TraceLinks[0].Title != "build" || item.TraceLinks[0].URL != "https://example.test/build-1" || item.TraceLinks[0].Status != "passed" || !item.TraceLinks[0].RecordedAt.Equal(recordedAt) {
+		t.Fatalf("create response lost fields: %#v", item)
+	}
+	if stored.Title != item.Title || stored.Board != item.Board || stored.Owner != item.Owner || stored.Type != item.Type || stored.Priority != item.Priority || stored.Kind != item.Kind || stored.ProjectID != item.ProjectID || stored.ParentID != item.ParentID || stored.ReleaseID != item.ReleaseID || stored.SprintID != item.SprintID || stored.MilestoneID != item.MilestoneID || stored.StartDate != item.StartDate || stored.DueDate != item.DueDate || stored.EstimatePoints != item.EstimatePoints || stored.ProgressPercent != item.ProgressPercent || stored.Plan != item.Plan || stored.Solution != item.Solution || stored.IsSample != item.IsSample || len(stored.Dependencies) != 1 || stored.Dependencies[0] != item.Dependencies[0] || len(stored.IoTBindings) != 1 || stored.IoTBindings[0].Kind != delivery.IoTBindingDevice || stored.IoTBindings[0].Reference != "SN-1" || stored.IoTBindings[0].Label != "device" || stored.IoTBindings[0].Attributes["site"] != "A" || len(stored.TraceLinks) != 1 || stored.TraceLinks[0].Kind != delivery.TraceBuild || stored.TraceLinks[0].Reference != "build-1" || stored.TraceLinks[0].Title != "build" || stored.TraceLinks[0].URL != "https://example.test/build-1" || stored.TraceLinks[0].Status != "passed" || !stored.TraceLinks[0].RecordedAt.Equal(recordedAt) {
+		t.Fatalf("stored create lost fields: %#v", stored)
+	}
+}
+
+func TestOperationsUpdatePresenceAndCommentPersistThroughGeneratedWrites(t *testing.T) {
+	ctx := context.Background()
+	repository, err := delivery.NewSQLiteRepository(filepath.Join(t.TempDir(), "delivery.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = repository.Close() })
+	store, err := localoutbox.NewSQLiteStore(repository.Database())
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorizer, err := localauth.NewAuthorizer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	security, err := authz.NewExecutionSecurity(authorizer, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := delivery.NewService(repository, nil, delivery.NewTransactionalOutboxStager(store))
+	operations := application.NewOperations(application.NewAdapter(service), operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())}))
+	admin := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, UserID: "actor", Roles: []string{localauth.RoleLocalAdmin}})
+	project, err := operations.CreateProject(admin, delivery.ProjectInput{Name: "presence", Board: delivery.BoardResearchDelivery, Owner: "actor"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dependency, err := operations.Create(admin, delivery.CreateInput{Title: "dep", Board: delivery.BoardResearchDelivery, ProjectID: project.ID, Owner: "actor"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err := operations.Create(admin, delivery.CreateInput{Title: "item", Board: delivery.BoardResearchDelivery, ProjectID: project.ID, Owner: "actor", Dependencies: []delivery.WorkItemDependency{{ItemID: dependency.ID, Relation: delivery.DependencyDependsOn}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	empty := []delivery.WorkItemDependency{}
+	updated, err := operations.UpdateWorkItem(admin, item.ID, delivery.WorkItemUpdate{Dependencies: &empty})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updated.Dependencies) != 0 {
+		t.Fatalf("explicit empty dependencies=%#v", updated.Dependencies)
+	}
+	title := "renamed"
+	unchanged, err := operations.UpdateWorkItem(admin, item.ID, delivery.WorkItemUpdate{Title: &title})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(unchanged.Dependencies) != 0 {
+		t.Fatalf("omitted dependencies changed=%#v", unchanged.Dependencies)
+	}
+	beforeComment, err := store.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	comment, err := operations.AddComment(admin, item.ID, delivery.CommentInput{Body: "comment"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if comment.Author != "actor" || comment.CreatedAt.IsZero() {
+		t.Fatalf("comment=%#v", comment)
+	}
+	snapshot, err := store.Snapshot(ctx)
+	if err != nil || snapshot.Pending != beforeComment.Pending+1 {
+		t.Fatalf("comment outbox=%#v err=%v", snapshot, err)
+	}
+	afterCommentTitle := "after-comment"
+	response, err := operations.UpdateWorkItem(admin, item.ID, delivery.WorkItemUpdate{Title: &afterCommentTitle})
+	if err != nil || len(response.Comments) != 1 || len(response.Activities) == 0 || response.Comments[0].Author != "actor" || response.Comments[0].CreatedAt.IsZero() || response.Activities[len(response.Activities)-1].OccurredAt.IsZero() {
+		t.Fatalf("work item response lost comment/activity: %#v err=%v", response, err)
+	}
+	stored, err := repository.Get(ctx, item.ID)
+	if err != nil || len(stored.Comments) != 1 {
+		t.Fatalf("stored=%#v err=%v", stored, err)
+	}
+}
+
+func TestOperationsRejectsInvalidDependenciesWithoutOutboxSideEffects(t *testing.T) {
+	ctx := context.Background()
+	repository, err := delivery.NewSQLiteRepository(filepath.Join(t.TempDir(), "delivery.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = repository.Close() })
+	store, err := localoutbox.NewSQLiteStore(repository.Database())
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorizer, err := localauth.NewAuthorizer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	security, err := authz.NewExecutionSecurity(authorizer, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := delivery.NewService(repository, nil, delivery.NewTransactionalOutboxStager(store))
+	operations := application.NewOperations(application.NewAdapter(service), operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())}))
+	admin := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, Roles: []string{localauth.RoleLocalAdmin}})
+	p1, err := operations.CreateProject(admin, delivery.ProjectInput{Name: "p1", Board: delivery.BoardResearchDelivery, Owner: "o"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p2, err := operations.CreateProject(admin, delivery.ProjectInput{Name: "p2", Board: delivery.BoardResearchDelivery, Owner: "o"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign, err := operations.Create(admin, delivery.CreateInput{Title: "foreign", Board: delivery.BoardResearchDelivery, ProjectID: p2.ID, Owner: "o"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	local, err := operations.Create(admin, delivery.CreateInput{Title: "local", Board: delivery.BoardResearchDelivery, ProjectID: p1.ID, Owner: "o"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps := []delivery.WorkItemDependency{{ItemID: foreign.ID, Relation: delivery.DependencyDependsOn}}
+	if _, err := operations.UpdateWorkItem(admin, local.ID, delivery.WorkItemUpdate{Dependencies: &deps}); !errors.Is(err, delivery.ErrProjectParentMismatch) {
+		t.Fatalf("cross-project error=%v", err)
+	}
+	after, err := store.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := repository.Get(ctx, local.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Pending != before.Pending || len(stored.Dependencies) != 0 {
+		t.Fatalf("cross project side effect outbox=%#v stored=%#v", after, stored)
+	}
+	deps = []delivery.WorkItemDependency{{ItemID: local.ID, Relation: delivery.DependencyDependsOn}}
+	if _, err := operations.UpdateWorkItem(admin, local.ID, delivery.WorkItemUpdate{Dependencies: &deps}); !errors.Is(err, delivery.ErrCircularDependency) {
+		t.Fatalf("self-cycle error=%v", err)
+	}
+	after, err = store.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err = repository.Get(ctx, local.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Pending != before.Pending || len(stored.Dependencies) != 0 {
+		t.Fatalf("cycle side effect outbox=%#v stored=%#v", after, stored)
+	}
+	a, err := operations.Create(admin, delivery.CreateInput{Title: "a", Board: delivery.BoardResearchDelivery, ProjectID: p1.ID, Owner: "o"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := operations.Create(admin, delivery.CreateInput{Title: "b", Board: delivery.BoardResearchDelivery, ProjectID: p1.ID, Owner: "o"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps = []delivery.WorkItemDependency{{ItemID: b.ID, Relation: delivery.DependencyDependsOn}}
+	if _, err := operations.UpdateWorkItem(admin, a.ID, delivery.WorkItemUpdate{Dependencies: &deps}); err != nil {
+		t.Fatal(err)
+	}
+	before, err = store.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps = []delivery.WorkItemDependency{{ItemID: a.ID, Relation: delivery.DependencyDependsOn}}
+	if _, err := operations.UpdateWorkItem(admin, b.ID, delivery.WorkItemUpdate{Dependencies: &deps}); !errors.Is(err, delivery.ErrCircularDependency) {
+		t.Fatalf("two-node error=%v", err)
+	}
+	after, err = store.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err = repository.Get(ctx, b.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Pending != before.Pending || len(stored.Dependencies) != 0 {
+		t.Fatalf("two-node side effect outbox=%#v stored=%#v", after, stored)
+	}
+}
+
+func TestOperationsViewerWriteOperationsHaveNoSideEffects(t *testing.T) {
+	ctx := context.Background()
+	repository, err := delivery.NewSQLiteRepository(filepath.Join(t.TempDir(), "delivery.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = repository.Close() })
+	store, err := localoutbox.NewSQLiteStore(repository.Database())
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorizer, err := localauth.NewAuthorizer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	security, err := authz.NewExecutionSecurity(authorizer, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := delivery.NewService(repository, nil, delivery.NewTransactionalOutboxStager(store))
+	operations := application.NewOperations(application.NewAdapter(service), operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())}))
+	admin := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, Roles: []string{localauth.RoleLocalAdmin}})
+	viewer := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, Roles: []string{localauth.RoleViewer}})
+	item, err := operations.Create(admin, delivery.CreateInput{Title: "existing", Board: delivery.BoardResearchDelivery, Owner: "admin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeItems, err := repository.List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	title := "changed"
+	calls := []func() error{func() error {
+		_, e := operations.Create(viewer, delivery.CreateInput{Title: "denied", Board: delivery.BoardResearchDelivery, Owner: "viewer"})
+		return e
+	}, func() error {
+		_, e := operations.UpdateWorkItem(viewer, item.ID, delivery.WorkItemUpdate{Title: &title})
+		return e
+	}, func() error {
+		_, e := operations.AddComment(viewer, item.ID, delivery.CommentInput{Body: "denied"})
+		return e
+	}}
+	for _, call := range calls {
+		if err := call(); !authz.IsDenied(err) {
+			t.Fatalf("viewer error=%v", err)
+		}
+	}
+	after, err := store.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := repository.Get(ctx, item.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	afterItems, err := repository.List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Pending != before.Pending || len(afterItems) != len(beforeItems) || stored.Title != "existing" || len(stored.Comments) != 0 {
+		t.Fatalf("viewer side effect outbox=%#v item=%#v", after, stored)
+	}
+}
+
+func TestOperationsRejectsOutOfRangeProgressBeforeWriting(t *testing.T) {
+	ctx := context.Background()
+	repository, err := delivery.NewSQLiteRepository(filepath.Join(t.TempDir(), "delivery.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = repository.Close() })
+	store, err := localoutbox.NewSQLiteStore(repository.Database())
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorizer, err := localauth.NewAuthorizer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	security, err := authz.NewExecutionSecurity(authorizer, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operations := application.NewOperations(application.NewAdapter(delivery.NewService(repository, nil, delivery.NewTransactionalOutboxStager(store))), operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())}))
+	admin := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, Roles: []string{localauth.RoleLocalAdmin}})
+	before, err := store.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := operations.Create(admin, delivery.CreateInput{Title: "bad", Board: delivery.BoardResearchDelivery, Owner: "owner", ProgressPercent: 101}); err == nil {
+		t.Fatal("out of range create accepted")
+	}
+	items, err := repository.List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := store.Snapshot(ctx)
+	if err != nil || len(items) != 0 || after.Pending != before.Pending {
+		t.Fatalf("invalid create side effect items=%#v outbox=%#v err=%v", items, after, err)
+	}
+	item, err := operations.Create(admin, delivery.CreateInput{Title: "valid", Board: delivery.BoardResearchDelivery, Owner: "owner"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err = store.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalid := 101
+	if _, err := operations.UpdateWorkItem(admin, item.ID, delivery.WorkItemUpdate{ProgressPercent: &invalid}); err == nil {
+		t.Fatal("out of range update accepted")
+	}
+	stored, err := repository.Get(ctx, item.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err = store.Snapshot(ctx)
+	if err != nil || stored.ProgressPercent != 0 || after.Pending != before.Pending {
+		t.Fatalf("invalid update side effect item=%#v outbox=%#v err=%v", stored, after, err)
+	}
+}
+
+func TestOperationsUpdateAllFieldPresenceThroughGeneratedContract(t *testing.T) {
+	ctx := context.Background()
+	repository, err := delivery.NewSQLiteRepository(filepath.Join(t.TempDir(), "delivery.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = repository.Close() })
+	authorizer, err := localauth.NewAuthorizer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	security, err := authz.NewExecutionSecurity(authorizer, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := delivery.NewService(repository, nil)
+	operations := application.NewOperations(application.NewAdapter(service), operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())}))
+	admin := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, Roles: []string{localauth.RoleLocalAdmin}})
+	project, err := operations.CreateProject(admin, delivery.ProjectInput{Name: "project", Board: delivery.BoardResearchDelivery, Owner: "old"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	release, err := operations.CreateRelease(admin, delivery.ReleaseInput{ProjectID: project.ID, Name: "release", Version: "v1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sprint, err := operations.CreateSprint(admin, delivery.SprintInput{ProjectID: project.ID, Name: "sprint", StartDate: "2026-09-01", EndDate: "2026-09-10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	milestone, err := operations.CreateMilestone(admin, delivery.MilestoneInput{ProjectID: project.ID, Name: "milestone", TargetDate: "2026-09-10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dependency, err := operations.Create(admin, delivery.CreateInput{Title: "dependency", Board: delivery.BoardResearchDelivery, ProjectID: project.ID, Owner: "old"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	item, err := operations.Create(admin, delivery.CreateInput{Title: "old", Board: delivery.BoardResearchDelivery, ProjectID: project.ID, Owner: "old", Priority: delivery.PriorityP1, ReleaseID: release.ID, SprintID: sprint.ID, MilestoneID: milestone.ID, StartDate: "2026-09-01", DueDate: "2026-09-02", EstimatePoints: 5, ProgressPercent: 50, Dependencies: []delivery.WorkItemDependency{{ItemID: dependency.ID, Relation: delivery.DependencyDependsOn}}, IoTBindings: []delivery.IoTBinding{{Kind: delivery.IoTBindingDevice, Reference: "x"}}, TraceLinks: []delivery.TraceLink{{Kind: delivery.TraceBuild, Reference: "x"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	keepTitle := "kept"
+	kept, err := operations.UpdateWorkItem(admin, item.ID, delivery.WorkItemUpdate{Title: &keepTitle})
+	if err != nil || kept.ReleaseID != release.ID || kept.SprintID != sprint.ID || kept.MilestoneID != milestone.ID || kept.StartDate != "2026-09-01" || kept.DueDate != "2026-09-02" || kept.EstimatePoints != 5 || kept.ProgressPercent != 50 || len(kept.Dependencies) != 1 || len(kept.IoTBindings) != 1 || len(kept.TraceLinks) != 1 {
+		t.Fatalf("omitted fields not kept: %#v err=%v", kept, err)
+	}
+	title, owner, priority, empty := "new", "new", delivery.PriorityP0, ""
+	zeroFloat := 0.0
+	zeroInt := 0
+	emptyDeps := []delivery.WorkItemDependency{}
+	emptyBindings := []delivery.IoTBinding{}
+	emptyTraces := []delivery.TraceLink{}
+	updated, err := operations.UpdateWorkItem(admin, item.ID, delivery.WorkItemUpdate{Title: &title, Owner: &owner, Priority: &priority, ReleaseID: &empty, SprintID: &empty, MilestoneID: &empty, StartDate: &empty, DueDate: &empty, EstimatePoints: &zeroFloat, ProgressPercent: &zeroInt, Dependencies: &emptyDeps, IoTBindings: &emptyBindings, TraceLinks: &emptyTraces})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Title != "new" || updated.Owner != "new" || updated.Priority != delivery.PriorityP0 || updated.ReleaseID != "" || updated.SprintID != "" || updated.MilestoneID != "" || updated.StartDate != "" || updated.DueDate != "" || updated.EstimatePoints != 0 || updated.ProgressPercent != 0 || len(updated.Dependencies) != 0 || len(updated.IoTBindings) != 0 || len(updated.TraceLinks) != 0 {
+		t.Fatalf("presence result=%#v", updated)
+	}
+	stored, err := repository.Get(ctx, item.ID)
+	if err != nil || stored.Title != updated.Title || stored.Owner != updated.Owner || stored.Priority != updated.Priority || stored.ReleaseID != "" || stored.SprintID != "" || stored.MilestoneID != "" || stored.StartDate != "" || stored.DueDate != "" || stored.EstimatePoints != 0 || stored.ProgressPercent != 0 || len(stored.Dependencies) != 0 || len(stored.IoTBindings) != 0 || len(stored.TraceLinks) != 0 {
+		t.Fatalf("stored=%#v err=%v", stored, err)
 	}
 }
 

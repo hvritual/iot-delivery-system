@@ -83,6 +83,33 @@
       }
     },
     {
+      "operationId": "delivery.items.comment.create",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "add_comment",
+      "requestType": "iot.delivery.v1.CreateItemCommentRequest",
+      "responseType": "iot.delivery.v1.CommentResponse",
+      "security": {
+        "authentication": [
+          "api-key"
+        ],
+        "permissions": [
+          "delivery.items.write"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "local",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/CreateItemComment"
+      }
+    },
+    {
       "operationId": "delivery.items.create",
       "domain": "delivery",
       "application": "management",
@@ -134,6 +161,33 @@
       },
       "bindings": {
         "rpc": "/iot.delivery.v1.DeliveryService/ListItems"
+      }
+    },
+    {
+      "operationId": "delivery.items.update",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "update_item",
+      "requestType": "iot.delivery.v1.UpdateItemRequest",
+      "responseType": "iot.delivery.v1.WorkItemResponse",
+      "security": {
+        "authentication": [
+          "api-key"
+        ],
+        "permissions": [
+          "delivery.items.write"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "local",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/UpdateItem"
       }
     },
     {

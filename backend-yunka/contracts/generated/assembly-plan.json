@@ -78,6 +78,27 @@
       }
     },
     {
+      "id": "delivery.items.comment.create",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.items.comment.create",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.items.comment.create/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.items.comment.create"
+      }
+    },
+    {
       "id": "delivery.items.create",
       "application": "delivery/management",
       "bindings": [
@@ -117,6 +138,27 @@
         "ownership": "reused",
         "source": "operation-plans.json",
         "ref": "operations/delivery.items.list"
+      }
+    },
+    {
+      "id": "delivery.items.update",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.items.update",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.items.update/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.items.update"
       }
     },
     {
@@ -250,8 +292,10 @@
         "delivery.dashboard.get",
         "delivery.items.advance-gate",
         "delivery.items.close",
+        "delivery.items.comment.create",
         "delivery.items.create",
         "delivery.items.list",
+        "delivery.items.update",
         "delivery.items.update-context",
         "delivery.milestones.create",
         "delivery.projects.create",

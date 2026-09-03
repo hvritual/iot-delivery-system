@@ -50,20 +50,130 @@ func (adapter *Adapter) CreateItem(ctx context.Context, request *deliveryv1.Crea
 		return nil, err
 	}
 	item, err := service.Create(ctx, delivery.CreateInput{
-		Title:    request.GetTitle(),
-		Board:    delivery.Board(request.GetBoard()),
-		Type:     request.GetType(),
-		Owner:    request.GetOwner(),
-		Priority: delivery.Priority(request.GetPriority()),
-		DueDate:  request.GetDueDate(),
-		Plan:     request.GetPlan(),
-		Solution: request.GetSolution(),
-		IsSample: request.GetIsSample(),
+		Title:     request.GetTitle(),
+		Board:     delivery.Board(request.GetBoard()),
+		Type:      request.GetType(),
+		Owner:     request.GetOwner(),
+		Priority:  delivery.Priority(request.GetPriority()),
+		DueDate:   request.GetDueDate(),
+		Plan:      request.GetPlan(),
+		Solution:  request.GetSolution(),
+		IsSample:  request.GetIsSample(),
+		ProjectID: request.GetProjectId(), ParentID: request.GetParentId(), Kind: delivery.WorkItemKind(request.GetKind()), ReleaseID: request.GetReleaseId(), SprintID: request.GetSprintId(), MilestoneID: request.GetMilestoneId(), StartDate: request.GetStartDate(), EstimatePoints: request.GetEstimatePoints(), ProgressPercent: int(request.GetProgressPercent()),
+		Dependencies: dependenciesFromProto(request.GetDependencies()), IoTBindings: bindingsFromProto(request.GetIotBindings()), TraceLinks: traceLinksFromProto(request.GetTraceLinks()),
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &deliveryv1.WorkItemResponse{Item: workItem(item)}, nil
+}
+
+func (adapter *Adapter) UpdateItem(ctx context.Context, request *deliveryv1.UpdateItemRequest) (*deliveryv1.WorkItemResponse, error) {
+	if request == nil {
+		return nil, errors.New("request is required")
+	}
+	service, err := adapter.deliveryService()
+	if err != nil {
+		return nil, err
+	}
+	update := delivery.WorkItemUpdate{}
+	for _, field := range request.GetUpdateMask() {
+		switch field {
+		case "title":
+			value := request.GetTitle()
+			update.Title = &value
+		case "owner":
+			value := request.GetOwner()
+			update.Owner = &value
+		case "priority":
+			value := delivery.Priority(request.GetPriority())
+			update.Priority = &value
+		case "release_id":
+			value := request.GetReleaseId()
+			update.ReleaseID = &value
+		case "sprint_id":
+			value := request.GetSprintId()
+			update.SprintID = &value
+		case "milestone_id":
+			value := request.GetMilestoneId()
+			update.MilestoneID = &value
+		case "start_date":
+			value := request.GetStartDate()
+			update.StartDate = &value
+		case "due_date":
+			value := request.GetDueDate()
+			update.DueDate = &value
+		case "estimate_points":
+			value := request.GetEstimatePoints()
+			update.EstimatePoints = &value
+		case "progress_percent":
+			value := int(request.GetProgressPercent())
+			update.ProgressPercent = &value
+		case "dependencies":
+			value := dependenciesFromProto(request.GetDependencies())
+			update.Dependencies = &value
+		case "iot_bindings":
+			value := bindingsFromProto(request.GetIotBindings())
+			update.IoTBindings = &value
+		case "trace_links":
+			value := traceLinksFromProto(request.GetTraceLinks())
+			update.TraceLinks = &value
+		default:
+			return nil, errors.New("unsupported delivery work item update field: " + field)
+		}
+	}
+	item, err := service.UpdateWorkItem(ctx, request.GetId(), update)
+	if err != nil {
+		return nil, err
+	}
+	return &deliveryv1.WorkItemResponse{Item: workItem(item)}, nil
+}
+
+func dependenciesFromProto(values []*deliveryv1.WorkItemDependency) []delivery.WorkItemDependency {
+	result := make([]delivery.WorkItemDependency, 0, len(values))
+	for _, v := range values {
+		if v != nil {
+			result = append(result, delivery.WorkItemDependency{ItemID: v.GetItemId(), Relation: delivery.DependencyRelation(v.GetRelation())})
+		}
+	}
+	return result
+}
+func bindingsFromProto(values []*deliveryv1.IoTBinding) []delivery.IoTBinding {
+	result := make([]delivery.IoTBinding, 0, len(values))
+	for _, v := range values {
+		if v != nil {
+			attrs := map[string]string{}
+			for k, x := range v.GetAttributes() {
+				attrs[k] = x
+			}
+			result = append(result, delivery.IoTBinding{Kind: delivery.IoTBindingKind(v.GetKind()), Reference: v.GetReference(), Label: v.GetLabel(), Attributes: attrs})
+		}
+	}
+	return result
+}
+func traceLinksFromProto(values []*deliveryv1.TraceLink) []delivery.TraceLink {
+	result := make([]delivery.TraceLink, 0, len(values))
+	for _, v := range values {
+		if v != nil {
+			result = append(result, delivery.TraceLink{Kind: delivery.TraceKind(v.GetKind()), Reference: v.GetReference(), Title: v.GetTitle(), URL: v.GetUrl(), Status: v.GetStatus(), RecordedAt: timeFromProto(v.GetRecordedAt())})
+		}
+	}
+	return result
+}
+
+func (adapter *Adapter) CreateItemComment(ctx context.Context, request *deliveryv1.CreateItemCommentRequest) (*deliveryv1.CommentResponse, error) {
+	if request == nil {
+		return nil, errors.New("request is required")
+	}
+	service, err := adapter.deliveryService()
+	if err != nil {
+		return nil, err
+	}
+	comment, err := service.AddComment(ctx, request.GetId(), delivery.CommentInput{Body: request.GetBody()})
+	if err != nil {
+		return nil, err
+	}
+	return &deliveryv1.CommentResponse{Comment: &deliveryv1.Comment{Id: comment.ID, Body: comment.Body, Author: comment.Author, CreatedAt: timestamp(comment.CreatedAt)}}, nil
 }
 
 func (adapter *Adapter) CreateProject(ctx context.Context, request *deliveryv1.CreateProjectRequest) (*deliveryv1.ProjectResponse, error) {
@@ -256,6 +366,30 @@ func workItem(item delivery.WorkItem) *deliveryv1.WorkItem {
 			RecordedAt: timestamp(record.RecordedAt),
 		})
 	}
+	dependencies := make([]*deliveryv1.WorkItemDependency, 0, len(item.Dependencies))
+	for _, value := range item.Dependencies {
+		dependencies = append(dependencies, &deliveryv1.WorkItemDependency{ItemId: value.ItemID, Relation: string(value.Relation)})
+	}
+	bindings := make([]*deliveryv1.IoTBinding, 0, len(item.IoTBindings))
+	for _, value := range item.IoTBindings {
+		attributes := map[string]string{}
+		for key, attribute := range value.Attributes {
+			attributes[key] = attribute
+		}
+		bindings = append(bindings, &deliveryv1.IoTBinding{Kind: string(value.Kind), Reference: value.Reference, Label: value.Label, Attributes: attributes})
+	}
+	traces := make([]*deliveryv1.TraceLink, 0, len(item.TraceLinks))
+	for _, value := range item.TraceLinks {
+		traces = append(traces, &deliveryv1.TraceLink{Kind: string(value.Kind), Reference: value.Reference, Title: value.Title, Url: value.URL, Status: value.Status, RecordedAt: timestamp(value.RecordedAt)})
+	}
+	comments := make([]*deliveryv1.Comment, 0, len(item.Comments))
+	for _, value := range item.Comments {
+		comments = append(comments, &deliveryv1.Comment{Id: value.ID, Body: value.Body, Author: value.Author, CreatedAt: timestamp(value.CreatedAt)})
+	}
+	activities := make([]*deliveryv1.Activity, 0, len(item.Activities))
+	for _, value := range item.Activities {
+		activities = append(activities, &deliveryv1.Activity{Id: value.ID, Type: value.Type, Summary: value.Summary, Actor: value.Actor, OccurredAt: timestamp(value.OccurredAt)})
+	}
 	return &deliveryv1.WorkItem{
 		Id:            item.ID,
 		Title:         item.Title,
@@ -275,6 +409,7 @@ func workItem(item delivery.WorkItem) *deliveryv1.WorkItem {
 		IsSample:      item.IsSample,
 		CreatedAt:     timestamp(item.CreatedAt),
 		UpdatedAt:     timestamp(item.UpdatedAt),
+		ProjectId:     item.ProjectID, ParentId: item.ParentID, Kind: string(item.Kind), Dependencies: dependencies, ReleaseId: item.ReleaseID, SprintId: item.SprintID, MilestoneId: item.MilestoneID, StartDate: item.StartDate, EstimatePoints: item.EstimatePoints, ProgressPercent: int32(item.ProgressPercent), IotBindings: bindings, TraceLinks: traces, Comments: comments, Activities: activities,
 	}
 }
 

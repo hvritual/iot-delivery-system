@@ -19,6 +19,14 @@ export interface RpcTransport {
   call<Request, Response>(operation: RpcOperation, request: Request): Promise<Response>;
 }
 
+export interface Iot_Delivery_V1_Activity {
+  id?: string;
+  type?: string;
+  summary?: string;
+  actor?: string;
+  occurredAt?: string;
+}
+
 export interface Iot_Delivery_V1_AdvanceGateRequest {
   id?: string;
   gate?: string;
@@ -40,6 +48,22 @@ export interface Iot_Delivery_V1_CloseItemRequest {
   retrospective?: string;
 }
 
+export interface Iot_Delivery_V1_Comment {
+  id?: string;
+  body?: string;
+  author?: string;
+  createdAt?: string;
+}
+
+export interface Iot_Delivery_V1_CommentResponse {
+  comment?: Iot_Delivery_V1_Comment;
+}
+
+export interface Iot_Delivery_V1_CreateItemCommentRequest {
+  id?: string;
+  body?: string;
+}
+
 export interface Iot_Delivery_V1_CreateItemRequest {
   title?: string;
   board?: string;
@@ -50,6 +74,18 @@ export interface Iot_Delivery_V1_CreateItemRequest {
   plan?: string;
   solution?: string;
   isSample?: boolean;
+  projectId?: string;
+  parentId?: string;
+  kind?: string;
+  dependencies?: readonly Iot_Delivery_V1_WorkItemDependency[];
+  releaseId?: string;
+  sprintId?: string;
+  milestoneId?: string;
+  startDate?: string;
+  estimatePoints?: number;
+  progressPercent?: number;
+  iotBindings?: readonly Iot_Delivery_V1_IoTBinding[];
+  traceLinks?: readonly Iot_Delivery_V1_TraceLink[];
 }
 
 export interface Iot_Delivery_V1_CreateMilestoneRequest {
@@ -112,6 +148,13 @@ export interface Iot_Delivery_V1_GetDashboardRequest {
 
 export interface Iot_Delivery_V1_GetDashboardResponse {
   dashboard?: Iot_Delivery_V1_Dashboard;
+}
+
+export interface Iot_Delivery_V1_IoTBinding {
+  kind?: string;
+  reference?: string;
+  label?: string;
+  attributes?: Record<string, string>;
 }
 
 export interface Iot_Delivery_V1_ListItemsRequest {
@@ -182,12 +225,39 @@ export interface Iot_Delivery_V1_SprintResponse {
   sprint?: Iot_Delivery_V1_Sprint;
 }
 
+export interface Iot_Delivery_V1_TraceLink {
+  kind?: string;
+  reference?: string;
+  title?: string;
+  url?: string;
+  status?: string;
+  recordedAt?: string;
+}
+
 export interface Iot_Delivery_V1_UpdateItemContextRequest {
   id?: string;
   plan?: string;
   solution?: string;
   blocker?: string;
   decision?: Iot_Delivery_V1_Decision;
+}
+
+export interface Iot_Delivery_V1_UpdateItemRequest {
+  id?: string;
+  updateMask?: readonly string[];
+  title?: string;
+  owner?: string;
+  priority?: string;
+  releaseId?: string;
+  sprintId?: string;
+  milestoneId?: string;
+  startDate?: string;
+  dueDate?: string;
+  estimatePoints?: number;
+  progressPercent?: number;
+  dependencies?: readonly Iot_Delivery_V1_WorkItemDependency[];
+  iotBindings?: readonly Iot_Delivery_V1_IoTBinding[];
+  traceLinks?: readonly Iot_Delivery_V1_TraceLink[];
 }
 
 export interface Iot_Delivery_V1_WorkItem {
@@ -209,6 +279,25 @@ export interface Iot_Delivery_V1_WorkItem {
   isSample?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  projectId?: string;
+  parentId?: string;
+  kind?: string;
+  dependencies?: readonly Iot_Delivery_V1_WorkItemDependency[];
+  releaseId?: string;
+  sprintId?: string;
+  milestoneId?: string;
+  startDate?: string;
+  estimatePoints?: number;
+  progressPercent?: number;
+  iotBindings?: readonly Iot_Delivery_V1_IoTBinding[];
+  traceLinks?: readonly Iot_Delivery_V1_TraceLink[];
+  comments?: readonly Iot_Delivery_V1_Comment[];
+  activities?: readonly Iot_Delivery_V1_Activity[];
+}
+
+export interface Iot_Delivery_V1_WorkItemDependency {
+  itemId?: string;
+  relation?: string;
 }
 
 export interface Iot_Delivery_V1_WorkItemResponse {
@@ -233,6 +322,12 @@ export const operations = {
     rpcPath: "/iot.delivery.v1.DeliveryService/CreateItem",
     requestType: "iot.delivery.v1.CreateItemRequest",
     responseType: "iot.delivery.v1.WorkItemResponse"
+  },
+  "iot.delivery.v1.DeliveryService.CreateItemComment": {
+    fullName: "iot.delivery.v1.DeliveryService.CreateItemComment",
+    rpcPath: "/iot.delivery.v1.DeliveryService/CreateItemComment",
+    requestType: "iot.delivery.v1.CreateItemCommentRequest",
+    responseType: "iot.delivery.v1.CommentResponse"
   },
   "iot.delivery.v1.DeliveryService.CreateMilestone": {
     fullName: "iot.delivery.v1.DeliveryService.CreateMilestone",
@@ -270,6 +365,12 @@ export const operations = {
     requestType: "iot.delivery.v1.ListItemsRequest",
     responseType: "iot.delivery.v1.ListItemsResponse"
   },
+  "iot.delivery.v1.DeliveryService.UpdateItem": {
+    fullName: "iot.delivery.v1.DeliveryService.UpdateItem",
+    rpcPath: "/iot.delivery.v1.DeliveryService/UpdateItem",
+    requestType: "iot.delivery.v1.UpdateItemRequest",
+    responseType: "iot.delivery.v1.WorkItemResponse"
+  },
   "iot.delivery.v1.DeliveryService.UpdateItemContext": {
     fullName: "iot.delivery.v1.DeliveryService.UpdateItemContext",
     rpcPath: "/iot.delivery.v1.DeliveryService/UpdateItemContext",
@@ -291,6 +392,10 @@ export class Iot_Delivery_V1_DeliveryServiceClient {
 
   createItem(request: Iot_Delivery_V1_CreateItemRequest): Promise<Iot_Delivery_V1_WorkItemResponse> {
     return this.transport.call<Iot_Delivery_V1_CreateItemRequest, Iot_Delivery_V1_WorkItemResponse>(operations["iot.delivery.v1.DeliveryService.CreateItem"], request);
+  }
+
+  createItemComment(request: Iot_Delivery_V1_CreateItemCommentRequest): Promise<Iot_Delivery_V1_CommentResponse> {
+    return this.transport.call<Iot_Delivery_V1_CreateItemCommentRequest, Iot_Delivery_V1_CommentResponse>(operations["iot.delivery.v1.DeliveryService.CreateItemComment"], request);
   }
 
   createMilestone(request: Iot_Delivery_V1_CreateMilestoneRequest): Promise<Iot_Delivery_V1_MilestoneResponse> {
@@ -315,6 +420,10 @@ export class Iot_Delivery_V1_DeliveryServiceClient {
 
   listItems(request: Iot_Delivery_V1_ListItemsRequest): Promise<Iot_Delivery_V1_ListItemsResponse> {
     return this.transport.call<Iot_Delivery_V1_ListItemsRequest, Iot_Delivery_V1_ListItemsResponse>(operations["iot.delivery.v1.DeliveryService.ListItems"], request);
+  }
+
+  updateItem(request: Iot_Delivery_V1_UpdateItemRequest): Promise<Iot_Delivery_V1_WorkItemResponse> {
+    return this.transport.call<Iot_Delivery_V1_UpdateItemRequest, Iot_Delivery_V1_WorkItemResponse>(operations["iot.delivery.v1.DeliveryService.UpdateItem"], request);
   }
 
   updateItemContext(request: Iot_Delivery_V1_UpdateItemContextRequest): Promise<Iot_Delivery_V1_WorkItemResponse> {

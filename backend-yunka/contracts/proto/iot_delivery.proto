@@ -47,6 +47,28 @@ service DeliveryService {
       execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
     };
   }
+  rpc UpdateItem(UpdateItemRequest) returns (WorkItemResponse) {
+    option (yunka.dsl.v1.operation) = {
+      id: "delivery.items.update"
+      use_case: "update_item"
+      permissions: "delivery.items.write"
+      permission_mode: PERMISSION_ALL
+      authentication: AUTHENTICATION_API_KEY
+      composition: COMPOSITION_LOCAL
+      execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
+    };
+  }
+  rpc CreateItemComment(CreateItemCommentRequest) returns (CommentResponse) {
+    option (yunka.dsl.v1.operation) = {
+      id: "delivery.items.comment.create"
+      use_case: "add_comment"
+      permissions: "delivery.items.write"
+      permission_mode: PERMISSION_ALL
+      authentication: AUTHENTICATION_API_KEY
+      composition: COMPOSITION_LOCAL
+      execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
+    };
+  }
   rpc UpdateItemContext(UpdateItemContextRequest) returns (WorkItemResponse) {
     option (yunka.dsl.v1.operation) = {
       id: "delivery.items.update-context"
@@ -147,6 +169,10 @@ message ListItemsResponse {
 message WorkItemResponse {
   option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
   WorkItem item = 1;
+}
+message CommentResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  Comment comment = 1;
 }
 
 message ProjectResponse {
@@ -256,6 +282,56 @@ message WorkItem {
   bool is_sample = 16;
   google.protobuf.Timestamp created_at = 17;
   google.protobuf.Timestamp updated_at = 18;
+  string project_id = 19;
+  string parent_id = 20;
+  string kind = 21;
+  repeated WorkItemDependency dependencies = 22;
+  string release_id = 23;
+  string sprint_id = 24;
+  string milestone_id = 25;
+  string start_date = 26;
+  double estimate_points = 27;
+  int32 progress_percent = 28;
+  repeated IoTBinding iot_bindings = 29;
+  repeated TraceLink trace_links = 30;
+  repeated Comment comments = 31;
+  repeated Activity activities = 32;
+}
+message WorkItemDependency {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string item_id = 1;
+  string relation = 2;
+}
+message IoTBinding {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string kind = 1;
+  string reference = 2;
+  string label = 3;
+  map<string, string> attributes = 4;
+}
+message TraceLink {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string kind = 1;
+  string reference = 2;
+  string title = 3;
+  string url = 4;
+  string status = 5;
+  google.protobuf.Timestamp recorded_at = 6;
+}
+message Comment {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string id = 1;
+  string body = 2;
+  string author = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+message Activity {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string id = 1;
+  string type = 2;
+  string summary = 3;
+  string actor = 4;
+  google.protobuf.Timestamp occurred_at = 5;
 }
 
 message Evidence {
@@ -287,6 +363,41 @@ message CreateItemRequest {
   string plan = 7;
   string solution = 8;
   bool is_sample = 9;
+  string project_id = 10;
+  string parent_id = 11;
+  string kind = 12;
+  repeated WorkItemDependency dependencies = 13;
+  string release_id = 14;
+  string sprint_id = 15;
+  string milestone_id = 16;
+  string start_date = 17;
+  double estimate_points = 18;
+  int32 progress_percent = 19;
+  repeated IoTBinding iot_bindings = 20;
+  repeated TraceLink trace_links = 21;
+}
+message UpdateItemRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string id = 1;
+  repeated string update_mask = 2;
+  string title = 3;
+  string owner = 4;
+  string priority = 5;
+  string release_id = 6;
+  string sprint_id = 7;
+  string milestone_id = 8;
+  string start_date = 9;
+  string due_date = 10;
+  double estimate_points = 11;
+  int32 progress_percent = 12;
+  repeated WorkItemDependency dependencies = 13;
+  repeated IoTBinding iot_bindings = 14;
+  repeated TraceLink trace_links = 15;
+}
+message CreateItemCommentRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string id = 1;
+  string body = 2;
 }
 
 message CreateProjectRequest {

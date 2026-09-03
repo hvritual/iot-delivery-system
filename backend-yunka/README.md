@@ -8,7 +8,7 @@
 - 事项编辑、评论/活动审计、搜索筛选、个人保存视图、成员周视图、基于估算点的项目进度汇总，以及项目排期健康（逾期、未排期、依赖阻塞、负责人剩余估算）。
 - IoT 交付范围绑定（设备、固件、客户、环境、灰度批次）和研发交付关联（PR、构建、测试、缺陷、发布）。外部记录仍是其原系统的主数据。
 - Obsidian 单向投影：总览、每日五板块驾驶舱、板块钻取页、规划、方案、决策、发布验证与复盘；R2 的层级/排期/依赖、IoT 范围、研发关联、评论和活动审计也会投影。由本地 Outbox 事件驱动，重复事件重投影不会重复追加内容。
-- Yunka 生成合同：`contracts/proto/iot_delivery.proto` 声明初始 6 个 operation plan、API Key 鉴权策略与读写事务策略；`internal/assembly/` 的生成装配负责应用端口、模块目录和 gRPC transport 注册。R2 HTTP/MCP 用例通过同一 Yunka 执行器、鉴权和本地事务执行，但其扩展计划目前仍是手写装配，尚未回写为新增 Protobuf/DSL 生成合同。
+- Yunka 生成合同：`contracts/proto/iot_delivery.proto` 当前声明 12 个 operation plan、API Key 鉴权策略与读写事务策略；其中 WorkItem 创建、更新和评论写入已经纳入生成合同。`internal/assembly/` 的生成装配负责应用端口、模块目录和 gRPC transport 注册；其余 R2 扩展仍按切片逐步合同化。
 - Yunka `runtimehost → generated assembly → kernel → core.App` 管理 HTTP/gRPC、`/health`、`/__yunka/diagnostics`、SQLite、Outbox dispatcher 与本地 broker 生命周期。
 - HTTP `/api/*` 保持现有 React 界面兼容；stdio MCP Server 覆盖项目、事项生命周期、相似度确认、计划、成员周视图、项目进度、项目交付健康和保存视图。
 

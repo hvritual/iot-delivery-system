@@ -74,6 +74,19 @@ func (server *OperationServer) CreateItem(ctx context.Context, request *delivery
 	return response, nil
 }
 
+func (server *OperationServer) CreateItemComment(ctx context.Context, request *deliveryv1.CreateItemCommentRequest) (*deliveryv1.CommentResponse, error) {
+	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
+		if values := metadata.Get("idempotency-key"); len(values) > 0 {
+			ctx = execution.WithIdempotencyKey(ctx, values[0])
+		}
+	}
+	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanCreateItemComment(), request, server.application.CreateItemComment)
+	if err != nil {
+		return nil, gatewaygrpc.OperationError(err)
+	}
+	return response, nil
+}
+
 func (server *OperationServer) CreateMilestone(ctx context.Context, request *deliveryv1.CreateMilestoneRequest) (*deliveryv1.MilestoneResponse, error) {
 	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
 		if values := metadata.Get("idempotency-key"); len(values) > 0 {
@@ -146,6 +159,19 @@ func (server *OperationServer) ListItems(ctx context.Context, request *deliveryv
 		}
 	}
 	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanListItems(), request, server.application.ListItems)
+	if err != nil {
+		return nil, gatewaygrpc.OperationError(err)
+	}
+	return response, nil
+}
+
+func (server *OperationServer) UpdateItem(ctx context.Context, request *deliveryv1.UpdateItemRequest) (*deliveryv1.WorkItemResponse, error) {
+	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
+		if values := metadata.Get("idempotency-key"); len(values) > 0 {
+			ctx = execution.WithIdempotencyKey(ctx, values[0])
+		}
+	}
+	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanUpdateItem(), request, server.application.UpdateItem)
 	if err != nil {
 		return nil, gatewaygrpc.OperationError(err)
 	}

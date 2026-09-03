@@ -10,7 +10,7 @@
 
 - **实线**表示目标态允许的业务写链（TGT），并非声称现已完全收口。
 - **虚线红边**表示当前已知旁路或旧后端边界（CUR / TODO），不得当作目标态许可。
-- “正式合同”包括生成合同或经治理批准的扩展 OperationPlan；S0-01-03 已将 Project/Release/Sprint/Milestone 的**创建**操作纳入生成合同，其他手写扩展 plan 仍只是 CUR 事实。详见 [S0-01-03 合同切片](S0-01-03-GENERATED-PLANNING-CREATES.md)。
+- “正式合同”包括生成合同或经治理批准的扩展 OperationPlan；S0-01-03 已将 Project/Release/Sprint/Milestone 的**创建**操作纳入生成合同，S0-01-04 已将 WorkItem 的创建、更新和评论写入纳入生成合同。其余手写扩展 plan 仍只是 CUR 事实。
 
 ## 目标写入边界图（TGT）与当前例外（CUR / TODO）
 
@@ -68,7 +68,7 @@ flowchart LR
 | gRPC | 生成 adapter 使用 `ExecuteTyped`。 | 以正式 protobuf/OperationPlan 为首选写合同入口。 | 不得另建绕过 executor 的 RPC 写实现。 |
 | MCP | 写工具建立已认证 principal 后调用 lifecycle/Operations。 | 仅将 stdio 工具输入适配为同一正式写合同。 | 不得把本地 principal 当作多用户身份体系；不得直连 repository。 |
 | 内部运行任务 | runtime 有 Outbox、提醒等组件；seed 存在直接 Service 调用。 | 所有会改变业务主数据的任务必须进入正式合同和统一执行器。 | seed 直调是 TODO；不得以 scheduler/consumer 名义绕过授权和事务。 |
-| 生成合同 | S0-01-03 已生成 Project/Release/Sprint/Milestone 创建合同；其余扩展 plan 仍手写。 | 明确写操作的输入、权限、事务与执行合同。 | 不得把其余手写扩展 plan 表述为已完成合同生成。 |
+| 生成合同 | S0-01-03 已生成 Project/Release/Sprint/Milestone 创建合同；S0-01-04 已生成 WorkItem Create/Update/Comment 合同；其余扩展 plan 仍手写。 | 明确写操作的输入、权限、事务与执行合同。 | 不得把 S0-01-05 及后续手写扩展 plan 表述为已完成合同生成。 |
 | application Operations | 当前为 adapter、executor 与 service 之间的用例边界。 | 唯一应用层写入口，负责选择正式 plan 并调用 executor。 | 不得暴露替代执行器的写通道。 |
 | Yunka OperationPlan / Executor | 已构造 executor；生成 RPC 使用 `ExecuteTyped`。 | 强制执行计划的认证、权限、事务与执行语义。 | 不得由 transport 复制其职责。 |
 | GrantResolver / OperationGuard | 本地 `GrantResolver` 被用于构造 authorizer。 | 以统一授权决定写操作是否允许。 | 不得在 handler/tool 内复制角色—权限判断。 |

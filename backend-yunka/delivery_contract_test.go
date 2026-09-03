@@ -82,6 +82,8 @@ func TestGeneratedOperationPlansDeclareLocalAPIKeyAuthorizationAndTransactions(t
 		"delivery.dashboard.get":        {permission: "delivery.dashboard.read", transaction: "read_only"},
 		"delivery.items.list":           {permission: "delivery.items.read", transaction: "read_only"},
 		"delivery.items.create":         {permission: "delivery.items.write", transaction: "local"},
+		"delivery.items.update":         {permission: "delivery.items.write", transaction: "local"},
+		"delivery.items.comment.create": {permission: "delivery.items.write", transaction: "local"},
 		"delivery.items.update-context": {permission: "delivery.items.write", transaction: "local"},
 		"delivery.items.advance-gate":   {permission: "delivery.items.gate", transaction: "local"},
 		"delivery.items.close":          {permission: "delivery.items.close", transaction: "local"},

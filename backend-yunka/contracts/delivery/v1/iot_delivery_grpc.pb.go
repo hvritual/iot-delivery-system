@@ -22,6 +22,8 @@ const (
 	DeliveryService_GetDashboard_FullMethodName      = "/iot.delivery.v1.DeliveryService/GetDashboard"
 	DeliveryService_ListItems_FullMethodName         = "/iot.delivery.v1.DeliveryService/ListItems"
 	DeliveryService_CreateItem_FullMethodName        = "/iot.delivery.v1.DeliveryService/CreateItem"
+	DeliveryService_UpdateItem_FullMethodName        = "/iot.delivery.v1.DeliveryService/UpdateItem"
+	DeliveryService_CreateItemComment_FullMethodName = "/iot.delivery.v1.DeliveryService/CreateItemComment"
 	DeliveryService_UpdateItemContext_FullMethodName = "/iot.delivery.v1.DeliveryService/UpdateItemContext"
 	DeliveryService_AdvanceGate_FullMethodName       = "/iot.delivery.v1.DeliveryService/AdvanceGate"
 	DeliveryService_CloseItem_FullMethodName         = "/iot.delivery.v1.DeliveryService/CloseItem"
@@ -42,6 +44,8 @@ type DeliveryServiceClient interface {
 	GetDashboard(ctx context.Context, in *GetDashboardRequest, opts ...grpc.CallOption) (*GetDashboardResponse, error)
 	ListItems(ctx context.Context, in *ListItemsRequest, opts ...grpc.CallOption) (*ListItemsResponse, error)
 	CreateItem(ctx context.Context, in *CreateItemRequest, opts ...grpc.CallOption) (*WorkItemResponse, error)
+	UpdateItem(ctx context.Context, in *UpdateItemRequest, opts ...grpc.CallOption) (*WorkItemResponse, error)
+	CreateItemComment(ctx context.Context, in *CreateItemCommentRequest, opts ...grpc.CallOption) (*CommentResponse, error)
 	UpdateItemContext(ctx context.Context, in *UpdateItemContextRequest, opts ...grpc.CallOption) (*WorkItemResponse, error)
 	AdvanceGate(ctx context.Context, in *AdvanceGateRequest, opts ...grpc.CallOption) (*WorkItemResponse, error)
 	CloseItem(ctx context.Context, in *CloseItemRequest, opts ...grpc.CallOption) (*WorkItemResponse, error)
@@ -83,6 +87,26 @@ func (c *deliveryServiceClient) CreateItem(ctx context.Context, in *CreateItemRe
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(WorkItemResponse)
 	err := c.cc.Invoke(ctx, DeliveryService_CreateItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *deliveryServiceClient) UpdateItem(ctx context.Context, in *UpdateItemRequest, opts ...grpc.CallOption) (*WorkItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(WorkItemResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_UpdateItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *deliveryServiceClient) CreateItemComment(ctx context.Context, in *CreateItemCommentRequest, opts ...grpc.CallOption) (*CommentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommentResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_CreateItemComment_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -170,6 +194,8 @@ type DeliveryServiceServer interface {
 	GetDashboard(context.Context, *GetDashboardRequest) (*GetDashboardResponse, error)
 	ListItems(context.Context, *ListItemsRequest) (*ListItemsResponse, error)
 	CreateItem(context.Context, *CreateItemRequest) (*WorkItemResponse, error)
+	UpdateItem(context.Context, *UpdateItemRequest) (*WorkItemResponse, error)
+	CreateItemComment(context.Context, *CreateItemCommentRequest) (*CommentResponse, error)
 	UpdateItemContext(context.Context, *UpdateItemContextRequest) (*WorkItemResponse, error)
 	AdvanceGate(context.Context, *AdvanceGateRequest) (*WorkItemResponse, error)
 	CloseItem(context.Context, *CloseItemRequest) (*WorkItemResponse, error)
@@ -194,6 +220,12 @@ func (UnimplementedDeliveryServiceServer) ListItems(context.Context, *ListItemsR
 }
 func (UnimplementedDeliveryServiceServer) CreateItem(context.Context, *CreateItemRequest) (*WorkItemResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateItem not implemented")
+}
+func (UnimplementedDeliveryServiceServer) UpdateItem(context.Context, *UpdateItemRequest) (*WorkItemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateItem not implemented")
+}
+func (UnimplementedDeliveryServiceServer) CreateItemComment(context.Context, *CreateItemCommentRequest) (*CommentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateItemComment not implemented")
 }
 func (UnimplementedDeliveryServiceServer) UpdateItemContext(context.Context, *UpdateItemContextRequest) (*WorkItemResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateItemContext not implemented")
@@ -286,6 +318,42 @@ func _DeliveryService_CreateItem_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DeliveryServiceServer).CreateItem(ctx, req.(*CreateItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DeliveryService_UpdateItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).UpdateItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_UpdateItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).UpdateItem(ctx, req.(*UpdateItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DeliveryService_CreateItemComment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateItemCommentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).CreateItemComment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_CreateItemComment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).CreateItemComment(ctx, req.(*CreateItemCommentRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -434,6 +502,14 @@ var DeliveryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateItem",
 			Handler:    _DeliveryService_CreateItem_Handler,
+		},
+		{
+			MethodName: "UpdateItem",
+			Handler:    _DeliveryService_UpdateItem_Handler,
+		},
+		{
+			MethodName: "CreateItemComment",
+			Handler:    _DeliveryService_CreateItemComment_Handler,
 		},
 		{
 			MethodName: "UpdateItemContext",

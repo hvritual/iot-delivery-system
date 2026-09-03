@@ -19,6 +19,50 @@
   ],
   "messages": [
     {
+      "name": "Activity",
+      "fullName": "iot.delivery.v1.Activity",
+      "fields": [
+        {
+          "name": "id",
+          "jsonName": "id",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "type",
+          "jsonName": "type",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "summary",
+          "jsonName": "summary",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "actor",
+          "jsonName": "actor",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "occurred_at",
+          "jsonName": "occurredAt",
+          "number": 5,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
       "name": "AdvanceGateRequest",
       "fullName": "iot.delivery.v1.AdvanceGateRequest",
       "fields": [
@@ -131,6 +175,82 @@
       }
     },
     {
+      "name": "Comment",
+      "fullName": "iot.delivery.v1.Comment",
+      "fields": [
+        {
+          "name": "id",
+          "jsonName": "id",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "body",
+          "jsonName": "body",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "author",
+          "jsonName": "author",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "created_at",
+          "jsonName": "createdAt",
+          "number": 4,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
+      "name": "CommentResponse",
+      "fullName": "iot.delivery.v1.CommentResponse",
+      "fields": [
+        {
+          "name": "comment",
+          "jsonName": "comment",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.Comment"
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
+      "name": "CreateItemCommentRequest",
+      "fullName": "iot.delivery.v1.CreateItemCommentRequest",
+      "fields": [
+        {
+          "name": "id",
+          "jsonName": "id",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "body",
+          "jsonName": "body",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
       "name": "CreateItemRequest",
       "fullName": "iot.delivery.v1.CreateItemRequest",
       "fields": [
@@ -196,6 +316,93 @@
           "number": 9,
           "kind": "scalar",
           "type": "bool"
+        },
+        {
+          "name": "project_id",
+          "jsonName": "projectId",
+          "number": 10,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "parent_id",
+          "jsonName": "parentId",
+          "number": 11,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "kind",
+          "jsonName": "kind",
+          "number": 12,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "dependencies",
+          "jsonName": "dependencies",
+          "number": 13,
+          "kind": "message",
+          "type": "iot.delivery.v1.WorkItemDependency",
+          "repeated": true
+        },
+        {
+          "name": "release_id",
+          "jsonName": "releaseId",
+          "number": 14,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "sprint_id",
+          "jsonName": "sprintId",
+          "number": 15,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "milestone_id",
+          "jsonName": "milestoneId",
+          "number": 16,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "start_date",
+          "jsonName": "startDate",
+          "number": 17,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "estimate_points",
+          "jsonName": "estimatePoints",
+          "number": 18,
+          "kind": "scalar",
+          "type": "double"
+        },
+        {
+          "name": "progress_percent",
+          "jsonName": "progressPercent",
+          "number": 19,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "iot_bindings",
+          "jsonName": "iotBindings",
+          "number": 20,
+          "kind": "message",
+          "type": "iot.delivery.v1.IoTBinding",
+          "repeated": true
+        },
+        {
+          "name": "trace_links",
+          "jsonName": "traceLinks",
+          "number": 21,
+          "kind": "message",
+          "type": "iot.delivery.v1.TraceLink",
+          "repeated": true
         }
       ],
       "dto": {
@@ -527,6 +734,47 @@
       ],
       "dto": {
         "kind": "output"
+      }
+    },
+    {
+      "name": "IoTBinding",
+      "fullName": "iot.delivery.v1.IoTBinding",
+      "fields": [
+        {
+          "name": "kind",
+          "jsonName": "kind",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "reference",
+          "jsonName": "reference",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "label",
+          "jsonName": "label",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "attributes",
+          "jsonName": "attributes",
+          "number": 4,
+          "kind": "map",
+          "type": "map",
+          "map": true,
+          "mapKeyType": "string",
+          "mapValueKind": "scalar",
+          "mapValueType": "string"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
       }
     },
     {
@@ -886,6 +1134,57 @@
       }
     },
     {
+      "name": "TraceLink",
+      "fullName": "iot.delivery.v1.TraceLink",
+      "fields": [
+        {
+          "name": "kind",
+          "jsonName": "kind",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "reference",
+          "jsonName": "reference",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "jsonName": "title",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "url",
+          "jsonName": "url",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "jsonName": "status",
+          "number": 5,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "recorded_at",
+          "jsonName": "recordedAt",
+          "number": 6,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
       "name": "UpdateItemContextRequest",
       "fullName": "iot.delivery.v1.UpdateItemContextRequest",
       "fields": [
@@ -927,6 +1226,124 @@
           "kind": "message",
           "type": "iot.delivery.v1.Decision",
           "optional": true
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "UpdateItemRequest",
+      "fullName": "iot.delivery.v1.UpdateItemRequest",
+      "fields": [
+        {
+          "name": "id",
+          "jsonName": "id",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "update_mask",
+          "jsonName": "updateMask",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string",
+          "repeated": true
+        },
+        {
+          "name": "title",
+          "jsonName": "title",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "owner",
+          "jsonName": "owner",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "priority",
+          "jsonName": "priority",
+          "number": 5,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "release_id",
+          "jsonName": "releaseId",
+          "number": 6,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "sprint_id",
+          "jsonName": "sprintId",
+          "number": 7,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "milestone_id",
+          "jsonName": "milestoneId",
+          "number": 8,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "start_date",
+          "jsonName": "startDate",
+          "number": 9,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "due_date",
+          "jsonName": "dueDate",
+          "number": 10,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "estimate_points",
+          "jsonName": "estimatePoints",
+          "number": 11,
+          "kind": "scalar",
+          "type": "double"
+        },
+        {
+          "name": "progress_percent",
+          "jsonName": "progressPercent",
+          "number": 12,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "dependencies",
+          "jsonName": "dependencies",
+          "number": 13,
+          "kind": "message",
+          "type": "iot.delivery.v1.WorkItemDependency",
+          "repeated": true
+        },
+        {
+          "name": "iot_bindings",
+          "jsonName": "iotBindings",
+          "number": 14,
+          "kind": "message",
+          "type": "iot.delivery.v1.IoTBinding",
+          "repeated": true
+        },
+        {
+          "name": "trace_links",
+          "jsonName": "traceLinks",
+          "number": 15,
+          "kind": "message",
+          "type": "iot.delivery.v1.TraceLink",
+          "repeated": true
         }
       ],
       "dto": {
@@ -1064,6 +1481,132 @@
           "number": 18,
           "kind": "message",
           "type": "google.protobuf.Timestamp"
+        },
+        {
+          "name": "project_id",
+          "jsonName": "projectId",
+          "number": 19,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "parent_id",
+          "jsonName": "parentId",
+          "number": 20,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "kind",
+          "jsonName": "kind",
+          "number": 21,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "dependencies",
+          "jsonName": "dependencies",
+          "number": 22,
+          "kind": "message",
+          "type": "iot.delivery.v1.WorkItemDependency",
+          "repeated": true
+        },
+        {
+          "name": "release_id",
+          "jsonName": "releaseId",
+          "number": 23,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "sprint_id",
+          "jsonName": "sprintId",
+          "number": 24,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "milestone_id",
+          "jsonName": "milestoneId",
+          "number": 25,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "start_date",
+          "jsonName": "startDate",
+          "number": 26,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "estimate_points",
+          "jsonName": "estimatePoints",
+          "number": 27,
+          "kind": "scalar",
+          "type": "double"
+        },
+        {
+          "name": "progress_percent",
+          "jsonName": "progressPercent",
+          "number": 28,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "iot_bindings",
+          "jsonName": "iotBindings",
+          "number": 29,
+          "kind": "message",
+          "type": "iot.delivery.v1.IoTBinding",
+          "repeated": true
+        },
+        {
+          "name": "trace_links",
+          "jsonName": "traceLinks",
+          "number": 30,
+          "kind": "message",
+          "type": "iot.delivery.v1.TraceLink",
+          "repeated": true
+        },
+        {
+          "name": "comments",
+          "jsonName": "comments",
+          "number": 31,
+          "kind": "message",
+          "type": "iot.delivery.v1.Comment",
+          "repeated": true
+        },
+        {
+          "name": "activities",
+          "jsonName": "activities",
+          "number": 32,
+          "kind": "message",
+          "type": "iot.delivery.v1.Activity",
+          "repeated": true
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
+      "name": "WorkItemDependency",
+      "fullName": "iot.delivery.v1.WorkItemDependency",
+      "fields": [
+        {
+          "name": "item_id",
+          "jsonName": "itemId",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "relation",
+          "jsonName": "relation",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
         }
       ],
       "dto": {
@@ -1189,6 +1732,38 @@
           },
           "authorization": {
             "operationId": "delivery.items.create",
+            "permissions": [
+              "delivery.items.write"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ]
+          }
+        },
+        {
+          "name": "CreateItemComment",
+          "fullName": "iot.delivery.v1.DeliveryService.CreateItemComment",
+          "request": "iot.delivery.v1.CreateItemCommentRequest",
+          "response": "iot.delivery.v1.CommentResponse",
+          "operation": {
+            "id": "delivery.items.comment.create",
+            "useCase": "add_comment",
+            "permissions": [
+              "delivery.items.write"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "local",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.items.comment.create",
             "permissions": [
               "delivery.items.write"
             ],
@@ -1383,6 +1958,38 @@
             "operationId": "delivery.items.list",
             "permissions": [
               "delivery.items.read"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ]
+          }
+        },
+        {
+          "name": "UpdateItem",
+          "fullName": "iot.delivery.v1.DeliveryService.UpdateItem",
+          "request": "iot.delivery.v1.UpdateItemRequest",
+          "response": "iot.delivery.v1.WorkItemResponse",
+          "operation": {
+            "id": "delivery.items.update",
+            "useCase": "update_item",
+            "permissions": [
+              "delivery.items.write"
+            ],
+            "permissionMode": "all",
+            "authentication": [
+              "api-key"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "local",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.items.update",
+            "permissions": [
+              "delivery.items.write"
             ],
             "permissionMode": "all",
             "authentication": [

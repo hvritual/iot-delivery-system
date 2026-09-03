@@ -94,16 +94,13 @@ func (operations *Operations) listExtendedWorkItems(ctx context.Context, operati
 }
 
 func (operations *Operations) Create(ctx context.Context, input delivery.CreateInput) (delivery.WorkItem, error) {
-	if input.ProjectID != "" || input.ParentID != "" || input.Kind != "" ||
-		input.ReleaseID != "" || input.SprintID != "" || input.MilestoneID != "" ||
-		input.StartDate != "" || input.EstimatePoints != 0 || input.ProgressPercent != 0 ||
-		len(input.Dependencies) > 0 || len(input.IoTBindings) > 0 || len(input.TraceLinks) > 0 {
-		return operations.createExtendedWorkItem(ctx, input)
-	}
 	if err := operations.ready(); err != nil {
 		return delivery.WorkItem{}, err
 	}
-	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanCreateItem(), &deliveryv1.CreateItemRequest{
+	if input.ProgressPercent < 0 || input.ProgressPercent > 100 {
+		return delivery.WorkItem{}, errors.New("delivery progress percent must be between 0 and 100")
+	}
+	request := &deliveryv1.CreateItemRequest{
 		Title:    input.Title,
 		Board:    string(input.Board),
 		Type:     input.Type,
@@ -112,29 +109,22 @@ func (operations *Operations) Create(ctx context.Context, input delivery.CreateI
 		DueDate:  input.DueDate,
 		Plan:     input.Plan,
 		Solution: input.Solution,
-		IsSample: input.IsSample,
-	}, operations.application.CreateItem)
+		IsSample: input.IsSample, ProjectId: input.ProjectID, ParentId: input.ParentID, Kind: string(input.Kind), ReleaseId: input.ReleaseID, SprintId: input.SprintID, MilestoneId: input.MilestoneID, StartDate: input.StartDate, EstimatePoints: input.EstimatePoints, ProgressPercent: int32(input.ProgressPercent),
+	}
+	for _, v := range input.Dependencies {
+		request.Dependencies = append(request.Dependencies, &deliveryv1.WorkItemDependency{ItemId: v.ItemID, Relation: string(v.Relation)})
+	}
+	for _, v := range input.IoTBindings {
+		request.IotBindings = append(request.IotBindings, &deliveryv1.IoTBinding{Kind: string(v.Kind), Reference: v.Reference, Label: v.Label, Attributes: v.Attributes})
+	}
+	for _, v := range input.TraceLinks {
+		request.TraceLinks = append(request.TraceLinks, &deliveryv1.TraceLink{Kind: string(v.Kind), Reference: v.Reference, Title: v.Title, Url: v.URL, Status: v.Status, RecordedAt: timestamp(v.RecordedAt)})
+	}
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanCreateItem(), request, operations.application.CreateItem)
 	if err != nil {
 		return delivery.WorkItem{}, err
 	}
 	return workItemFromProto(response.GetItem()), nil
-}
-
-func (operations *Operations) createExtendedWorkItem(ctx context.Context, input delivery.CreateInput) (delivery.WorkItem, error) {
-	if err := operations.extensionReady(); err != nil {
-		return delivery.WorkItem{}, err
-	}
-	value, err := operations.executor.Execute(ctx, extensionPlan("delivery.items.create", "create_item", "delivery.items.write", "local"), input, func(callContext context.Context) (any, error) {
-		return operations.service.Create(callContext, input)
-	})
-	if err != nil {
-		return delivery.WorkItem{}, err
-	}
-	item, ok := value.(delivery.WorkItem)
-	if !ok {
-		return delivery.WorkItem{}, errors.New("delivery work item operation returned an unexpected result")
-	}
-	return item, nil
 }
 
 func (operations *Operations) UpdateContext(ctx context.Context, id string, input delivery.ContextUpdate) (delivery.WorkItem, error) {
@@ -257,15 +247,88 @@ func (operations *Operations) Get(ctx context.Context, id string) (delivery.Work
 }
 
 func (operations *Operations) UpdateWorkItem(ctx context.Context, id string, input delivery.WorkItemUpdate) (delivery.WorkItem, error) {
-	return executeServiceExtension(operations, ctx, "delivery.items.update", "update_item", "delivery.items.write", "local", input, func(callContext context.Context) (delivery.WorkItem, error) {
-		return operations.service.UpdateWorkItem(callContext, id, input)
-	})
+	if err := operations.ready(); err != nil {
+		return delivery.WorkItem{}, err
+	}
+	request := &deliveryv1.UpdateItemRequest{Id: id}
+	if input.Title != nil {
+		request.UpdateMask = append(request.UpdateMask, "title")
+		request.Title = *input.Title
+	}
+	if input.Owner != nil {
+		request.UpdateMask = append(request.UpdateMask, "owner")
+		request.Owner = *input.Owner
+	}
+	if input.ProgressPercent != nil {
+		if *input.ProgressPercent < 0 || *input.ProgressPercent > 100 {
+			return delivery.WorkItem{}, errors.New("delivery progress percent must be between 0 and 100")
+		}
+		request.UpdateMask = append(request.UpdateMask, "progress_percent")
+		request.ProgressPercent = int32(*input.ProgressPercent)
+	}
+	if input.Priority != nil {
+		request.UpdateMask = append(request.UpdateMask, "priority")
+		request.Priority = string(*input.Priority)
+	}
+	if input.ReleaseID != nil {
+		request.UpdateMask = append(request.UpdateMask, "release_id")
+		request.ReleaseId = *input.ReleaseID
+	}
+	if input.SprintID != nil {
+		request.UpdateMask = append(request.UpdateMask, "sprint_id")
+		request.SprintId = *input.SprintID
+	}
+	if input.MilestoneID != nil {
+		request.UpdateMask = append(request.UpdateMask, "milestone_id")
+		request.MilestoneId = *input.MilestoneID
+	}
+	if input.StartDate != nil {
+		request.UpdateMask = append(request.UpdateMask, "start_date")
+		request.StartDate = *input.StartDate
+	}
+	if input.DueDate != nil {
+		request.UpdateMask = append(request.UpdateMask, "due_date")
+		request.DueDate = *input.DueDate
+	}
+	if input.EstimatePoints != nil {
+		request.UpdateMask = append(request.UpdateMask, "estimate_points")
+		request.EstimatePoints = *input.EstimatePoints
+	}
+	if input.Dependencies != nil {
+		request.UpdateMask = append(request.UpdateMask, "dependencies")
+		for _, v := range *input.Dependencies {
+			request.Dependencies = append(request.Dependencies, &deliveryv1.WorkItemDependency{ItemId: v.ItemID, Relation: string(v.Relation)})
+		}
+	}
+	if input.IoTBindings != nil {
+		request.UpdateMask = append(request.UpdateMask, "iot_bindings")
+		for _, v := range *input.IoTBindings {
+			request.IotBindings = append(request.IotBindings, &deliveryv1.IoTBinding{Kind: string(v.Kind), Reference: v.Reference, Label: v.Label, Attributes: v.Attributes})
+		}
+	}
+	if input.TraceLinks != nil {
+		request.UpdateMask = append(request.UpdateMask, "trace_links")
+		for _, v := range *input.TraceLinks {
+			request.TraceLinks = append(request.TraceLinks, &deliveryv1.TraceLink{Kind: string(v.Kind), Reference: v.Reference, Title: v.Title, Url: v.URL, Status: v.Status, RecordedAt: timestamp(v.RecordedAt)})
+		}
+	}
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanUpdateItem(), request, operations.application.UpdateItem)
+	if err != nil {
+		return delivery.WorkItem{}, err
+	}
+	return workItemFromProto(response.GetItem()), nil
 }
 
 func (operations *Operations) AddComment(ctx context.Context, id string, input delivery.CommentInput) (delivery.Comment, error) {
-	return executeServiceExtension(operations, ctx, "delivery.items.comment.create", "add_comment", "delivery.items.write", "local", input, func(callContext context.Context) (delivery.Comment, error) {
-		return operations.service.AddComment(callContext, id, input)
-	})
+	if err := operations.ready(); err != nil {
+		return delivery.Comment{}, err
+	}
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanCreateItemComment(), &deliveryv1.CreateItemCommentRequest{Id: id, Body: input.Body}, operations.application.CreateItemComment)
+	if err != nil {
+		return delivery.Comment{}, err
+	}
+	value := response.GetComment()
+	return delivery.Comment{ID: value.GetId(), Body: value.GetBody(), Author: value.GetAuthor(), CreatedAt: timeFromProto(value.GetCreatedAt())}, nil
 }
 
 func (operations *Operations) Search(ctx context.Context, filter delivery.WorkItemFilter) ([]delivery.WorkItem, error) {
@@ -453,15 +516,17 @@ func workItemFromProto(value *deliveryv1.WorkItem) delivery.WorkItem {
 		return delivery.WorkItem{}
 	}
 	item := delivery.WorkItem{
-		ID:            value.GetId(),
-		Title:         value.GetTitle(),
-		Board:         delivery.Board(value.GetBoard()),
-		Type:          value.GetType(),
-		Owner:         value.GetOwner(),
-		Priority:      delivery.Priority(value.GetPriority()),
-		Status:        delivery.Status(value.GetStatus()),
-		Gate:          delivery.Gate(value.GetGate()),
-		DueDate:       value.GetDueDate(),
+		ID:        value.GetId(),
+		Title:     value.GetTitle(),
+		Board:     delivery.Board(value.GetBoard()),
+		ProjectID: value.GetProjectId(), ParentID: value.GetParentId(), Kind: delivery.WorkItemKind(value.GetKind()),
+		Type:      value.GetType(),
+		Owner:     value.GetOwner(),
+		Priority:  delivery.Priority(value.GetPriority()),
+		Status:    delivery.Status(value.GetStatus()),
+		Gate:      delivery.Gate(value.GetGate()),
+		DueDate:   value.GetDueDate(),
+		ReleaseID: value.GetReleaseId(), SprintID: value.GetSprintId(), MilestoneID: value.GetMilestoneId(), StartDate: value.GetStartDate(), EstimatePoints: value.GetEstimatePoints(), ProgressPercent: int(value.GetProgressPercent()),
 		Plan:          value.GetPlan(),
 		Solution:      value.GetSolution(),
 		Retrospective: value.GetRetrospective(),
@@ -469,6 +534,31 @@ func workItemFromProto(value *deliveryv1.WorkItem) delivery.WorkItem {
 		IsSample:      value.GetIsSample(),
 		CreatedAt:     timeFromProto(value.GetCreatedAt()),
 		UpdatedAt:     timeFromProto(value.GetUpdatedAt()),
+	}
+	for _, v := range value.GetDependencies() {
+		if v != nil {
+			item.Dependencies = append(item.Dependencies, delivery.WorkItemDependency{ItemID: v.GetItemId(), Relation: delivery.DependencyRelation(v.GetRelation())})
+		}
+	}
+	for _, v := range value.GetIotBindings() {
+		if v != nil {
+			item.IoTBindings = append(item.IoTBindings, delivery.IoTBinding{Kind: delivery.IoTBindingKind(v.GetKind()), Reference: v.GetReference(), Label: v.GetLabel(), Attributes: v.GetAttributes()})
+		}
+	}
+	for _, v := range value.GetTraceLinks() {
+		if v != nil {
+			item.TraceLinks = append(item.TraceLinks, delivery.TraceLink{Kind: delivery.TraceKind(v.GetKind()), Reference: v.GetReference(), Title: v.GetTitle(), URL: v.GetUrl(), Status: v.GetStatus(), RecordedAt: timeFromProto(v.GetRecordedAt())})
+		}
+	}
+	for _, v := range value.GetComments() {
+		if v != nil {
+			item.Comments = append(item.Comments, delivery.Comment{ID: v.GetId(), Body: v.GetBody(), Author: v.GetAuthor(), CreatedAt: timeFromProto(v.GetCreatedAt())})
+		}
+	}
+	for _, v := range value.GetActivities() {
+		if v != nil {
+			item.Activities = append(item.Activities, delivery.Activity{ID: v.GetId(), Type: v.GetType(), Summary: v.GetSummary(), Actor: v.GetActor(), OccurredAt: timeFromProto(v.GetOccurredAt())})
+		}
 	}
 	for _, value := range value.GetDecisions() {
 		if value == nil {

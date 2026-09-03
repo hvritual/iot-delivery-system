@@ -12,11 +12,13 @@ type DeliveryService interface {
 	AdvanceGate(context.Context, *deliveryv1.AdvanceGateRequest) (*deliveryv1.WorkItemResponse, error)
 	CloseItem(context.Context, *deliveryv1.CloseItemRequest) (*deliveryv1.WorkItemResponse, error)
 	CreateItem(context.Context, *deliveryv1.CreateItemRequest) (*deliveryv1.WorkItemResponse, error)
+	CreateItemComment(context.Context, *deliveryv1.CreateItemCommentRequest) (*deliveryv1.CommentResponse, error)
 	CreateMilestone(context.Context, *deliveryv1.CreateMilestoneRequest) (*deliveryv1.MilestoneResponse, error)
 	CreateProject(context.Context, *deliveryv1.CreateProjectRequest) (*deliveryv1.ProjectResponse, error)
 	CreateRelease(context.Context, *deliveryv1.CreateReleaseRequest) (*deliveryv1.ReleaseResponse, error)
 	CreateSprint(context.Context, *deliveryv1.CreateSprintRequest) (*deliveryv1.SprintResponse, error)
 	GetDashboard(context.Context, *deliveryv1.GetDashboardRequest) (*deliveryv1.GetDashboardResponse, error)
 	ListItems(context.Context, *deliveryv1.ListItemsRequest) (*deliveryv1.ListItemsResponse, error)
+	UpdateItem(context.Context, *deliveryv1.UpdateItemRequest) (*deliveryv1.WorkItemResponse, error)
 	UpdateItemContext(context.Context, *deliveryv1.UpdateItemContextRequest) (*deliveryv1.WorkItemResponse, error)
 }

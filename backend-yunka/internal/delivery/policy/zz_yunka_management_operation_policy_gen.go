@@ -7,12 +7,14 @@ import "yunka.io/gateway/authz"
 const OperationAdvanceGate authz.OperationID = "delivery.items.advance-gate"
 const OperationCloseItem authz.OperationID = "delivery.items.close"
 const OperationCreateItem authz.OperationID = "delivery.items.create"
+const OperationCreateItemComment authz.OperationID = "delivery.items.comment.create"
 const OperationCreateMilestone authz.OperationID = "delivery.milestones.create"
 const OperationCreateProject authz.OperationID = "delivery.projects.create"
 const OperationCreateRelease authz.OperationID = "delivery.releases.create"
 const OperationCreateSprint authz.OperationID = "delivery.sprints.create"
 const OperationGetDashboard authz.OperationID = "delivery.dashboard.get"
 const OperationListItems authz.OperationID = "delivery.items.list"
+const OperationUpdateItem authz.OperationID = "delivery.items.update"
 const OperationUpdateItemContext authz.OperationID = "delivery.items.update-context"
 
 func Permissions() []authz.PermissionKey {
@@ -24,12 +26,14 @@ func Resolver() authz.StaticResolver {
 		"/iot.delivery.v1.DeliveryService/AdvanceGate":       {Operation: OperationAdvanceGate, Permissions: []authz.PermissionKey{"delivery.items.gate"}, Mode: authz.PermissionAll, Authentication: []string{"api-key"}},
 		"/iot.delivery.v1.DeliveryService/CloseItem":         {Operation: OperationCloseItem, Permissions: []authz.PermissionKey{"delivery.items.close"}, Mode: authz.PermissionAll, Authentication: []string{"api-key"}},
 		"/iot.delivery.v1.DeliveryService/CreateItem":        {Operation: OperationCreateItem, Permissions: []authz.PermissionKey{"delivery.items.write"}, Mode: authz.PermissionAll, Authentication: []string{"api-key"}},
+		"/iot.delivery.v1.DeliveryService/CreateItemComment": {Operation: OperationCreateItemComment, Permissions: []authz.PermissionKey{"delivery.items.write"}, Mode: authz.PermissionAll, Authentication: []string{"api-key"}},
 		"/iot.delivery.v1.DeliveryService/CreateMilestone":   {Operation: OperationCreateMilestone, Permissions: []authz.PermissionKey{"delivery.items.write"}, Mode: authz.PermissionAll, Authentication: []string{"api-key"}},
 		"/iot.delivery.v1.DeliveryService/CreateProject":     {Operation: OperationCreateProject, Permissions: []authz.PermissionKey{"delivery.items.write"}, Mode: authz.PermissionAll, Authentication: []string{"api-key"}},
 		"/iot.delivery.v1.DeliveryService/CreateRelease":     {Operation: OperationCreateRelease, Permissions: []authz.PermissionKey{"delivery.items.write"}, Mode: authz.PermissionAll, Authentication: []string{"api-key"}},
 		"/iot.delivery.v1.DeliveryService/CreateSprint":      {Operation: OperationCreateSprint, Permissions: []authz.PermissionKey{"delivery.items.write"}, Mode: authz.PermissionAll, Authentication: []string{"api-key"}},
 		"/iot.delivery.v1.DeliveryService/GetDashboard":      {Operation: OperationGetDashboard, Permissions: []authz.PermissionKey{"delivery.dashboard.read"}, Mode: authz.PermissionAll, Authentication: []string{"api-key"}},
 		"/iot.delivery.v1.DeliveryService/ListItems":         {Operation: OperationListItems, Permissions: []authz.PermissionKey{"delivery.items.read"}, Mode: authz.PermissionAll, Authentication: []string{"api-key"}},
+		"/iot.delivery.v1.DeliveryService/UpdateItem":        {Operation: OperationUpdateItem, Permissions: []authz.PermissionKey{"delivery.items.write"}, Mode: authz.PermissionAll, Authentication: []string{"api-key"}},
 		"/iot.delivery.v1.DeliveryService/UpdateItemContext": {Operation: OperationUpdateItemContext, Permissions: []authz.PermissionKey{"delivery.items.write"}, Mode: authz.PermissionAll, Authentication: []string{"api-key"}},
 	})
 }
