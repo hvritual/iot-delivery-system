@@ -73,6 +73,34 @@ type AppendInput struct {
 	CreatedAt time.Time
 }
 
+// ChangeInput is the client-facing request for an immutable revision append.
+// Organization, actor, revision, hash, and timestamps are derived only after
+// the operation guard has authenticated and authorized the trusted principal.
+type ChangeInput struct {
+	Kind                   Kind
+	ConfigKey              string
+	ExpectedParentRevision int64
+	Payload                string
+}
+
+// CompareInput names two existing revisions in the same trusted organization,
+// kind, and key. It carries no payload and cannot select an organization.
+type CompareInput struct {
+	Kind          Kind
+	ConfigKey     string
+	LeftRevision  int64
+	RightRevision int64
+}
+
+// RollbackInput appends the canonical payload of SourceRevision with the
+// latest revision supplied by the caller as the compare-and-swap parent.
+type RollbackInput struct {
+	Kind                   Kind
+	ConfigKey              string
+	ExpectedParentRevision int64
+	SourceRevision         int64
+}
+
 func normalizePayload(payload string) (string, [sha256.Size]byte, error) {
 	var empty [sha256.Size]byte
 	if len(payload) == 0 || len(payload) > maxPayloadBytes {

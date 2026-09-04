@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/configrevision"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitycore"
 	_ "modernc.org/sqlite"
@@ -215,6 +216,23 @@ func TestServiceGrantsRejectOrganizationOperationsAndRemainProjectSpecific(t *te
 		{Permission: "delivery.work-items.create", RoleID: "service-account:service-a", Scope: "project:project-a"},
 		{Permission: "delivery.work-items.create", RoleID: "service-account:service-a", Scope: "project:project-b"},
 	})
+}
+
+func TestResolverRejectsForgedNonConfigurationOrganizationGrant(t *testing.T) {
+	database := migratedDatabase(t)
+	if err := configrevision.ApplyMigrations(t.Context(), database); err != nil {
+		t.Fatal(err)
+	}
+	seedOrganization(t, database, "org-a")
+	seedServiceAccount(t, database, "service-a", "org-a")
+	if _, err := database.Exec(`DROP TRIGGER iotd_config_service_grants_valid_on_insert; INSERT INTO iotd_config_service_grants (id, organization_id, service_account_id, operation_id, permission_id) VALUES ('forged-dashboard', 'org-a', 'service-a', 'delivery.dashboard.get', 'delivery.dashboard.read')`); err != nil {
+		t.Fatal(err)
+	}
+	resolver, err := NewGrantResolver(database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertGrants(t, resolve(t, resolver, grantRequest(servicePrincipal("org-a", "service-a"), "delivery.dashboard.get", "delivery.dashboard.read")), nil)
 }
 
 func TestServiceGrantRowsRejectRedirectionAndReactivationOutsideManagementPort(t *testing.T) {

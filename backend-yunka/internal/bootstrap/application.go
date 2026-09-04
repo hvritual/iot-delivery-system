@@ -14,6 +14,7 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/bffassertion"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/bffhttp"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/configapplication"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/configrevision"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	deliveryapplication "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
@@ -143,6 +144,7 @@ type Application struct {
 	service       *delivery.Service
 	adapter       deliveryapplication.DeliveryService
 	operations    *deliveryapplication.Operations
+	configOps     *configapplication.Operations
 	executor      operation.Executor
 	outbox        *localoutbox.SQLiteStore
 	broker        *event.LocalBroker
@@ -276,6 +278,16 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		_ = repository.Close()
 		return nil, fmt.Errorf("configure security audit executor: %w", err)
 	}
+	configStore, err := configrevision.NewSQLiteStore(repository.Database())
+	if err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("configure config revision store: %w", err)
+	}
+	configOps, err := configapplication.New(configStore, auditStore, executor)
+	if err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("configure config revision operations: %w", err)
+	}
 	operations := deliveryapplication.NewOperations(auditedAdapter, executor, service).WithNotificationReader(notificationStore)
 	if configuration.BootstrapMode == BootstrapModeExample {
 		if err := seedExample(ctx, operations); err != nil {
@@ -332,6 +344,7 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		service:       service,
 		adapter:       auditedAdapter,
 		operations:    operations,
+		configOps:     configOps,
 		executor:      executor,
 		outbox:        outboxStore,
 		broker:        broker,

@@ -211,6 +211,28 @@ func (resolver *Resolver) ResolveGrants(ctx context.Context, request authz.Grant
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate service grants: %w", err)
 	}
+	configRows, err := resolver.database.QueryContext(ctx, activeConfigServiceGrantsQuery, request.Principal.TenantID, serviceAccountID, string(request.Operation), string(request.Permissions[0]))
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "no such table") {
+			slices.SortFunc(grants, func(left, right authz.Grant) int { return cmp.Compare(left.Scope, right.Scope) })
+			return grants, nil
+		}
+		return nil, fmt.Errorf("resolve config service grants: %w", err)
+	}
+	defer configRows.Close()
+	for configRows.Next() {
+		var organizationID string
+		if err := configRows.Scan(&organizationID); err != nil {
+			return nil, fmt.Errorf("scan config service grant: %w", err)
+		}
+		if !canonicalID(organizationID) {
+			return nil, nil
+		}
+		grants = append(grants, authz.Grant{Permission: request.Permissions[0], RoleID: "service-account:" + serviceAccountID, Scope: "organization:" + organizationID})
+	}
+	if err := configRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate config service grants: %w", err)
+	}
 	slices.SortFunc(grants, func(left, right authz.Grant) int { return cmp.Compare(left.Scope, right.Scope) })
 	return grants, nil
 }
@@ -239,6 +261,16 @@ WHERE grants.status = 'active'
   AND grants.operation_id = ?
   AND grants.permission_id = ?
 ORDER BY grants.project_id ASC`
+
+const activeConfigServiceGrantsQuery = `
+SELECT grants.organization_id
+FROM iotd_config_service_grants grants
+JOIN service_accounts accounts ON accounts.id = grants.service_account_id AND accounts.organization_id = grants.organization_id AND accounts.status = 'active'
+JOIN organizations organizations ON organizations.id = grants.organization_id AND organizations.status = 'active'
+JOIN service_operations operations ON operations.id = grants.operation_id AND operations.id GLOB 'config.revisions.*' AND operations.permission_id = grants.permission_id AND operations.required_scope = 'organization' AND operations.status = 'active'
+JOIN permissions permissions ON permissions.id = grants.permission_id AND permissions.status = 'active'
+WHERE grants.status = 'active' AND grants.organization_id = ? AND grants.service_account_id = ? AND grants.operation_id = ? AND grants.permission_id = ?
+ORDER BY grants.organization_id ASC`
 
 type rowQueryer interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row

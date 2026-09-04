@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/configapplication"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localauth"
 	"yunka.io/framework/core/identity"
 	"yunka.io/gateway/authz"
@@ -443,6 +444,9 @@ var expectedPermissions = map[string]permissionContract{
 	"identity.roles.manage":              {resource: "identity.roles", action: "manage", status: "reserved", scopes: []string{"organization"}},
 	"identity.role-bindings.manage":      {resource: "identity.role-bindings", action: "manage", status: "reserved", scopes: []string{"project"}},
 	"audit.events.read":                  {resource: "audit.events", action: "read", status: "reserved", scopes: []string{"organization", "project", "object"}},
+	"config.revisions.write":             {resource: "config.revisions", action: "write", status: "active", scopes: []string{"organization"}},
+	"config.revisions.read":              {resource: "config.revisions", action: "read", status: "active", scopes: []string{"organization"}},
+	"config.revisions.rollback":          {resource: "config.revisions", action: "rollback", status: "active", scopes: []string{"organization"}},
 }
 
 var expectedResources = map[string][]string{
@@ -457,6 +461,7 @@ var expectedResources = map[string][]string{
 	"identity.roles":         {"organization"},
 	"identity.role-bindings": {"project"},
 	"audit.events":           {"organization", "project", "object"},
+	"config.revisions":       {"organization"},
 }
 
 func indexResources(definitions []resourceDefinition, scopes map[string]scopeDefinition) (map[string]resourceDefinition, error) {
@@ -543,9 +548,13 @@ var expectedOperations = map[string]operationContract{
 	"delivery.releases.create":      {resource: "delivery.releases", permission: "delivery.releases.create", requiredScope: "project", risk: "high", writes: true},
 	"delivery.sprints.create":       {resource: "delivery.sprints", permission: "delivery.sprints.create", requiredScope: "project", risk: "medium", writes: true},
 	"delivery.milestones.create":    {resource: "delivery.milestones", permission: "delivery.milestones.create", requiredScope: "project", risk: "medium", writes: true},
+	"config.revisions.change":       {resource: "config.revisions", permission: "config.revisions.write", requiredScope: "organization", risk: "high", writes: true},
+	"config.revisions.compare":      {resource: "config.revisions", permission: "config.revisions.read", requiredScope: "organization", risk: "low", writes: false},
+	"config.revisions.rollback":     {resource: "config.revisions", permission: "config.revisions.rollback", requiredScope: "organization", risk: "high", writes: true},
 }
 
 func validateOperations(definitions []operationDefinition, plans operationplan.Set, resources map[string]resourceDefinition, permissions map[string]permissionDefinition, scopes map[string]scopeDefinition) error {
+	plans.Operations = append(slices.Clone(plans.Operations), configapplication.ConfigOperationPlans()...)
 	if len(definitions) != len(plans.Operations) || len(definitions) != len(expectedOperations) {
 		return fmt.Errorf("dictionary operation count = %d, generated operation count = %d, expected operation count = %d", len(definitions), len(plans.Operations), len(expectedOperations))
 	}
@@ -580,20 +589,27 @@ func validateOperations(definitions []operationDefinition, plans operationplan.S
 		if len(plan.Security.Permissions) != 1 || string(plan.Security.Permissions[0]) != definition.Permission {
 			return fmt.Errorf("operation %q permission does not match generated plan", definition.ID)
 		}
+		if strings.HasPrefix(definition.ID, "config.revisions.") && (plan.Security.PermissionMode != "all" || !slices.Equal(plan.Security.Authentication, []string{"jwt", "service-token"}) || plan.Execution.Idempotency != "none" || plan.Composition.Boundary != "local" || plan.Bindings.RPC != "" || len(plan.Bindings.HTTP) != 0) {
+			return fmt.Errorf("configuration operation %q does not match the handwritten plan contract", definition.ID)
+		}
 		if definition.Resource != permission.Resource {
 			return fmt.Errorf("operation %q resource %q does not match permission resource %q", definition.ID, definition.Resource, permission.Resource)
 		}
 		if _, exists := scopes[definition.RequiredScope]; !exists || !slices.Contains(permission.AllowedScopes, definition.RequiredScope) {
 			return fmt.Errorf("operation %q has invalid required scope %q", definition.ID, definition.RequiredScope)
 		}
-		if !slices.Contains([]string{"low", "medium", "high"}, definition.Risk) || definition.Transports.GRPC == "" {
+		if !slices.Contains([]string{"low", "medium", "high"}, definition.Risk) {
 			return fmt.Errorf("operation %q is missing risk or gRPC transport", definition.ID)
 		}
 		if definition.Transports.GRPC != plan.Bindings.RPC {
 			return fmt.Errorf("operation %q gRPC transport does not match generated plan", definition.ID)
 		}
-		if err := validateTransportTrace(definition); err != nil {
-			return err
+		if definition.Transports.GRPC != "" {
+			if err := validateTransportTrace(definition); err != nil {
+				return err
+			}
+		} else if definition.Transports.GRPC != "" || len(definition.Transports.REST) != 0 || len(definition.Transports.MCP) != 0 {
+			return fmt.Errorf("manual configuration operation %q unexpectedly declares a transport", definition.ID)
 		}
 		if definition.Writes != (plan.Execution.Transaction != "read_only") {
 			return fmt.Errorf("operation %q write flag does not match generated transaction", definition.ID)
@@ -634,7 +650,7 @@ type roleContract struct {
 }
 
 var expectedRoles = map[string]roleContract{
-	"system-administrator":  {bindingScope: "organization", permissions: []string{"delivery.dashboard.read", "delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.projects.create", "delivery.releases.create", "delivery.sprints.create", "delivery.milestones.create", "identity.teams.manage", "identity.memberships.manage", "identity.roles.manage", "identity.role-bindings.manage", "audit.events.read"}},
+	"system-administrator":  {bindingScope: "organization", permissions: []string{"delivery.dashboard.read", "delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.projects.create", "delivery.releases.create", "delivery.sprints.create", "delivery.milestones.create", "identity.teams.manage", "identity.memberships.manage", "identity.roles.manage", "identity.role-bindings.manage", "audit.events.read", "config.revisions.write", "config.revisions.read", "config.revisions.rollback"}},
 	"project-administrator": {bindingScope: "project", permissions: []string{"delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.releases.create", "delivery.sprints.create", "delivery.milestones.create", "identity.memberships.manage", "identity.role-bindings.manage"}},
 	"release-approver":      {bindingScope: "project", permissions: []string{"delivery.work-items.read", "delivery.work-items.gate.advance", "delivery.work-items.close"}},
 	"contributor":           {bindingScope: "project", permissions: []string{"delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update"}},

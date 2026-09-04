@@ -11,6 +11,7 @@ import (
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/contracts/authorization"
 	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/configrevision"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"yunka.io/framework/core/identity"
 	"yunka.io/gateway/authz"
@@ -233,8 +234,7 @@ func (guard *OperationGuard) verifyServiceGrants(ctx context.Context, principal 
 	verified := make([]authz.Grant, 0, len(grants))
 	seen := make(map[authz.Grant]struct{}, len(grants))
 	for _, grant := range grants {
-		projectID, ok := serviceProjectScope(grant.Scope)
-		if !ok || string(grant.Permission) != operation.Permission || grant.RoleID != "service-account:"+serviceAccountID {
+		if string(grant.Permission) != operation.Permission || grant.RoleID != "service-account:"+serviceAccountID {
 			return nil, denied()
 		}
 		if _, exists := seen[grant]; exists {
@@ -242,7 +242,19 @@ func (guard *OperationGuard) verifyServiceGrants(ctx context.Context, principal 
 		}
 		seen[grant] = struct{}{}
 		var found int
-		err := guard.database.QueryRowContext(ctx, activeServiceGrantQuery, principal.TenantID, serviceAccountID, operation.ID, operation.Permission, projectID).Scan(&found)
+		var err error
+		if operation.RequiredScope == "organization" && strings.HasPrefix(operation.ID, "config.revisions.") {
+			if grant.Scope != "organization:"+principal.TenantID {
+				return nil, denied()
+			}
+			err = guard.database.QueryRowContext(ctx, activeConfigServiceGrantQuery, principal.TenantID, serviceAccountID, operation.ID, operation.Permission).Scan(&found)
+		} else {
+			projectID, ok := serviceProjectScope(grant.Scope)
+			if !ok {
+				return nil, denied()
+			}
+			err = guard.database.QueryRowContext(ctx, activeServiceGrantQuery, principal.TenantID, serviceAccountID, operation.ID, operation.Permission, projectID).Scan(&found)
+		}
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("verify delivery service grant: %w", err)
 		}
@@ -318,6 +330,15 @@ WHERE grants.status = 'active'
   AND grants.operation_id = ?
   AND grants.permission_id = ?
   AND grants.project_id = ?`
+
+const activeConfigServiceGrantQuery = `
+SELECT 1
+FROM iotd_config_service_grants grants
+JOIN service_accounts accounts ON accounts.id = grants.service_account_id AND accounts.organization_id = grants.organization_id AND accounts.status = 'active'
+JOIN organizations organizations ON organizations.id = grants.organization_id AND organizations.status = 'active'
+JOIN service_operations operations ON operations.id = grants.operation_id AND operations.id GLOB 'config.revisions.*' AND operations.permission_id = grants.permission_id AND operations.required_scope = 'organization' AND operations.status = 'active'
+JOIN permissions permissions ON permissions.id = grants.permission_id AND permissions.status = 'active'
+WHERE grants.status = 'active' AND grants.organization_id = ? AND grants.service_account_id = ? AND grants.operation_id = ? AND grants.permission_id = ?`
 
 func isHumanJWTPrincipal(principal identity.Principal) bool {
 	return principal.Authenticated && principal.AuthMethod == identity.AuthMethodJWT && canonicalID(principal.UserID)
@@ -449,6 +470,15 @@ func (guard *OperationGuard) projectAndObjectID(ctx context.Context, operation a
 
 func validInput(operation authz.OperationID, input any) bool {
 	switch operation {
+	case "config.revisions.change":
+		request, ok := input.(*configrevision.ChangeInput)
+		return ok && request != nil
+	case "config.revisions.compare":
+		request, ok := input.(*configrevision.CompareInput)
+		return ok && request != nil
+	case "config.revisions.rollback":
+		request, ok := input.(*configrevision.RollbackInput)
+		return ok && request != nil
 	case "delivery.dashboard.get":
 		request, ok := input.(*deliveryv1.GetDashboardRequest)
 		return ok && request != nil

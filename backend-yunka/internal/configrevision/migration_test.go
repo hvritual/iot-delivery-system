@@ -123,3 +123,81 @@ INSERT INTO iotd_audit_entries (id, payload) VALUES ('audit-before', '{"keep":tr
 		}
 	}
 }
+
+func TestServiceGrantSchemaDriftFailsClosed(t *testing.T) {
+	for name, mutate := range map[string]string{
+		"ledgered missing table":   `DROP TABLE iotd_config_service_grants`,
+		"table definition drift":   `ALTER TABLE iotd_config_service_grants ADD COLUMN drift TEXT`,
+		"valid trigger when zero":  `DROP TRIGGER iotd_config_service_grants_valid_on_insert; CREATE TRIGGER iotd_config_service_grants_valid_on_insert BEFORE INSERT ON iotd_config_service_grants WHEN 0 BEGIN SELECT RAISE(ABORT, 'config service grant is invalid'); END`,
+		"immutable trigger fields": `DROP TRIGGER iotd_config_service_grants_append_only; CREATE TRIGGER iotd_config_service_grants_append_only BEFORE UPDATE OF status ON iotd_config_service_grants BEGIN SELECT RAISE(ABORT, 'config service grants are immutable'); END`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			database := migratedDatabase(t, ":memory:")
+			if err := ApplyMigrations(t.Context(), database); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := database.Exec(mutate); err != nil {
+				t.Fatal(err)
+			}
+			if err := ApplyMigrations(t.Context(), database); err == nil {
+				t.Fatal("service grant drift unexpectedly accepted")
+			}
+		})
+	}
+}
+
+func TestConfigAuthorizationSeedDriftFailsClosed(t *testing.T) {
+	mutations := map[string]string{
+		"missing permission":           `PRAGMA foreign_keys = OFF; DELETE FROM permissions WHERE id = 'config.revisions.write'; PRAGMA foreign_keys = ON`,
+		"permission wrong resource":    `UPDATE permissions SET resource = 'config.other' WHERE id = 'config.revisions.write'`,
+		"permission wrong action":      `UPDATE permissions SET action = 'read' WHERE id = 'config.revisions.write'`,
+		"permission wrong status":      `UPDATE permissions SET status = 'reserved' WHERE id = 'config.revisions.write'`,
+		"missing permission scope":     `PRAGMA foreign_keys = OFF; DELETE FROM permission_allowed_scopes WHERE permission_id = 'config.revisions.read'; PRAGMA foreign_keys = ON`,
+		"extra permission scope":       `INSERT INTO permission_allowed_scopes (permission_id, scope_type) VALUES ('config.revisions.read', 'project')`,
+		"missing administrator grant":  `PRAGMA foreign_keys = OFF; DELETE FROM role_permission_grant_allowed_scopes WHERE role_id = 'system-administrator' AND permission_id = 'config.revisions.rollback'; DELETE FROM role_permission_grants WHERE role_id = 'system-administrator' AND permission_id = 'config.revisions.rollback'; PRAGMA foreign_keys = ON`,
+		"missing administrator scope":  `DELETE FROM role_permission_grant_allowed_scopes WHERE role_id = 'system-administrator' AND permission_id = 'config.revisions.write'`,
+		"extra administrator scope":    `PRAGMA foreign_keys = OFF; INSERT INTO role_permission_grant_allowed_scopes (role_id, permission_id, scope_type) VALUES ('system-administrator', 'config.revisions.read', 'project'); PRAGMA foreign_keys = ON`,
+		"missing service operation":    `DROP TRIGGER service_operations_immutable_on_delete; DELETE FROM service_operations WHERE id = 'config.revisions.compare'`,
+		"service operation permission": `DROP TRIGGER service_operations_immutable_on_update; UPDATE service_operations SET permission_id = 'config.revisions.read' WHERE id = 'config.revisions.change'`,
+		"service operation scope":      `DROP TRIGGER service_operations_immutable_on_update; UPDATE service_operations SET required_scope = 'project' WHERE id = 'config.revisions.change'`,
+		"service operation status":     `DROP TRIGGER service_operations_immutable_on_update; UPDATE service_operations SET status = 'disabled' WHERE id = 'config.revisions.change'`,
+	}
+	for name, mutation := range mutations {
+		t.Run(name, func(t *testing.T) {
+			database := migratedDatabase(t, ":memory:")
+			if err := ApplyMigrations(t.Context(), database); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := database.Exec(mutation); err != nil {
+				t.Fatal(err)
+			}
+			if err := ApplyMigrations(t.Context(), database); err == nil {
+				t.Fatal("seed drift unexpectedly accepted")
+			}
+		})
+	}
+}
+
+func TestServiceGrantMigrationWaitsForIdentityThenSeeds(t *testing.T) {
+	database, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	if err := ApplyMigrations(t.Context(), database); err != nil {
+		t.Fatal(err)
+	}
+	var count int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, ServiceGrantMigrationID).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("premature service ledger=%d error=%v", count, err)
+	}
+	if err := identitycore.ApplyMigrations(t.Context(), database); err != nil {
+		t.Fatal(err)
+	}
+	if err := ApplyMigrations(t.Context(), database); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, ServiceGrantMigrationID).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("service ledger=%d error=%v", count, err)
+	}
+}

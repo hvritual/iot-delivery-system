@@ -8,6 +8,7 @@ import (
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/contracts/authorization"
 	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/configrevision"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryauthz"
@@ -31,6 +32,46 @@ func TestOperationGuardProjectBindingAllowsOwnedProjectAndRejectsOtherProject(t 
 	}
 	if _, err := guard.Prepare(t.Context(), authorized, &deliveryv1.CreateItemRequest{ProjectId: "project-b"}); !errors.Is(err, deliveryauthz.ErrDenied) {
 		t.Fatalf("other project error = %v, want denied", err)
+	}
+}
+
+func TestOperationGuardAllowsRegisteredConfigurationChangeAtTrustedOrganizationScope(t *testing.T) {
+	guard, err := deliveryauthz.NewOperationGuard(delivery.NewMemoryRepository(), migratedDatabase(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := &configrevision.ChangeInput{Kind: configrevision.KindMembership, ConfigKey: "members/default", ExpectedParentRevision: 0, Payload: `{}`}
+	secured, err := guard.Prepare(t.Context(), authorizedOperation("org-a", "config.revisions.change", "config.revisions.write", "system-administrator", "organization:org-a"), input)
+	if err != nil {
+		t.Fatalf("registered configuration operation denied: %v", err)
+	}
+	if got := deliveryauthz.OrganizationIDFromContext(secured); got != "org-a" {
+		t.Fatalf("trusted configuration organization = %q, want org-a", got)
+	}
+}
+
+func TestOperationGuardRejectsForgedNonConfigurationOrganizationGrant(t *testing.T) {
+	database := migratedDatabase(t)
+	if err := configrevision.ApplyMigrations(t.Context(), database); err != nil {
+		t.Fatal(err)
+	}
+	for _, statement := range []string{
+		`INSERT INTO service_accounts (id, organization_id, name) VALUES ('service-a', 'org-a', 'Service A')`,
+		`DROP TRIGGER iotd_config_service_grants_valid_on_insert`,
+		`INSERT INTO iotd_config_service_grants (id, organization_id, service_account_id, operation_id, permission_id) VALUES ('forged-dashboard', 'org-a', 'service-a', 'delivery.dashboard.get', 'delivery.dashboard.read')`,
+	} {
+		if _, err := database.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	guard, err := deliveryauthz.NewOperationGuard(delivery.NewMemoryRepository(), database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorized := authorizedOperation("org-a", "delivery.dashboard.get", "delivery.dashboard.read", "service-account:service-a", "organization:org-a")
+	authorized.Principal = identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodServiceToken, TenantID: "org-a", Subject: "service-account/service-a"}
+	if _, err := guard.Prepare(t.Context(), authorized, &deliveryv1.GetDashboardRequest{}); !errors.Is(err, deliveryauthz.ErrDenied) {
+		t.Fatalf("forged non-config organization grant error=%v, want denied", err)
 	}
 }
 
