@@ -108,22 +108,45 @@ go test -count=1 ./...
 
 ## Yunka 合同生成
 
-`contracts/proto/iot_delivery.proto` 是领域 API 合同；生成物和清单受 Yunka 管理。当前开发机使用了仓库内忽略的 `.tools/`，固定版本为：
+`contracts/proto/iot_delivery.proto` 是领域 API 合同；生成物和清单受 Yunka 管理。`.yunka/project.json`、`.yunka/providers.json`、`.yunka/protobuf-go.json` 与 `.yunka/dev.json` 是当前目标 CLI 所识别的项目档案；`yunka context --root . --json` 可只读核验其解析结果。
 
-- `protoc 3.21.12`（官方发布资产名为 `protoc-21.12-win64.zip`）
+当前开发机使用仓库内忽略的 `.tools/`。`Makefile` 将固定的 framework protobuf include、插件和 `--full` 流程封装为 POSIX/CI 的日常生成与检查入口，操作者不应再手写 `--proto-path`。Windows 的兼容性回归门仍由 `scripts/run-s0-04-09-hard-gate.ps1` 直接调用同一目标 CLI。固定版本为：
+
+- `Go 1.25.13`
+- `protoc 3.21.12`（官方 release asset 使用 `21.12` 命名）
 - `protoc-gen-go v1.36.11`
 - `protoc-gen-go-grpc v1.6.2`
 
-工具就绪后：
+Makefile 只从固定的 `third_party/yunka` gitlink 源运行目标 CLI，并从 `backend-yunka/.tools/` 查找 compiler/plugins。工具放在其他目录时，只覆盖工具位置变量；不要额外传入 protobuf include 参数：
+
+```bash
+cd backend-yunka
+make yunka-toolchain-check
+make yunka-generate
+make yunka-check
+```
+
+`make yunka-verify` is read-only and aliases the full check. Regeneration is always the explicit `make yunka-generate` action; CI must not use a command that repairs derived-output drift.
+
+CI or an isolated tool bundle may point the workflow at its already-provisioned locations:
+
+```bash
+cd backend-yunka
+make yunka-verify \
+  GO=/path/to/go-1.25.13/bin/go \
+  TOOLS_DIR=/path/to/tool-bundle
+```
+
+The defaults use POSIX executable names. GNU Make on Windows must point the three protobuf executables at their `.exe` files explicitly; the pinned PowerShell hard gate already does this:
 
 ```powershell
-$target = (Get-Location).Path
-$tools = Join-Path $target '.tools'
-$env:PROTOC_GEN_GO = Join-Path $tools 'bin/protoc-gen-go.exe'
-$env:PROTOC_GEN_GO_GRPC = Join-Path $tools 'bin/protoc-gen-go-grpc.exe'
-cd ../third_party/yunka/app
-go run ./cmd generate --root $target --full --protoc (Join-Path $tools 'protoc-3.21.12/bin/protoc.exe') --proto-path (Join-Path $target '../third_party/yunka/contracts/proto')
-go run ./cmd check --root $target --full --protoc (Join-Path $tools 'protoc-3.21.12/bin/protoc.exe') --proto-path (Join-Path $target '../third_party/yunka/contracts/proto')
+make yunka-verify `
+  GO=C:/tools/go1.25.13/bin/go.exe `
+  PROTOC=C:/tools/protoc-21.12/bin/protoc.exe `
+  PROTOC_GEN_GO=C:/tools/bin/protoc-gen-go.exe `
+  PROTOC_GEN_GO_GRPC=C:/tools/bin/protoc-gen-go-grpc.exe
 ```
+
+The workflow resolves `YUNKA_PROTO_PATH` internally to the repository's `third_party/yunka/contracts/proto`; command-line overrides are deliberately ignored because the gitlink is the reviewed framework dependency. It remains a deliberate target-CLI `--proto-path` seam because the target project's `workflow.contract` profile has no persistent external-include field, and source inventories intentionally reject paths escaping the consumer root. Do not vendor or hand-copy `yunka/dsl/v1/options.proto` into the consumer merely to avoid that explicit dependency boundary.
 
 生成后的 `operation-plans.json`、应用端口、策略、RPC executor 和 `internal/assembly/` 都是受 Yunka 管理的派生内容；手写实现仅放在 `internal/delivery/application/`、`internal/localauth/`、`internal/localoutbox/`、`internal/localtx/`、`internal/notification/`、`internal/mcpserver/` 与 bootstrap 装配处。Project、Release、Sprint、Milestone 的创建 operation plan 已纳入生成合同；其余扩展 operation plan 仍由后续硬化项处理。

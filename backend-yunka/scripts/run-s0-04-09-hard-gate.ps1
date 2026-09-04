@@ -21,11 +21,11 @@ $backendRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $repositoryRoot = (Resolve-Path (Join-Path $backendRoot '..')).Path
 $yunkaRoot = Join-Path $repositoryRoot 'third_party/yunka'
 $yunkaApp = Join-Path $yunkaRoot 'app'
-$protoc = Join-Path $backendRoot '.tools/protoc-3.21.12/bin/protoc.exe'
+$protoc = Join-Path $backendRoot '.tools/protoc-21.12/bin/protoc.exe'
 $protocGenGo = Join-Path $backendRoot '.tools/bin/protoc-gen-go.exe'
 $protocGenGoGRPC = Join-Path $backendRoot '.tools/bin/protoc-gen-go-grpc.exe'
 $protoPath = Join-Path $yunkaRoot 'contracts/proto'
-$expectedYunkaRevision = '9a51562aa7bcef42f6861bd91abd30aae13ed6ef'
+$expectedYunkaRevision = '057ebcf88a87303eb633eb6e604d306f633dfac0'
 
 function Assert-LockedYunkaRevision {
     $gitlink = & git -C $repositoryRoot ls-tree HEAD -- third_party/yunka
