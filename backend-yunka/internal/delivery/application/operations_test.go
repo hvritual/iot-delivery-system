@@ -885,6 +885,13 @@ func TestOperationsPlanningCreatesUseGeneratedContractsAndPersistResponses(t *te
 	if err != nil || persistedProject != project {
 		t.Fatalf("persisted project = %#v, %v; want %#v", persistedProject, err, project)
 	}
+	projects, err := operations.ListProjects(administrator)
+	if err != nil {
+		t.Fatalf("list projects through generated operation: %v", err)
+	}
+	if len(projects) != 1 || projects[0] != project {
+		t.Fatalf("listed projects = %#v, want %#v", projects, []delivery.Project{project})
+	}
 
 	release, err := operations.CreateRelease(administrator, delivery.ReleaseInput{ProjectID: project.ID, Name: "MVP", Version: "v0.1.0", TargetDate: "2026-09-30", Status: "planned", Description: "生成合同验证"})
 	if err != nil {

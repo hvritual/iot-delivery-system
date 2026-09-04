@@ -41,6 +41,7 @@ func TestPlanningCreateOperationsAreGeneratedContractBoundaries(t *testing.T) {
 	contract := string(contents)
 	for _, declaration := range []string{
 		"rpc CreateProject(CreateProjectRequest) returns (ProjectResponse)",
+		"rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse)",
 		"rpc CreateRelease(CreateReleaseRequest) returns (ReleaseResponse)",
 		"rpc CreateSprint(CreateSprintRequest) returns (SprintResponse)",
 		"rpc CreateMilestone(CreateMilestoneRequest) returns (MilestoneResponse)",
@@ -58,7 +59,7 @@ func TestPlanningCreateOperationsAreGeneratedContractBoundaries(t *testing.T) {
 		if readErr != nil {
 			t.Fatalf("read generated contract artifact %s: %v", generatedPath, readErr)
 		}
-		for _, method := range []string{"CreateProject", "CreateRelease", "CreateSprint", "CreateMilestone"} {
+		for _, method := range []string{"CreateProject", "ListProjects", "CreateRelease", "CreateSprint", "CreateMilestone"} {
 			if !strings.Contains(string(generated), method) {
 				t.Errorf("generated contract artifact %s is missing %q", generatedPath, method)
 			}
@@ -88,6 +89,7 @@ func TestGeneratedOperationPlansDeclareLocalAPIKeyAuthorizationAndTransactions(t
 		"delivery.items.advance-gate":   {permission: "delivery.work-items.gate.advance", transaction: "local"},
 		"delivery.items.close":          {permission: "delivery.work-items.close", transaction: "local"},
 		"delivery.projects.create":      {permission: "delivery.projects.create", transaction: "local"},
+		"delivery.projects.list":        {permission: "delivery.projects.read", transaction: "read_only"},
 		"delivery.releases.create":      {permission: "delivery.releases.create", transaction: "local"},
 		"delivery.sprints.create":       {permission: "delivery.sprints.create", transaction: "local"},
 		"delivery.milestones.create":    {permission: "delivery.milestones.create", transaction: "local"},
