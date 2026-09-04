@@ -13,9 +13,9 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryauthz"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitycore"
-	_ "modernc.org/sqlite"
 	"github.com/hvritual/yunka.io/framework/core/identity"
 	"github.com/hvritual/yunka.io/gateway/authz"
+	_ "modernc.org/sqlite"
 )
 
 func TestOperationGuardProjectBindingAllowsOwnedProjectAndRejectsOtherProject(t *testing.T) {
@@ -106,6 +106,75 @@ func TestOperationGuardDashboardPublishesOnlyOwnedProjectScope(t *testing.T) {
 	projects, ok := deliveryauthz.AuthorizedProjectsFromContext(secured)
 	if !ok || len(projects) != 1 || !projects["project-a"] {
 		t.Fatalf("authorized projects = %#v, present=%v, want project-a only", projects, ok)
+	}
+}
+
+func TestOperationGuardListProjectsPublishesOnlyDurablyAuthorizedTenantProjects(t *testing.T) {
+	database := migratedDatabase(t)
+	seedListProjectsAuthorization(t, database)
+	repository := delivery.NewMemoryRepository()
+	seedProject(t, repository, "project-a", "org-a")
+	seedProject(t, repository, "project-b", "org-a")
+	seedProject(t, repository, "project-foreign", "org-b")
+	guard, err := deliveryauthz.NewOperationGuardWithDictionary(repository, database, listProjectsDictionary())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for name, authorized := range map[string]authz.AuthorizedOperation{
+		"organization binding includes every owned project": authorizedOperation("org-a", "delivery.projects.list", "delivery.projects.read", "system-administrator", "organization:org-a"),
+		"project binding includes only its project":         authorizedOperation("org-a", "delivery.projects.list", "delivery.projects.read", "contributor", "project:project-a"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			secured, err := guard.Prepare(t.Context(), authorized, &deliveryv1.ListProjectsRequest{})
+			if err != nil {
+				t.Fatalf("prepare: %v", err)
+			}
+			projects, ok := deliveryauthz.AuthorizedProjectsFromContext(secured)
+			if !ok || !projects["project-a"] || projects["project-foreign"] {
+				t.Fatalf("authorized projects = %#v, want tenant-owned result without foreign project", projects)
+			}
+			if name == "organization binding includes every owned project" && !projects["project-b"] {
+				t.Fatalf("organization grant projects = %#v, want all org-a projects", projects)
+			}
+			if name == "project binding includes only its project" && (len(projects) != 1 || projects["project-b"]) {
+				t.Fatalf("project grant projects = %#v, want project-a only", projects)
+			}
+		})
+	}
+}
+
+func TestOperationGuardListProjectsRequiresServiceGrantForEachProject(t *testing.T) {
+	database := migratedDatabase(t)
+	seedListProjectsAuthorization(t, database)
+	if _, err := database.Exec(`INSERT INTO service_accounts (id, organization_id, name) VALUES ('service-list', 'org-a', 'List service')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`INSERT INTO service_operation_grants (id, organization_id, service_account_id, operation_id, permission_id, project_id) VALUES ('service-list-project-b', 'org-a', 'service-list', 'delivery.projects.list', 'delivery.projects.read', 'project-b')`); err != nil {
+		t.Fatal(err)
+	}
+	repository := delivery.NewMemoryRepository()
+	seedProject(t, repository, "project-a", "org-a")
+	seedProject(t, repository, "project-b", "org-a")
+	seedProject(t, repository, "project-foreign", "org-b")
+	guard, err := deliveryauthz.NewOperationGuardWithDictionary(repository, database, listProjectsDictionary())
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorized := authz.AuthorizedOperation{
+		Principal: identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodServiceToken, TenantID: "org-a", Subject: "service-account/service-list"},
+		Policy:    authz.Policy{Operation: "delivery.projects.list", Permissions: []authz.PermissionKey{"delivery.projects.read"}},
+		Decision: authz.Decision{Allowed: true, Operation: "delivery.projects.list", Permissions: []authz.PermissionKey{"delivery.projects.read"}, Grants: []authz.Grant{{
+			Permission: "delivery.projects.read", RoleID: "service-account:service-list", Scope: "project:project-b",
+		}}},
+	}
+	secured, err := guard.Prepare(t.Context(), authorized, &deliveryv1.ListProjectsRequest{})
+	if err != nil {
+		t.Fatalf("prepare: %v", err)
+	}
+	projects, ok := deliveryauthz.AuthorizedProjectsFromContext(secured)
+	if !ok || len(projects) != 1 || !projects["project-b"] || projects["project-a"] || projects["project-foreign"] {
+		t.Fatalf("authorized projects = %#v, want only explicit tenant-owned service grant", projects)
 	}
 }
 
@@ -357,6 +426,30 @@ func seedProject(t *testing.T, repository *delivery.MemoryRepository, id, organi
 	t.Helper()
 	if err := repository.CreateProject(t.Context(), delivery.Project{ID: id, OrganizationID: organizationID, Name: id, Board: delivery.BoardResearchDelivery, Owner: "owner", CreatedAt: time.Now(), UpdatedAt: time.Now()}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func listProjectsDictionary() authorization.Dictionary {
+	return authorization.Dictionary{
+		Permissions: []authorization.Permission{{ID: "delivery.projects.read", AllowedScopes: []string{"project"}}},
+		Operations:  []authorization.Operation{{ID: "delivery.projects.list", Permission: "delivery.projects.read", RequiredScope: "project"}},
+	}
+}
+
+func seedListProjectsAuthorization(t *testing.T, database *sql.DB) {
+	t.Helper()
+	for _, statement := range []string{
+		`INSERT OR IGNORE INTO permissions (id, resource, action, status) VALUES ('delivery.projects.read', 'delivery.projects', 'read', 'active')`,
+		`INSERT OR IGNORE INTO permission_allowed_scopes (permission_id, scope_type) VALUES ('delivery.projects.read', 'project')`,
+		`INSERT OR IGNORE INTO role_permission_grants (role_id, permission_id) VALUES ('system-administrator', 'delivery.projects.read')`,
+		`INSERT OR IGNORE INTO role_permission_grant_allowed_scopes (role_id, permission_id, scope_type) VALUES ('system-administrator', 'delivery.projects.read', 'project')`,
+		`INSERT OR IGNORE INTO role_permission_grants (role_id, permission_id) VALUES ('contributor', 'delivery.projects.read')`,
+		`INSERT OR IGNORE INTO role_permission_grant_allowed_scopes (role_id, permission_id, scope_type) VALUES ('contributor', 'delivery.projects.read', 'project')`,
+		`INSERT OR IGNORE INTO service_operations (id, permission_id, required_scope, status) VALUES ('delivery.projects.list', 'delivery.projects.read', 'project', 'active')`,
+	} {
+		if _, err := database.Exec(statement); err != nil {
+			t.Fatalf("seed project-list authorization: %v", err)
+		}
 	}
 }
 

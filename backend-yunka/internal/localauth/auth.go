@@ -12,12 +12,12 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/gateway/authz"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"github.com/hvritual/yunka.io/framework/core/identity"
-	"github.com/hvritual/yunka.io/gateway/authz"
 )
 
 const (
@@ -204,11 +204,13 @@ func (grantResolver) ResolveGrants(_ context.Context, request authz.GrantRequest
 var permissionsByRole = map[string][]authz.PermissionKey{
 	RoleViewer: {
 		"delivery.dashboard.read",
+		"delivery.projects.read",
 		"delivery.work-items.read",
 		"delivery.items.read", // Development-only alias for legacy extension operations.
 	},
 	RoleContributor: {
 		"delivery.dashboard.read",
+		"delivery.projects.read",
 		"delivery.work-items.read",
 		"delivery.work-items.create",
 		"delivery.work-items.update",
@@ -219,6 +221,7 @@ var permissionsByRole = map[string][]authz.PermissionKey{
 	},
 	RoleReleaseManager: {
 		"delivery.dashboard.read",
+		"delivery.projects.read",
 		"delivery.work-items.read",
 		"delivery.work-items.create",
 		"delivery.work-items.update",
@@ -231,6 +234,7 @@ var permissionsByRole = map[string][]authz.PermissionKey{
 	},
 	RoleLocalAdmin: {
 		"delivery.dashboard.read",
+		"delivery.projects.read",
 		"delivery.work-items.read",
 		"delivery.work-items.create",
 		"delivery.work-items.update",

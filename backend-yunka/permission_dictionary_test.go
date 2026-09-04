@@ -436,6 +436,7 @@ var expectedPermissions = map[string]permissionContract{
 	"delivery.work-items.gate.advance":   {resource: "delivery.work-items", action: "gate.advance", status: "active", scopes: []string{"object"}},
 	"delivery.work-items.close":          {resource: "delivery.work-items", action: "close", status: "active", scopes: []string{"object"}},
 	"delivery.projects.create":           {resource: "delivery.projects", action: "create", status: "active", scopes: []string{"organization"}},
+	"delivery.projects.read":             {resource: "delivery.projects", action: "read", status: "active", scopes: []string{"project"}},
 	"delivery.releases.create":           {resource: "delivery.releases", action: "create", status: "active", scopes: []string{"project"}},
 	"delivery.sprints.create":            {resource: "delivery.sprints", action: "create", status: "active", scopes: []string{"project"}},
 	"delivery.milestones.create":         {resource: "delivery.milestones", action: "create", status: "active", scopes: []string{"project"}},
@@ -452,7 +453,7 @@ var expectedPermissions = map[string]permissionContract{
 var expectedResources = map[string][]string{
 	"delivery.dashboard":     {"organization"},
 	"delivery.work-items":    {"project", "object"},
-	"delivery.projects":      {"organization"},
+	"delivery.projects":      {"organization", "project"},
 	"delivery.releases":      {"project"},
 	"delivery.sprints":       {"project"},
 	"delivery.milestones":    {"project"},
@@ -545,6 +546,7 @@ var expectedOperations = map[string]operationContract{
 	"delivery.items.advance-gate":   {resource: "delivery.work-items", permission: "delivery.work-items.gate.advance", requiredScope: "object", risk: "high", writes: true},
 	"delivery.items.close":          {resource: "delivery.work-items", permission: "delivery.work-items.close", requiredScope: "object", risk: "high", writes: true},
 	"delivery.projects.create":      {resource: "delivery.projects", permission: "delivery.projects.create", requiredScope: "organization", risk: "high", writes: true},
+	"delivery.projects.list":        {resource: "delivery.projects", permission: "delivery.projects.read", requiredScope: "project", risk: "low", writes: false},
 	"delivery.releases.create":      {resource: "delivery.releases", permission: "delivery.releases.create", requiredScope: "project", risk: "high", writes: true},
 	"delivery.sprints.create":       {resource: "delivery.sprints", permission: "delivery.sprints.create", requiredScope: "project", risk: "medium", writes: true},
 	"delivery.milestones.create":    {resource: "delivery.milestones", permission: "delivery.milestones.create", requiredScope: "project", risk: "medium", writes: true},
@@ -633,6 +635,7 @@ func validateTransportTrace(definition operationDefinition) error {
 		"delivery.items.advance-gate":   {rest: []transportPath{{Method: "POST", Path: "/api/items/{item_id}/gates/{gate}"}}, mcp: []string{"delivery.advance_gate"}},
 		"delivery.items.close":          {rest: []transportPath{{Method: "POST", Path: "/api/items/{item_id}/close"}}, mcp: []string{"delivery.close_work_item"}},
 		"delivery.projects.create":      {rest: []transportPath{{Method: "POST", Path: "/api/projects"}}, mcp: []string{"delivery.create_project"}},
+		"delivery.projects.list":        {rest: []transportPath{{Method: "GET", Path: "/api/projects"}}, mcp: []string{"delivery.list_projects"}},
 		"delivery.releases.create":      {rest: []transportPath{{Method: "POST", Path: "/api/releases"}}, mcp: []string{"delivery.create_release"}},
 		"delivery.sprints.create":       {rest: []transportPath{{Method: "POST", Path: "/api/sprints"}}, mcp: []string{"delivery.create_sprint"}},
 		"delivery.milestones.create":    {rest: []transportPath{{Method: "POST", Path: "/api/milestones"}}, mcp: []string{"delivery.create_milestone"}},
@@ -650,12 +653,12 @@ type roleContract struct {
 }
 
 var expectedRoles = map[string]roleContract{
-	"system-administrator":  {bindingScope: "organization", permissions: []string{"delivery.dashboard.read", "delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.projects.create", "delivery.releases.create", "delivery.sprints.create", "delivery.milestones.create", "identity.teams.manage", "identity.memberships.manage", "identity.roles.manage", "identity.role-bindings.manage", "audit.events.read", "config.revisions.write", "config.revisions.read", "config.revisions.rollback"}},
-	"project-administrator": {bindingScope: "project", permissions: []string{"delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.releases.create", "delivery.sprints.create", "delivery.milestones.create", "identity.memberships.manage", "identity.role-bindings.manage"}},
-	"release-approver":      {bindingScope: "project", permissions: []string{"delivery.work-items.read", "delivery.work-items.gate.advance", "delivery.work-items.close"}},
-	"contributor":           {bindingScope: "project", permissions: []string{"delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update"}},
-	"viewer":                {bindingScope: "project", permissions: []string{"delivery.work-items.read"}},
-	"auditor":               {bindingScope: "organization", permissions: []string{"delivery.dashboard.read", "delivery.work-items.read", "audit.events.read"}},
+	"system-administrator":  {bindingScope: "organization", permissions: []string{"delivery.dashboard.read", "delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.projects.create", "delivery.projects.read", "delivery.releases.create", "delivery.sprints.create", "delivery.milestones.create", "identity.teams.manage", "identity.memberships.manage", "identity.roles.manage", "identity.role-bindings.manage", "audit.events.read", "config.revisions.write", "config.revisions.read", "config.revisions.rollback"}},
+	"project-administrator": {bindingScope: "project", permissions: []string{"delivery.work-items.read", "delivery.projects.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.releases.create", "delivery.sprints.create", "delivery.milestones.create", "identity.memberships.manage", "identity.role-bindings.manage"}},
+	"release-approver":      {bindingScope: "project", permissions: []string{"delivery.work-items.read", "delivery.projects.read", "delivery.work-items.gate.advance", "delivery.work-items.close"}},
+	"contributor":           {bindingScope: "project", permissions: []string{"delivery.work-items.read", "delivery.projects.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update"}},
+	"viewer":                {bindingScope: "project", permissions: []string{"delivery.work-items.read", "delivery.projects.read"}},
+	"auditor":               {bindingScope: "organization", permissions: []string{"delivery.dashboard.read", "delivery.work-items.read", "delivery.projects.read", "audit.events.read"}},
 }
 
 func validateRoles(definitions []roleDefinition, permissions map[string]permissionDefinition, scopes map[string]scopeDefinition) error {
@@ -721,10 +724,10 @@ func validateServiceIdentities(policy serviceIdentityPolicy) error {
 }
 
 var expectedDevelopmentProfiles = map[string][]string{
-	"local-admin":     {"delivery.dashboard.read", "delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.projects.create", "delivery.releases.create", "delivery.sprints.create", "delivery.milestones.create", "delivery.items.read", "delivery.items.write"},
-	"viewer":          {"delivery.dashboard.read", "delivery.work-items.read", "delivery.items.read"},
-	"contributor":     {"delivery.dashboard.read", "delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.items.read", "delivery.items.write"},
-	"release-manager": {"delivery.dashboard.read", "delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.items.read", "delivery.items.write"},
+	"local-admin":     {"delivery.dashboard.read", "delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.projects.create", "delivery.projects.read", "delivery.releases.create", "delivery.sprints.create", "delivery.milestones.create", "delivery.items.read", "delivery.items.write"},
+	"viewer":          {"delivery.dashboard.read", "delivery.work-items.read", "delivery.projects.read", "delivery.items.read"},
+	"contributor":     {"delivery.dashboard.read", "delivery.work-items.read", "delivery.projects.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.items.read", "delivery.items.write"},
+	"release-manager": {"delivery.dashboard.read", "delivery.work-items.read", "delivery.projects.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.items.read", "delivery.items.write"},
 }
 
 func validateDevelopmentCompatibility(policy developmentCompatibility) error {

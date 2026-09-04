@@ -128,7 +128,7 @@ func TestOperationsCreatePreservesNestedWriteContract(t *testing.T) {
 	}
 	service := delivery.NewService(repository, nil, delivery.NewTransactionalOutboxStager(store))
 	operations := application.NewOperations(application.NewAdapter(service), operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())}))
-	admin := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, Roles: []string{localauth.RoleLocalAdmin}})
+	admin := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, TenantID: localauth.DevelopmentTenantID, Roles: []string{localauth.RoleLocalAdmin}})
 	project, err := operations.CreateProject(admin, delivery.ProjectInput{Name: "nested", Board: delivery.BoardResearchDelivery, Owner: "owner"})
 	if err != nil {
 		t.Fatal(err)
@@ -194,7 +194,7 @@ func TestOperationsUpdatePresenceAndCommentPersistThroughGeneratedWrites(t *test
 	}
 	service := delivery.NewService(repository, nil, delivery.NewTransactionalOutboxStager(store))
 	operations := application.NewOperations(application.NewAdapter(service), operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())}))
-	admin := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, UserID: "actor", Roles: []string{localauth.RoleLocalAdmin}})
+	admin := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, TenantID: localauth.DevelopmentTenantID, UserID: "actor", Roles: []string{localauth.RoleLocalAdmin}})
 	project, err := operations.CreateProject(admin, delivery.ProjectInput{Name: "presence", Board: delivery.BoardResearchDelivery, Owner: "actor"})
 	if err != nil {
 		t.Fatal(err)
@@ -270,7 +270,7 @@ func TestOperationsRejectsInvalidDependenciesWithoutOutboxSideEffects(t *testing
 	}
 	service := delivery.NewService(repository, nil, delivery.NewTransactionalOutboxStager(store))
 	operations := application.NewOperations(application.NewAdapter(service), operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())}))
-	admin := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, Roles: []string{localauth.RoleLocalAdmin}})
+	admin := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, TenantID: localauth.DevelopmentTenantID, Roles: []string{localauth.RoleLocalAdmin}})
 	p1, err := operations.CreateProject(admin, delivery.ProjectInput{Name: "p1", Board: delivery.BoardResearchDelivery, Owner: "o"})
 	if err != nil {
 		t.Fatal(err)
@@ -686,7 +686,7 @@ func TestOperationsUpdateAllFieldPresenceThroughGeneratedContract(t *testing.T) 
 	}
 	service := delivery.NewService(repository, nil)
 	operations := application.NewOperations(application.NewAdapter(service), operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())}))
-	admin := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, Roles: []string{localauth.RoleLocalAdmin}})
+	admin := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, TenantID: localauth.DevelopmentTenantID, Roles: []string{localauth.RoleLocalAdmin}})
 	project, err := operations.CreateProject(admin, delivery.ProjectInput{Name: "project", Board: delivery.BoardResearchDelivery, Owner: "old"})
 	if err != nil {
 		t.Fatal(err)
@@ -871,6 +871,7 @@ func TestOperationsPlanningCreatesUseGeneratedContractsAndPersistResponses(t *te
 	administrator := identity.WithPrincipal(ctx, identity.Principal{
 		Authenticated: true,
 		AuthMethod:    identity.AuthMethodAPIKey,
+		TenantID:      localauth.DevelopmentTenantID,
 		Roles:         []string{localauth.RoleLocalAdmin},
 	})
 

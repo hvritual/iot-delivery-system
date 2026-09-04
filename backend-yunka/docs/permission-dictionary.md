@@ -10,9 +10,9 @@ An absent or unknown scope, unknown resource ownership, cross-organization reque
 
 ## Current transport contract
 
-All 12 generated gRPC OperationPlans are registered in the dictionary with their stable resource, action permission, required scope, risk and write marker. Each also records the equivalent REST path and, when an equivalent exists, the MCP tool. An empty MCP list means that no direct MCP synonym is currently exposed; it does not imply access.
+All 13 generated gRPC OperationPlans are registered in the dictionary with their stable resource, action permission, required scope, risk and write marker. Each also records the equivalent REST path and, when an equivalent exists, the MCP tool. An empty MCP list means that no direct MCP synonym is currently exposed; it does not imply access.
 
-Project, release, sprint and milestone creation use their own permissions. They are no longer covered by a generic work-item write permission.
+Project listing uses `delivery.projects.read` at project scope; an organization-bound administrator or auditor receives that project authority only for projects owned by the bound organization. Project, release, sprint and milestone creation use their own permissions. They are no longer covered by a generic work-item write permission.
 
 ## Built-in human roles
 

@@ -161,7 +161,10 @@ func (guard *OperationGuard) Prepare(ctx context.Context, authorized authz.Autho
 		}
 		return secured, nil
 	}
-	if authorized.Policy.Operation == "delivery.items.list" {
+	// List operations do not carry a caller-controlled project or organization.
+	// Resolve the durable grants into a tenant-owned project set before the
+	// application boundary, so every adapter can filter the same trusted set.
+	if authorized.Policy.Operation == "delivery.items.list" || authorized.Policy.Operation == "delivery.projects.list" {
 		projects, err := guard.allowedProjects(ctx, grants, operation, tenantID)
 		if err != nil {
 			return nil, err
@@ -484,6 +487,9 @@ func validInput(operation authz.OperationID, input any) bool {
 		return ok && request != nil
 	case "delivery.items.list":
 		request, ok := input.(*deliveryv1.ListItemsRequest)
+		return ok && request != nil
+	case "delivery.projects.list":
+		request, ok := input.(*deliveryv1.ListProjectsRequest)
 		return ok && request != nil
 	case "delivery.projects.create":
 		request, ok := input.(*deliveryv1.CreateProjectRequest)

@@ -21,6 +21,10 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localoutbox"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/mcpserver"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/framework/core/runtimecontext"
+	"github.com/hvritual/yunka.io/framework/operation"
+	"github.com/hvritual/yunka.io/gateway/authz"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -28,10 +32,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
-	"github.com/hvritual/yunka.io/framework/core/identity"
-	"github.com/hvritual/yunka.io/framework/core/runtimecontext"
-	"github.com/hvritual/yunka.io/framework/operation"
-	"github.com/hvritual/yunka.io/gateway/authz"
 )
 
 type executionFixture struct {
@@ -431,6 +431,17 @@ func TestMCPRetainsOperationsLifecycleAndSaveViewExtension(t *testing.T) {
 		Project delivery.Project `json:"project"`
 	}
 	decodeStructured(t, projectResult, &project)
+	projectListResult := callMCP(t, fixture.operations, admin, "delivery.list_projects", map[string]any{})
+	if projectListResult.IsError {
+		t.Fatalf("list projects through MCP = %#v: %s", projectListResult, mcpErrorText(projectListResult))
+	}
+	var projectList struct {
+		Projects []delivery.Project `json:"projects"`
+	}
+	decodeStructured(t, projectListResult, &projectList)
+	if len(projectList.Projects) != 1 || projectList.Projects[0].ID != project.Project.ID {
+		t.Fatalf("list projects through MCP = %#v, want created project %q", projectList.Projects, project.Project.ID)
+	}
 	itemResult := callMCP(t, fixture.operations, admin, "delivery.create_work_item", map[string]any{"title": "MCP lifecycle item", "board": string(delivery.BoardResearchDelivery), "owner": "delivery-owner", "projectId": project.Project.ID, "kind": string(delivery.WorkItemKindTask)})
 	if itemResult.IsError {
 		t.Fatalf("create work item through MCP = %#v", itemResult)

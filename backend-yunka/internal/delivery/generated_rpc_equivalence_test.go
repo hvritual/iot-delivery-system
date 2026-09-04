@@ -19,7 +19,7 @@ func TestGeneratedRPCOperationPlansRemainCanonical(t *testing.T) {
 
 	const (
 		serviceName       = "iot.delivery.v1.DeliveryService"
-		generatedRPCCount = 12
+		generatedRPCCount = 13
 	)
 
 	services := deliveryv1.File_iot_delivery_proto.Services()
@@ -81,6 +81,7 @@ func TestGeneratedRPCOperationPlansRemainCanonical(t *testing.T) {
 			policy.OperationPlanCreateSprint(),
 			policy.OperationPlanGetDashboard(),
 			policy.OperationPlanListItems(),
+			policy.OperationPlanListProjects(),
 			policy.OperationPlanUpdateItem(),
 			policy.OperationPlanUpdateItemContext(),
 		},

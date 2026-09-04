@@ -26,16 +26,16 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/mcpserver"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/serviceauthz"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/framework/operation"
+	"github.com/hvritual/yunka.io/gateway/authz"
+	"github.com/hvritual/yunka.io/pkg/operationplan"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
-	"github.com/hvritual/yunka.io/framework/core/identity"
-	"github.com/hvritual/yunka.io/framework/operation"
-	"github.com/hvritual/yunka.io/gateway/authz"
-	"github.com/hvritual/yunka.io/pkg/operationplan"
 )
 
 type authorizationMatrixFixture struct {
@@ -120,6 +120,7 @@ func newAuthorizationMatrixFixtureWithExecutor(t *testing.T, decorate func(opera
 	}
 	for _, statement := range []string{
 		`INSERT INTO organizations (id, slug, name) VALUES ('org-a', 'org-a', 'Organization A')`,
+		`INSERT INTO organizations (id, slug, name) VALUES ('org-b', 'org-b', 'Organization B')`,
 		`INSERT INTO users (id, organization_id, display_name) VALUES ('admin', 'org-a', 'Admin'), ('reviewer', 'org-a', 'Reviewer'), ('viewer', 'org-a', 'Viewer'), ('scoped', 'org-a', 'Scoped'), ('unbound', 'org-a', 'Unbound')`,
 		`INSERT INTO teams (id, organization_id, name, scope_type, scope_id) VALUES ('team-admin', 'org-a', 'Administrators', 'organization', 'org-a'), ('team-reviewer', 'org-a', 'Reviewers', 'organization', 'org-a')`,
 		`INSERT INTO team_memberships (team_id, organization_id, user_id) VALUES ('team-admin', 'org-a', 'admin'), ('team-reviewer', 'org-a', 'reviewer')`,
@@ -222,6 +223,31 @@ func (fixture *authorizationMatrixFixture) grpcCreate(t *testing.T, principal id
 	return status.Code(err)
 }
 
+// grpcList exercises the generated ListProjects RPC with the same durable
+// principal and production executor used by the REST and MCP cases below.
+func (fixture *authorizationMatrixFixture) grpcList(t *testing.T, principal identity.Principal) ([]*deliveryv1.Project, codes.Code) {
+	t.Helper()
+	listener := bufconn.Listen(1024 * 1024)
+	server := grpc.NewServer(grpc.UnaryInterceptor(func(ctx context.Context, request any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		return handler(identity.WithPrincipal(ctx, principal), request)
+	}))
+	if err := deliveryrpc.RegisterOperationExecutor(server, fixture.application, fixture.executor); err != nil {
+		t.Fatalf("register project-list gRPC executor: %v", err)
+	}
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(server.Stop)
+	connection, err := grpc.DialContext(t.Context(), "passthrough:///project-list-matrix", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("dial project-list matrix gRPC server: %v", err)
+	}
+	t.Cleanup(func() { _ = connection.Close() })
+	response, err := deliveryv1.NewDeliveryServiceClient(connection).ListProjects(t.Context(), &deliveryv1.ListProjectsRequest{})
+	if err != nil {
+		return nil, status.Code(err)
+	}
+	return response.GetProjects(), codes.OK
+}
+
 func (fixture *authorizationMatrixFixture) grpcUpdate(t *testing.T, principal identity.Principal, itemID string, expectedRevision int64, progress int32) (codes.Code, string) {
 	t.Helper()
 	listener := bufconn.Listen(1024 * 1024)
@@ -244,10 +270,14 @@ func (fixture *authorizationMatrixFixture) grpcUpdate(t *testing.T, principal id
 }
 
 func matrixPrincipal(userID string) identity.Principal {
+	return matrixTenantPrincipal("org-a", userID)
+}
+
+func matrixTenantPrincipal(tenantID, userID string) identity.Principal {
 	if userID == "" {
 		return identity.Principal{}
 	}
-	return identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodJWT, TenantID: "org-a", UserID: userID, Subject: "oidc-bff/" + userID}
+	return identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodJWT, TenantID: tenantID, UserID: userID, Subject: "oidc-bff/" + userID}
 }
 
 func (fixture *authorizationMatrixFixture) createProtectedItem(t *testing.T) (delivery.Project, delivery.WorkItem) {
@@ -301,6 +331,24 @@ func (fixture *authorizationMatrixFixture) restGate(t *testing.T, principal iden
 	_ = json.NewDecoder(recorder.Body).Decode(&payload)
 	category, _ := payload["error"].(string)
 	return recorder.Code, category
+}
+
+func (fixture *authorizationMatrixFixture) restListProjects(t *testing.T, principal identity.Principal) (int, string, []delivery.Project) {
+	t.Helper()
+	request := httptest.NewRequest(http.MethodGet, "/api/projects", nil).WithContext(identity.WithPrincipal(t.Context(), principal))
+	recorder := httptest.NewRecorder()
+	fixture.handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		var payload map[string]any
+		_ = json.NewDecoder(recorder.Body).Decode(&payload)
+		category, _ := payload["error"].(string)
+		return recorder.Code, category, nil
+	}
+	var projects []delivery.Project
+	if err := json.NewDecoder(recorder.Body).Decode(&projects); err != nil {
+		t.Fatalf("decode REST project list: %v", err)
+	}
+	return recorder.Code, "", projects
 }
 
 func (fixture *authorizationMatrixFixture) restGateAtRevision(t *testing.T, principal identity.Principal, itemID string, expectedRevision int64, gate delivery.Gate) (int, string) {
@@ -390,6 +438,155 @@ func matrixMCPError(result *mcp.CallToolResult) string {
 		return text.Text
 	}
 	return ""
+}
+
+func matrixProjectIDs(projects []delivery.Project) map[string]bool {
+	ids := make(map[string]bool, len(projects))
+	for _, project := range projects {
+		ids[project.ID] = true
+	}
+	return ids
+}
+
+func matrixProtoProjectIDs(projects []*deliveryv1.Project) map[string]bool {
+	ids := make(map[string]bool, len(projects))
+	for _, project := range projects {
+		if project != nil {
+			ids[project.GetId()] = true
+		}
+	}
+	return ids
+}
+
+func matrixMCPProjectIDs(t *testing.T, result *mcp.CallToolResult) map[string]bool {
+	t.Helper()
+	if result == nil || result.IsError {
+		t.Fatalf("MCP project list = %#v text=%q", result, matrixMCPError(result))
+	}
+	payload, err := json.Marshal(result.StructuredContent)
+	if err != nil {
+		t.Fatalf("marshal MCP project list: %v", err)
+	}
+	var output struct {
+		Projects []delivery.Project `json:"projects"`
+	}
+	if err := json.Unmarshal(payload, &output); err != nil {
+		t.Fatalf("decode MCP project list: %v; payload=%s", err, payload)
+	}
+	return matrixProjectIDs(output.Projects)
+}
+
+func TestProductionProjectListMatrixUsesOneDurableScopeAcrossRESTGRPCAndMCP(t *testing.T) {
+	fixture := newAuthorizationMatrixFixture(t)
+	admin := identity.WithPrincipal(t.Context(), matrixPrincipal("admin"))
+	boundProject, err := fixture.operations.CreateProject(admin, delivery.ProjectInput{Name: "Bound project", Board: delivery.BoardResearchDelivery, Owner: "admin"})
+	if err != nil {
+		t.Fatalf("create bound project: %v", err)
+	}
+	secondProject, err := fixture.operations.CreateProject(admin, delivery.ProjectInput{Name: "Second org A project", Board: delivery.BoardResearchDelivery, Owner: "admin"})
+	if err != nil {
+		t.Fatalf("create second organization project: %v", err)
+	}
+	if err := fixture.repository.CreateProject(t.Context(), delivery.Project{ID: "project-org-b", OrganizationID: "org-b", Name: "Organization B project", Board: delivery.BoardResearchDelivery, Owner: "other", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}); err != nil {
+		t.Fatalf("create cross-tenant project: %v", err)
+	}
+	for _, statement := range []string{
+		`INSERT INTO users (id, organization_id, display_name) VALUES ('admin-b', 'org-b', 'Organization B admin')`,
+		`INSERT INTO teams (id, organization_id, name, scope_type, scope_id) VALUES ('team-admin-b', 'org-b', 'Organization B administrators', 'organization', 'org-b')`,
+		`INSERT INTO team_memberships (team_id, organization_id, user_id) VALUES ('team-admin-b', 'org-b', 'admin-b')`,
+		`INSERT INTO role_bindings (id, organization_id, role_id, scope_type, scope_id, team_id) VALUES ('binding-admin-b', 'org-b', 'system-administrator', 'organization', 'org-b', 'team-admin-b')`,
+		`INSERT INTO teams (id, organization_id, name, scope_type, scope_id) VALUES ('team-project-list-viewer', 'org-a', 'Project list viewers', 'project', '` + boundProject.ID + `')`,
+		`INSERT INTO team_memberships (team_id, organization_id, user_id) VALUES ('team-project-list-viewer', 'org-a', 'viewer')`,
+		`INSERT INTO role_bindings (id, organization_id, role_id, scope_type, scope_id, team_id) VALUES ('binding-project-list-viewer', 'org-a', 'viewer', 'project', '` + boundProject.ID + `', 'team-project-list-viewer')`,
+	} {
+		if _, err := fixture.repository.Database().Exec(statement); err != nil {
+			t.Fatalf("seed project list scope with %q: %v", statement, err)
+		}
+	}
+
+	beforeOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil {
+		t.Fatalf("snapshot Outbox before read matrix: %v", err)
+	}
+	for _, scenario := range []struct {
+		name      string
+		principal identity.Principal
+		want      map[string]bool
+	}{
+		{name: "project viewer", principal: matrixPrincipal("viewer"), want: map[string]bool{boundProject.ID: true}},
+		{name: "organization administrator", principal: matrixPrincipal("admin"), want: map[string]bool{boundProject.ID: true, secondProject.ID: true}},
+		{name: "second tenant administrator", principal: matrixTenantPrincipal("org-b", "admin-b"), want: map[string]bool{"project-org-b": true}},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			statusCode, category, restProjects := fixture.restListProjects(t, scenario.principal)
+			if statusCode != http.StatusOK || category != "" {
+				t.Fatalf("REST project list = status %d category %q, want 200/no error", statusCode, category)
+			}
+			grpcProjects, grpcCode := fixture.grpcList(t, scenario.principal)
+			if grpcCode != codes.OK {
+				t.Fatalf("gRPC project list = %s, want OK", grpcCode)
+			}
+			mcpIDs := matrixMCPProjectIDs(t, callMatrixMCPContext(t, t.Context(), fixture.operations, scenario.principal, "delivery.list_projects", map[string]any{}))
+			if restIDs := matrixProjectIDs(restProjects); !reflect.DeepEqual(restIDs, scenario.want) {
+				t.Fatalf("REST project IDs = %#v, want %#v", restIDs, scenario.want)
+			}
+			if grpcIDs := matrixProtoProjectIDs(grpcProjects); !reflect.DeepEqual(grpcIDs, scenario.want) {
+				t.Fatalf("gRPC project IDs = %#v, want %#v", grpcIDs, scenario.want)
+			}
+			if !reflect.DeepEqual(mcpIDs, scenario.want) {
+				t.Fatalf("MCP project IDs = %#v, want %#v", mcpIDs, scenario.want)
+			}
+		})
+	}
+	afterOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil || !reflect.DeepEqual(afterOutbox, beforeOutbox) {
+		t.Fatalf("read-only project list changed Outbox: before=%#v after=%#v err=%v", beforeOutbox, afterOutbox, err)
+	}
+}
+
+func TestProductionProjectListDenialMatrixPreservesProjectsAndOutbox(t *testing.T) {
+	fixture := newAuthorizationMatrixFixture(t)
+	admin := identity.WithPrincipal(t.Context(), matrixPrincipal("admin"))
+	if _, err := fixture.operations.CreateProject(admin, delivery.ProjectInput{Name: "Protected project", Board: delivery.BoardResearchDelivery, Owner: "admin"}); err != nil {
+		t.Fatalf("create protected project: %v", err)
+	}
+	beforeProjects, err := fixture.repository.ListProjects(t.Context())
+	if err != nil {
+		t.Fatalf("snapshot projects before denied reads: %v", err)
+	}
+	beforeOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil {
+		t.Fatalf("snapshot Outbox before denied reads: %v", err)
+	}
+
+	for _, scenario := range []struct {
+		name      string
+		principal identity.Principal
+	}{
+		{name: "unbound member", principal: matrixPrincipal("unbound")},
+		{name: "cross-tenant user mismatch", principal: matrixTenantPrincipal("org-b", "admin")},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			if statusCode, category, _ := fixture.restListProjects(t, scenario.principal); statusCode != http.StatusForbidden || category != "permission_denied" {
+				t.Fatalf("denied REST project list = status %d category %q, want 403/permission_denied", statusCode, category)
+			}
+			if _, code := fixture.grpcList(t, scenario.principal); code != codes.PermissionDenied {
+				t.Fatalf("denied gRPC project list = %s, want PermissionDenied", code)
+			}
+			if result := callMatrixMCPContext(t, t.Context(), fixture.operations, scenario.principal, "delivery.list_projects", map[string]any{}); !result.IsError || matrixMCPError(result) != "permission_denied" {
+				t.Fatalf("denied MCP project list = %#v text=%q, want permission_denied", result, matrixMCPError(result))
+			}
+		})
+	}
+
+	afterProjects, err := fixture.repository.ListProjects(t.Context())
+	if err != nil || !reflect.DeepEqual(afterProjects, beforeProjects) {
+		t.Fatalf("denied project lists changed projects: before=%#v after=%#v err=%v", beforeProjects, afterProjects, err)
+	}
+	afterOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil || !reflect.DeepEqual(afterOutbox, beforeOutbox) {
+		t.Fatalf("denied project lists changed Outbox: before=%#v after=%#v err=%v", beforeOutbox, afterOutbox, err)
+	}
 }
 
 func TestProductionAuthorizationMatrixUsesStableGRPCRevisionErrors(t *testing.T) {
@@ -632,7 +829,7 @@ func TestProductionRevisionConflictMatrixPreservesExactlyOneCrossTransportWrite(
 	}
 }
 
-func TestMCPRegistrationContainsExactlyTenDictionaryPublicToolsAndSevenExcludedExtensions(t *testing.T) {
+func TestMCPRegistrationContainsExactlyElevenDictionaryPublicToolsAndSixExcludedExtensions(t *testing.T) {
 	server := mcpserver.New(nil, identity.Principal{})
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
 	serverSession, err := server.Connect(t.Context(), serverTransport, nil)
@@ -652,10 +849,10 @@ func TestMCPRegistrationContainsExactlyTenDictionaryPublicToolsAndSevenExcludedE
 	}
 	public := map[string]bool{
 		"delivery.list_work_items": true, "delivery.create_work_item": true, "delivery.update_work_item": true, "delivery.add_comment": true, "delivery.advance_gate": true,
-		"delivery.close_work_item": true, "delivery.create_project": true, "delivery.create_release": true, "delivery.create_sprint": true, "delivery.create_milestone": true,
+		"delivery.close_work_item": true, "delivery.create_project": true, "delivery.list_projects": true, "delivery.create_release": true, "delivery.create_sprint": true, "delivery.create_milestone": true,
 	}
 	excluded := map[string]bool{
-		"delivery.list_projects": true, "delivery.find_similar": true, "delivery.get_member_week": true, "delivery.get_project_progress": true,
+		"delivery.find_similar": true, "delivery.get_member_week": true, "delivery.get_project_progress": true,
 		"delivery.get_project_schedule": true, "delivery.save_view": true, "delivery.list_saved_views": true,
 	}
 	seen := map[string]bool{}
@@ -878,6 +1075,32 @@ func TestProductionServiceGrantResolverAllowsOnlyItsGrantedProjectOverGRPC(t *te
 		t.Fatalf("grant service project create: %v", err)
 	}
 	principal := identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodServiceToken, TenantID: "org-a", Subject: "service-account/service-matrix"}
+	beforeListDenial, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil {
+		t.Fatalf("snapshot before ungranted service list: %v", err)
+	}
+	if _, code := fixture.grpcList(t, principal); code != codes.PermissionDenied {
+		t.Fatalf("gRPC service ungranted list = %s, want PermissionDenied", code)
+	}
+	afterListDenial, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil || !reflect.DeepEqual(afterListDenial, beforeListDenial) {
+		t.Fatalf("ungranted service list changed Outbox: before=%#v after=%#v err=%v", beforeListDenial, afterListDenial, err)
+	}
+	if err := manager.Grant(t.Context(), serviceauthz.GrantInput{ID: "service-matrix-list", ServiceAccountID: "service-matrix", OperationID: "delivery.projects.list", Permission: "delivery.projects.read", ProjectID: grantedProject.ID}); err != nil {
+		t.Fatalf("grant service project list: %v", err)
+	}
+	beforeListAllowed, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil {
+		t.Fatalf("snapshot before granted service list: %v", err)
+	}
+	listed, code := fixture.grpcList(t, principal)
+	if code != codes.OK || !reflect.DeepEqual(matrixProtoProjectIDs(listed), map[string]bool{grantedProject.ID: true}) {
+		t.Fatalf("gRPC service granted list = code %s projects %#v, want only %s", code, matrixProtoProjectIDs(listed), grantedProject.ID)
+	}
+	afterListAllowed, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil || !reflect.DeepEqual(afterListAllowed, beforeListAllowed) {
+		t.Fatalf("granted service list changed Outbox: before=%#v after=%#v err=%v", beforeListAllowed, afterListAllowed, err)
+	}
 	beforeAllowed, err := fixture.outbox.Snapshot(t.Context())
 	if err != nil {
 		t.Fatalf("snapshot before service allow: %v", err)
