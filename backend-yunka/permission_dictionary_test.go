@@ -14,9 +14,9 @@ import (
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/configapplication"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localauth"
-	"yunka.io/framework/core/identity"
-	"yunka.io/gateway/authz"
-	"yunka.io/pkg/operationplan"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/gateway/authz"
+	"github.com/hvritual/yunka.io/pkg/operationplan"
 )
 
 const permissionDictionaryPath = "contracts/authorization/permission-dictionary.v1.json"

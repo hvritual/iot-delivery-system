@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 
-	"yunka.io/framework/execution"
+	"github.com/hvritual/yunka.io/framework/execution"
 )
 
 type SQLiteFactory struct {

@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"yunka.io/framework/event"
-	"yunka.io/framework/event/outbox"
+	"github.com/hvritual/yunka.io/framework/event"
+	"github.com/hvritual/yunka.io/framework/event/outbox"
 )
 
 // DueReminderEventType is delivered through the same reliable event path as

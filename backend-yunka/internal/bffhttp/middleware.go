@@ -18,8 +18,8 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitybinding"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localauth"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/oidcverify"
-	"yunka.io/framework/core/identity"
-	"yunka.io/framework/core/runtimecontext"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/framework/core/runtimecontext"
 )
 
 const (

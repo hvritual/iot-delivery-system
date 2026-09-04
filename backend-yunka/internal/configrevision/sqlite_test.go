@@ -12,8 +12,8 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitycore"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
 	_ "modernc.org/sqlite"
-	"yunka.io/framework/operation"
-	"yunka.io/pkg/operationplan"
+	"github.com/hvritual/yunka.io/framework/operation"
+	"github.com/hvritual/yunka.io/pkg/operationplan"
 )
 
 func TestSQLiteStoreAppendsCanonicalImmutableRevisionChainAndReadsAfterReopen(t *testing.T) {

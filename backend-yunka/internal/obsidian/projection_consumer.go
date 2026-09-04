@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"yunka.io/framework/event"
+	"github.com/hvritual/yunka.io/framework/event"
 )
 
 const workItemTopic = "delivery.work-item"

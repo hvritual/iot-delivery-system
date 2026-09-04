@@ -14,9 +14,9 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/policy"
-	"yunka.io/framework/core/identity"
-	"yunka.io/framework/core/runtimecontext"
-	"yunka.io/framework/execution"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/framework/core/runtimecontext"
+	"github.com/hvritual/yunka.io/framework/execution"
 )
 
 // CorrelationIDAttribute is the only trusted runtime attribute copied into an

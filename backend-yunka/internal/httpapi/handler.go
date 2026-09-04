@@ -10,7 +10,7 @@ import (
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
-	"yunka.io/gateway/authz"
+	"github.com/hvritual/yunka.io/gateway/authz"
 )
 
 type Dashboard struct {

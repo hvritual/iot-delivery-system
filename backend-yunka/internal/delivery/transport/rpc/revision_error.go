@@ -8,8 +8,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"yunka.io/gateway/authz"
-	gatewaygrpc "yunka.io/gateway/rpc/transport/grpc"
+	"github.com/hvritual/yunka.io/gateway/authz"
+	gatewaygrpc "github.com/hvritual/yunka.io/gateway/rpc/transport/grpc"
 )
 
 // RevisionErrorUnaryServerInterceptor translates consumer-owned optimistic

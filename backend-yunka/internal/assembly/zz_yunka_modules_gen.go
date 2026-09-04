@@ -5,13 +5,20 @@ package assembly
 import (
 	fmt "fmt"
 	deliverymodule "github.com/hvritual/iot-delivery-system/backend-yunka/modules/delivery"
-	modulecatalog "yunka.io/framework/core/modulecatalog"
+	modulecatalog "github.com/hvritual/yunka.io/framework/core/modulecatalog"
 )
 
-func NewCatalog() (*modulecatalog.Catalog, error) {
+// NewCatalog constructs the generated canonical catalog plus explicitly supplied external module descriptors.
+// Additional descriptors are a bootstrap-time composition input, not runtime service discovery.
+func NewCatalog(additional ...modulecatalog.Descriptor) (*modulecatalog.Catalog, error) {
 	catalog := modulecatalog.New()
 	if err := catalog.Register(deliverymodule.GeneratedDescriptor()); err != nil {
 		return nil, fmt.Errorf("yunka assembly: register module delivery: %w", err)
+	}
+	for _, descriptor := range additional {
+		if err := catalog.Register(descriptor); err != nil {
+			return nil, fmt.Errorf("yunka assembly: register additional module %s: %w", descriptor.Name, err)
+		}
 	}
 	if _, err := catalog.Seal(); err != nil {
 		return nil, fmt.Errorf("yunka assembly: seal module catalog: %w", err)

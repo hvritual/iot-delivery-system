@@ -2,7 +2,7 @@
 
 package policy
 
-import "yunka.io/pkg/operationplan"
+import "github.com/hvritual/yunka.io/pkg/operationplan"
 
 func OperationPlanAdvanceGate() operationplan.Plan {
 	return operationplan.Plan{OperationID: "delivery.items.advance-gate", Domain: "delivery", Application: "management", UseCase: "advance_gate", RequestType: "iot.delivery.v1.AdvanceGateRequest", ResponseType: "iot.delivery.v1.WorkItemResponse", Execution: operationplan.Execution{Transaction: "local", Idempotency: "none"}, Security: operationplan.Security{Public: false, TenantRequired: false, Authentication: []string{"api-key", "jwt", "service-token"}, Permissions: []string{"delivery.work-items.gate.advance"}, PermissionMode: "all"}, Composition: operationplan.Composition{Boundary: "local", RequiresOperations: []string{}, PermissionClosure: []string{}}, ApplicationRequires: []string{}, Bindings: operationplan.Bindings{RPC: "/iot.delivery.v1.DeliveryService/AdvanceGate", HTTP: []operationplan.HTTPBinding{}}}

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
-	"yunka.io/framework/event/outbox"
+	"github.com/hvritual/yunka.io/framework/event/outbox"
 )
 
 func TestDueReminderSchedulerQueuesOneReminderPerOpenItemPerDay(t *testing.T) {

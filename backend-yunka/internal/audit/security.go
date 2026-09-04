@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"yunka.io/framework/core/identity"
-	"yunka.io/framework/core/runtimecontext"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/framework/core/runtimecontext"
 )
 
 // SecurityRecorder writes the security events whose outcome is decided before

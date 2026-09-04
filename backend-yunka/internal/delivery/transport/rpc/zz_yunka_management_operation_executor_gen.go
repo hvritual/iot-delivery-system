@@ -8,11 +8,11 @@ import (
 	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
 	application "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
 	policy "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/policy"
+	execution "github.com/hvritual/yunka.io/framework/execution"
+	operation "github.com/hvritual/yunka.io/framework/operation"
+	gatewaygrpc "github.com/hvritual/yunka.io/gateway/rpc/transport/grpc"
 	grpc "google.golang.org/grpc"
 	grpcmetadata "google.golang.org/grpc/metadata"
-	execution "yunka.io/framework/execution"
-	operation "yunka.io/framework/operation"
-	gatewaygrpc "yunka.io/gateway/rpc/transport/grpc"
 )
 
 type OperationServer struct {

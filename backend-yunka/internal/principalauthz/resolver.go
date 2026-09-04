@@ -7,8 +7,8 @@ import (
 	"context"
 	"errors"
 
-	"yunka.io/framework/core/identity"
-	"yunka.io/gateway/authz"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/gateway/authz"
 )
 
 var ErrResolverRequired = errors.New("principal grant resolver is required")

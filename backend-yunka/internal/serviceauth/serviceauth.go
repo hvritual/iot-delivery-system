@@ -17,8 +17,8 @@ import (
 	"time"
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
-	"yunka.io/framework/core/identity"
-	yunkagrpc "yunka.io/gateway/rpc/transport/grpc"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	yunkagrpc "github.com/hvritual/yunka.io/gateway/rpc/transport/grpc"
 )
 
 const (

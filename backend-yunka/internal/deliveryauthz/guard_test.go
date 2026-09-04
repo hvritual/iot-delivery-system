@@ -14,8 +14,8 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryauthz"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitycore"
 	_ "modernc.org/sqlite"
-	"yunka.io/framework/core/identity"
-	"yunka.io/gateway/authz"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/gateway/authz"
 )
 
 func TestOperationGuardProjectBindingAllowsOwnedProjectAndRejectsOtherProject(t *testing.T) {

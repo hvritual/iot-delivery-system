@@ -11,10 +11,10 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localoutbox"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
-	"yunka.io/framework/core/identity"
-	frameworkoutbox "yunka.io/framework/event/outbox"
-	"yunka.io/framework/operation"
-	"yunka.io/pkg/operationplan"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	frameworkoutbox "github.com/hvritual/yunka.io/framework/event/outbox"
+	"github.com/hvritual/yunka.io/framework/operation"
+	"github.com/hvritual/yunka.io/pkg/operationplan"
 )
 
 func TestCreateOperationCommitsWorkItemAndOutboxEventTogether(t *testing.T) {

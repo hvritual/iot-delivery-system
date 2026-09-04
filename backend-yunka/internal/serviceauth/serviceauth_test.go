@@ -15,9 +15,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"yunka.io/framework/core/identity"
-	"yunka.io/framework/core/runtimecontext"
-	yunkagrpc "yunka.io/gateway/rpc/transport/grpc"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/framework/core/runtimecontext"
+	yunkagrpc "github.com/hvritual/yunka.io/gateway/rpc/transport/grpc"
 
 	_ "modernc.org/sqlite"
 )

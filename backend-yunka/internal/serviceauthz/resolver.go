@@ -14,8 +14,8 @@ import (
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
-	"yunka.io/framework/core/identity"
-	"yunka.io/gateway/authz"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/gateway/authz"
 )
 
 var (

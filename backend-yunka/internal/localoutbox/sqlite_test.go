@@ -10,8 +10,8 @@ import (
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localoutbox"
 	_ "modernc.org/sqlite"
-	"yunka.io/framework/event"
-	frameworkoutbox "yunka.io/framework/event/outbox"
+	"github.com/hvritual/yunka.io/framework/event"
+	frameworkoutbox "github.com/hvritual/yunka.io/framework/event/outbox"
 )
 
 func TestDispatcherPublishesPendingEventAndMarksItPublished(t *testing.T) {

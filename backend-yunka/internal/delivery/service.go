@@ -10,7 +10,7 @@ import (
 	"time"
 	"unicode"
 
-	"yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/framework/core/identity"
 )
 
 var (

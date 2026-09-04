@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/framework/core/identity"
 )
 
 func TestServiceRejectsImplementerProductionValidationWithoutSideEffects(t *testing.T) {

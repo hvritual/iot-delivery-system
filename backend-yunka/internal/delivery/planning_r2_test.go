@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
-	"yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/framework/core/identity"
 )
 
 func TestServicePlansReleaseSprintAndMilestoneThenDerivesWeeklyWorkAndProjectProgress(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"yunka.io/framework/event"
+	"github.com/hvritual/yunka.io/framework/event"
 )
 
 const DeliveryTopic = "delivery.work-item"

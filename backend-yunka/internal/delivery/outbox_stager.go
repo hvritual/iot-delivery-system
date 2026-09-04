@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"yunka.io/framework/event"
-	"yunka.io/framework/event/outbox"
-	"yunka.io/framework/execution"
+	"github.com/hvritual/yunka.io/framework/event"
+	"github.com/hvritual/yunka.io/framework/event/outbox"
+	"github.com/hvritual/yunka.io/framework/execution"
 )
 
 const workItemEventTopic = "delivery.work-item"

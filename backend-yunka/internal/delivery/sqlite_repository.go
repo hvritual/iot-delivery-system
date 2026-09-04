@@ -12,7 +12,7 @@ import (
 	"time"
 
 	_ "modernc.org/sqlite"
-	"yunka.io/framework/execution"
+	"github.com/hvritual/yunka.io/framework/execution"
 )
 
 const sqliteSchema = `

@@ -19,9 +19,9 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localauth"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localoutbox"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
-	"yunka.io/framework/core/identity"
-	"yunka.io/framework/operation"
-	"yunka.io/gateway/authz"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/framework/operation"
+	"github.com/hvritual/yunka.io/gateway/authz"
 )
 
 type restFixture struct {

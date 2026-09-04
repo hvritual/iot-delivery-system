@@ -31,7 +31,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	_ "modernc.org/sqlite"
-	yunkagrpc "yunka.io/gateway/rpc/transport/grpc"
+	yunkagrpc "github.com/hvritual/yunka.io/gateway/rpc/transport/grpc"
 )
 
 func TestApplicationUsesYunkaRuntimeHostForDeliveryAPI(t *testing.T) {

@@ -2,7 +2,7 @@
 
 package policy
 
-import "yunka.io/gateway/authz"
+import "github.com/hvritual/yunka.io/gateway/authz"
 
 const OperationAdvanceGate authz.OperationID = "delivery.items.advance-gate"
 const OperationCloseItem authz.OperationID = "delivery.items.close"

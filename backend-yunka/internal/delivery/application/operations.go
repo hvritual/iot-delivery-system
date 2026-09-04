@@ -9,8 +9,8 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/policy"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryauthz"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
-	"yunka.io/framework/operation"
-	"yunka.io/pkg/operationplan"
+	"github.com/hvritual/yunka.io/framework/operation"
+	"github.com/hvritual/yunka.io/pkg/operationplan"
 )
 
 // Operations is the explicit local application assembly used by the legacy

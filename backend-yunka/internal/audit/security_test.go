@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"yunka.io/framework/core/identity"
-	"yunka.io/framework/core/runtimecontext"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/framework/core/runtimecontext"
 
 	_ "modernc.org/sqlite"
 )

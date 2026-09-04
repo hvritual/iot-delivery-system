@@ -3,7 +3,7 @@
 package delivery
 
 import (
-	"yunka.io/framework/core/modulecatalog"
+	"github.com/hvritual/yunka.io/framework/core/modulecatalog"
 )
 
 func GeneratedDescriptor() modulecatalog.Descriptor {

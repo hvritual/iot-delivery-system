@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
-	"yunka.io/framework/event"
+	"github.com/hvritual/yunka.io/framework/event"
 
 	_ "modernc.org/sqlite"
 )

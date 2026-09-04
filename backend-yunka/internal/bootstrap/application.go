@@ -33,14 +33,14 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/serviceauth"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/serviceauthz"
 	"google.golang.org/grpc"
-	"yunka.io/framework/core"
-	"yunka.io/framework/core/identity"
-	"yunka.io/framework/event"
-	frameworkoutbox "yunka.io/framework/event/outbox"
-	"yunka.io/framework/kernel"
-	"yunka.io/framework/operation"
-	"yunka.io/framework/runtimehost"
-	"yunka.io/gateway/authz"
+	"github.com/hvritual/yunka.io/framework/core"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/framework/event"
+	frameworkoutbox "github.com/hvritual/yunka.io/framework/event/outbox"
+	"github.com/hvritual/yunka.io/framework/kernel"
+	"github.com/hvritual/yunka.io/framework/operation"
+	"github.com/hvritual/yunka.io/framework/runtimehost"
+	"github.com/hvritual/yunka.io/gateway/authz"
 )
 
 type BootstrapMode string

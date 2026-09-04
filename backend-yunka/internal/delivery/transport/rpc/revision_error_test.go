@@ -8,7 +8,7 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"yunka.io/gateway/authz"
+	"github.com/hvritual/yunka.io/gateway/authz"
 )
 
 func TestRevisionErrorUnaryServerInterceptorUsesStableCategories(t *testing.T) {

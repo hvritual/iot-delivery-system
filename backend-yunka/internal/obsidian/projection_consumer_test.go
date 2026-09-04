@@ -10,7 +10,7 @@ import (
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/obsidian"
-	"yunka.io/framework/event"
+	"github.com/hvritual/yunka.io/framework/event"
 )
 
 func TestProjectionConsumerReprojectsDuplicateWorkItemEventsIdempotently(t *testing.T) {

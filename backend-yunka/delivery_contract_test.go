@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"yunka.io/pkg/operationplan"
+	"github.com/hvritual/yunka.io/pkg/operationplan"
 )
 
 func TestDeliveryContractDeclaresMVPReadAndGovernedMutationBoundaries(t *testing.T) {

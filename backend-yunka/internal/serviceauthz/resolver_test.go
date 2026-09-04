@@ -14,9 +14,9 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitycore"
 	_ "modernc.org/sqlite"
-	"yunka.io/framework/core/identity"
-	"yunka.io/framework/core/runtimecontext"
-	"yunka.io/gateway/authz"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/framework/core/runtimecontext"
+	"github.com/hvritual/yunka.io/gateway/authz"
 )
 
 func TestServiceGrantsDefaultDenyExactScopeAndImmediateRevocation(t *testing.T) {

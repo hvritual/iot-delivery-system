@@ -22,11 +22,11 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/principalauthz"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/serviceauthz"
 	_ "modernc.org/sqlite"
-	"yunka.io/framework/core/identity"
-	"yunka.io/framework/core/runtimecontext"
-	"yunka.io/framework/event"
-	"yunka.io/framework/operation"
-	"yunka.io/gateway/authz"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/framework/core/runtimecontext"
+	"github.com/hvritual/yunka.io/framework/event"
+	"github.com/hvritual/yunka.io/framework/operation"
+	"github.com/hvritual/yunka.io/gateway/authz"
 )
 
 func TestOperationsChangeCompareAndRollbackUseTrustedScopeAuditAndImmutableChain(t *testing.T) {

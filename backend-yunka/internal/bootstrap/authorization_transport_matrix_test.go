@@ -32,10 +32,10 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
-	"yunka.io/framework/core/identity"
-	"yunka.io/framework/operation"
-	"yunka.io/gateway/authz"
-	"yunka.io/pkg/operationplan"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/framework/operation"
+	"github.com/hvritual/yunka.io/gateway/authz"
+	"github.com/hvritual/yunka.io/pkg/operationplan"
 )
 
 type authorizationMatrixFixture struct {

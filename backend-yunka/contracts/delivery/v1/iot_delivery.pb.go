@@ -7,13 +7,13 @@
 package deliveryv1
 
 import (
+	_ "github.com/hvritual/yunka.io/pkg/contractdsl/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-	_ "yunka.io/pkg/contractdsl/v1"
 )
 
 const (

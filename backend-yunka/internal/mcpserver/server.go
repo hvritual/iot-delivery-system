@@ -11,9 +11,9 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"yunka.io/framework/core/identity"
-	"yunka.io/framework/core/runtimecontext"
-	"yunka.io/gateway/authz"
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/framework/core/runtimecontext"
+	"github.com/hvritual/yunka.io/gateway/authz"
 )
 
 var errMCPUnauthenticated = errors.New("MCP principal is not authenticated")
