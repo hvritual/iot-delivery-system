@@ -60,6 +60,11 @@ func (store *SQLiteStore) Append(ctx context.Context, entry Entry) (Entry, error
 	if store == nil || store.clock == nil {
 		return Entry{}, errors.New("audit SQLite store is not configured")
 	}
+	var err error
+	entry.Metadata, err = normalizeAuditJSON(entry.Metadata)
+	if err != nil {
+		return Entry{}, err
+	}
 	if err := entry.validate(); err != nil {
 		return Entry{}, err
 	}
@@ -99,6 +104,11 @@ func (store *SQLiteStore) AppendInTransaction(ctx context.Context, transaction *
 	if store == nil || store.clock == nil || transaction == nil {
 		return Entry{}, errors.New("audit SQLite transaction store is not configured")
 	}
+	var err error
+	entry.Metadata, err = normalizeAuditJSON(entry.Metadata)
+	if err != nil {
+		return Entry{}, err
+	}
 	if err := entry.validate(); err != nil {
 		return Entry{}, err
 	}
@@ -135,29 +145,12 @@ func (store *SQLiteStore) ByID(ctx context.Context, id string) (Entry, error) {
 	if err != nil {
 		return Entry{}, err
 	}
-	var entry Entry
-	var eventCategory, actorType, decision, scopeType, result string
-	var occurredAt, recordedAt string
-	err = executor.QueryRowContext(ctx, `SELECT sequence, id, schema_version, event_category, COALESCE(organization_id, ''), COALESCE(project_id, ''), actor_type, COALESCE(actor_id, ''), operation, authorization_decision, scope_type, COALESCE(scope_id, ''), COALESCE(target_type, ''), COALESCE(target_id, ''), result, reason_code, COALESCE(trace_id, ''), COALESCE(request_id, ''), COALESCE(correlation_id, ''), diff_summary, metadata, occurred_at, recorded_at FROM iotd_audit_entries WHERE id = ?`, id).Scan(
-		&entry.Sequence, &entry.ID, &entry.SchemaVersion, &eventCategory, &entry.OrganizationID, &entry.ProjectID, &actorType, &entry.ActorID, &entry.Operation, &decision, &scopeType, &entry.ScopeID, &entry.TargetType, &entry.TargetID, &result, &entry.ReasonCode, &entry.TraceID, &entry.RequestID, &entry.CorrelationID, &entry.DiffSummary, &entry.Metadata, &occurredAt, &recordedAt)
+	entry, err := scanEntry(executor.QueryRowContext(ctx, `SELECT sequence, id, schema_version, event_category, COALESCE(organization_id, ''), COALESCE(project_id, ''), actor_type, COALESCE(actor_id, ''), operation, authorization_decision, scope_type, COALESCE(scope_id, ''), COALESCE(target_type, ''), COALESCE(target_id, ''), result, reason_code, COALESCE(trace_id, ''), COALESCE(request_id, ''), COALESCE(correlation_id, ''), diff_summary, metadata, occurred_at, recorded_at FROM iotd_audit_entries WHERE id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Entry{}, ErrNotFound
 	}
 	if err != nil {
 		return Entry{}, fmt.Errorf("read audit entry: %w", err)
-	}
-	entry.EventCategory = EventCategory(eventCategory)
-	entry.ActorType = ActorType(actorType)
-	entry.AuthorizationDecision = AuthorizationDecision(decision)
-	entry.ScopeType = ScopeType(scopeType)
-	entry.Result = Result(result)
-	entry.OccurredAt, err = time.Parse(time.RFC3339Nano, occurredAt)
-	if err != nil {
-		return Entry{}, fmt.Errorf("parse audit occurred at: %w", err)
-	}
-	entry.RecordedAt, err = time.Parse(time.RFC3339Nano, recordedAt)
-	if err != nil {
-		return Entry{}, fmt.Errorf("parse audit recorded at: %w", err)
 	}
 	return entry, nil
 }
@@ -186,5 +179,5 @@ func (store *SQLiteStore) executor(ctx context.Context) (sqliteExecutor, error) 
 }
 
 func formatUTCTime(value time.Time) string {
-	return value.UTC().Format(time.RFC3339Nano)
+	return value.UTC().Format("2006-01-02T15:04:05.000000000Z")
 }

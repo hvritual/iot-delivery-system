@@ -3,7 +3,9 @@ package audit
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -131,7 +133,6 @@ func TestSQLiteStoreRejectsInvalidEntryValuesAndAllowsAnonymousFailure(t *testin
 		func(entry *Entry) { entry.SchemaVersion = SchemaVersion + 1 },
 		func(entry *Entry) { entry.ActorType = "unknown" },
 		func(entry *Entry) { entry.DiffSummary = "[]" },
-		func(entry *Entry) { entry.Metadata = `{"token":"must-not-store"}` },
 		func(entry *Entry) { entry.OccurredAt = entry.OccurredAt.In(time.FixedZone("not-utc", 8*60*60)) },
 		func(entry *Entry) { entry.RecordedAt = time.Now().UTC() },
 		func(entry *Entry) { entry.ActorType, entry.ActorID = ActorAnonymous, "unknown" },
@@ -158,7 +159,7 @@ func TestSQLiteStoreRejectsInvalidEntryValuesAndAllowsAnonymousFailure(t *testin
 		ScopeType:             ScopeSystem,
 		Result:                ResultFailure,
 		ReasonCode:            "authentication.invalid_credentials",
-		DiffSummary:           `{}`,
+		DiffSummary:           `{"change":"rejected","fields":[]}`,
 		Metadata:              `{"provider":"local"}`,
 		OccurredAt:            time.Date(2026, 9, 4, 0, 0, 0, 123456789, time.UTC),
 	}
@@ -174,6 +175,116 @@ func TestSQLiteStoreRejectsInvalidEntryValuesAndAllowsAnonymousFailure(t *testin
 	}
 	if got.RecordedAt.IsZero() || got.RecordedAt.Location() != time.UTC {
 		t.Fatalf("anonymous recorded at = %s (%s), want store-assigned UTC time", got.RecordedAt, got.RecordedAt.Location())
+	}
+}
+
+func TestSQLiteStoreRedactsSensitiveJSONBeforePersistenceForBothAppendPaths(t *testing.T) {
+	database := openMigratedTestDatabase(t)
+	store, err := NewSQLiteStore(database)
+	if err != nil {
+		t.Fatalf("create audit SQLite store: %v", err)
+	}
+	const sentinel = "S0-04-04-LEAK-SENTINEL"
+	entry := completeEntry("audit-redacted-append")
+	entry.Metadata = `{"safe":"kept","Client-Secret":"` + sentinel + `","nested":[{"AUTHORIZATION":"Bearer ` + sentinel + `"}]}`
+	entry.DiffSummary = `{"change":"delivery.updated","fields":["credentials.token","title"]}`
+	if _, err := store.Append(t.Context(), entry); err != nil {
+		t.Fatalf("append sensitive entry: %v", err)
+	}
+	transaction, err := database.BeginTx(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("begin transaction: %v", err)
+	}
+	entry.ID = "audit-redacted-transaction"
+	entry.Metadata = `{"password":"` + sentinel + `","array":["svc.` + sentinel + `"]}`
+	if _, err := store.AppendInTransaction(t.Context(), transaction, entry); err != nil {
+		_ = transaction.Rollback()
+		t.Fatalf("append sensitive transactional entry: %v", err)
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatalf("commit transaction: %v", err)
+	}
+	var persisted string
+	if err := database.QueryRow(`SELECT group_concat(metadata || diff_summary, ' ') FROM iotd_audit_entries`).Scan(&persisted); err != nil {
+		t.Fatalf("scan persisted audit content: %v", err)
+	}
+	if strings.Contains(persisted, sentinel) {
+		t.Fatalf("sentinel leaked into SQLite audit data: %q", persisted)
+	}
+	if !strings.Contains(persisted, `"safe":"kept"`) || !strings.Contains(persisted, `"[REDACTED]"`) {
+		t.Fatalf("sanitized persisted data = %q, want safe field and redaction marker", persisted)
+	}
+}
+
+func TestSQLiteStoreQueryIsOrganizationBoundAndUsesStableKeysetPagination(t *testing.T) {
+	database := openMigratedTestDatabase(t)
+	store, err := NewSQLiteStore(database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	when := time.Date(2026, 9, 4, 1, 0, 0, 0, time.UTC)
+	for _, id := range []string{"query-a1", "query-a2", "query-b1"} {
+		entry := completeEntry(id)
+		entry.OccurredAt = when
+		if id == "query-b1" {
+			entry.OrganizationID, entry.ProjectID, entry.ScopeID = "org-b", "project-b", "project-b"
+		}
+		if _, err := store.Append(t.Context(), entry); err != nil {
+			t.Fatalf("append %s: %v", id, err)
+		}
+	}
+	first, err := store.Query(t.Context(), Query{OrganizationID: "org-a", ProjectID: "project-a", Limit: 1})
+	if err != nil || len(first.Entries) != 1 || first.NextCursor == "" || first.Entries[0].OrganizationID != "org-a" {
+		t.Fatalf("first page = %#v, %v", first, err)
+	}
+	backdated := completeEntry("query-backdated")
+	backdated.OccurredAt = when.Add(-time.Second)
+	if _, err := store.Append(t.Context(), backdated); err != nil {
+		t.Fatalf("append backdated entry: %v", err)
+	}
+	second, err := store.Query(t.Context(), Query{OrganizationID: "org-a", ProjectID: "project-a", Limit: 1, Cursor: first.NextCursor})
+	if err != nil || len(second.Entries) != 1 || second.Entries[0].ID == first.Entries[0].ID || second.Entries[0].ID == "query-backdated" || second.NextCursor != "" {
+		t.Fatalf("second page = %#v, %v", second, err)
+	}
+	byID, err := store.ByID(t.Context(), first.Entries[0].ID)
+	if err != nil || byID != first.Entries[0] {
+		t.Fatalf("ByID = %#v, %v; want query entry", byID, err)
+	}
+	for _, invalid := range []Query{{}, {OrganizationID: "org-a", SystemScope: true}, {ProjectID: "project-a", SystemScope: true}, {OrganizationID: "org-a", Limit: MaxPageSize + 1}, {OrganizationID: "org-a", Cursor: "not-a-cursor"}, {OrganizationID: "org-a", Operation: "x' OR 1=1 --"}} {
+		if _, err := store.Query(t.Context(), invalid); err == nil {
+			t.Fatalf("invalid query %#v unexpectedly passed", invalid)
+		}
+	}
+}
+
+func TestBuildDiffSummaryIsDeterministicAndValueFree(t *testing.T) {
+	got, err := BuildDiffSummary("updated", []string{"title", "details", "title"})
+	if err != nil || got != `{"change":"updated","fields":["details","title"]}` {
+		t.Fatalf("diff summary = %q, %v", got, err)
+	}
+	if err := ValidateDiffSummary(`{"change":"updated","fields":["title"],"before":"secret"}`); err == nil {
+		t.Fatal("non-canonical value-bearing diff unexpectedly passed")
+	}
+}
+
+func TestDecodeCursorRejectsNonCanonicalAndDuplicateJSON(t *testing.T) {
+	entry := completeEntry("cursor-entry")
+	entry.Sequence = 7
+	cursor, err := encodeCursor(entry, 7, strings.Repeat("a", 43))
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := base64.RawURLEncoding.DecodeString(cursor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	duplicate := base64.RawURLEncoding.EncodeToString(append(decoded[:len(decoded)-1], []byte(`,"sequence":7}`)...))
+	if _, err := decodeCursor(duplicate); err == nil {
+		t.Fatal("duplicate cursor key unexpectedly passed")
+	}
+	nonCanonical := base64.RawURLEncoding.EncodeToString([]byte(`{"sequence":7,"occurredAt":"2026-09-04T00:00:00.000000000Z","maxSequence":7,"fingerprint":"` + strings.Repeat("a", 43) + `"}`))
+	if _, err := decodeCursor(nonCanonical); err == nil {
+		t.Fatal("non-canonical cursor JSON unexpectedly passed")
 	}
 }
 
@@ -319,7 +430,7 @@ func completeEntry(id string) Entry {
 		TraceID:               "trace-a",
 		RequestID:             "request-a",
 		CorrelationID:         "correlation-a",
-		DiffSummary:           `{"changed":["title"]}`,
+		DiffSummary:           `{"change":"delivery.created","fields":["title"]}`,
 		Metadata:              `{"source":"test"}`,
 		OccurredAt:            time.Date(2026, 9, 4, 0, 0, 0, 123456789, time.UTC),
 	}

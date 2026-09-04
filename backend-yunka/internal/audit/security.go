@@ -173,13 +173,17 @@ func (recorder *SecurityRecorder) RecordRevocationInTransaction(ctx context.Cont
 	if occurredAt.IsZero() {
 		return errors.New("security audit clock returned zero time")
 	}
+	diffSummary, err := BuildDiffSummary("configuration.revoked", nil)
+	if err != nil {
+		return fmt.Errorf("build revocation audit diff: %w", err)
+	}
 	_, err = store.AppendInTransaction(ctx, transaction, Entry{
 		ID: id, SchemaVersion: SchemaVersion, EventCategory: EventCategoryConfiguration,
 		OrganizationID: targetOrganizationID, ActorType: actorType, ActorID: actorID, Operation: operation,
 		AuthorizationDecision: DecisionNotEvaluated, ScopeType: ScopeOrganization, ScopeID: targetOrganizationID,
 		TargetType: targetType, TargetID: targetID, Result: ResultSuccess, ReasonCode: "configuration.revoked",
 		TraceID: runtimecontext.TraceIDFrom(ctx), RequestID: requestID, CorrelationID: correlationID,
-		DiffSummary: `{"change":"revoked"}`, Metadata: string(metadata), OccurredAt: occurredAt,
+		DiffSummary: diffSummary, Metadata: string(metadata), OccurredAt: occurredAt,
 	})
 	if err != nil {
 		return fmt.Errorf("append revocation audit: %w", err)
@@ -208,6 +212,10 @@ func (recorder *SecurityRecorder) record(ctx context.Context, value securityReco
 	if occurredAt.IsZero() {
 		return errors.New("security audit clock returned zero time")
 	}
+	diffSummary, err := BuildDiffSummary(value.change, nil)
+	if err != nil {
+		return fmt.Errorf("build security audit diff: %w", err)
+	}
 	_, err = recorder.store.Append(ctx, Entry{
 		ID:                    id,
 		SchemaVersion:         SchemaVersion,
@@ -224,7 +232,7 @@ func (recorder *SecurityRecorder) record(ctx context.Context, value securityReco
 		TraceID:               runtimecontext.TraceIDFrom(ctx),
 		RequestID:             requestID,
 		CorrelationID:         correlationID,
-		DiffSummary:           fmt.Sprintf(`{"change":"%s"}`, value.change),
+		DiffSummary:           diffSummary,
 		Metadata:              string(metadata),
 		OccurredAt:            occurredAt,
 	})

@@ -355,10 +355,7 @@ func (service *auditedDeliveryService) append(ctx context.Context, operationID s
 	if err != nil {
 		return fmt.Errorf("generate audit ID: %w", err)
 	}
-	diffSummary, err := json.Marshal(struct {
-		Change string   `json:"change"`
-		Fields []string `json:"fields"`
-	}{Change: input.change, Fields: input.fields})
+	diffSummary, err := audit.BuildDiffSummary(input.change, input.fields)
 	if err != nil {
 		return fmt.Errorf("encode audit diff summary: %w", err)
 	}
@@ -397,7 +394,7 @@ func (service *auditedDeliveryService) append(ctx context.Context, operationID s
 		TraceID:               runtimecontext.TraceIDFrom(ctx),
 		RequestID:             metadata.RequestID,
 		CorrelationID:         metadata.Attributes[CorrelationIDAttribute],
-		DiffSummary:           string(diffSummary),
+		DiffSummary:           diffSummary,
 		Metadata:              string(encodedMetadata),
 		OccurredAt:            occurredAt,
 	})

@@ -980,7 +980,7 @@ FROM iotd_audit_entries`).Scan(&eventCategory, &actorType, &actorID, &operation,
 	if err != nil {
 		t.Fatalf("read development API-key authentication audit: %v", err)
 	}
-	if eventCategory != "authentication" || actorType != "anonymous" || actorID != "" || operation != "authentication.development_api_key" || decision != "not_evaluated" || result != "failure" || reasonCode != "authentication.invalid_credential" || metadata != `{"transport":"http","phase":"authentication","failure_class":"credential"}` {
+	if eventCategory != "authentication" || actorType != "anonymous" || actorID != "" || operation != "authentication.development_api_key" || decision != "not_evaluated" || result != "failure" || reasonCode != "authentication.invalid_credential" || metadata != `{"failure_class":"credential","phase":"authentication","transport":"http"}` {
 		t.Fatalf("development API-key authentication audit = category=%q actor=%q/%q operation=%q decision=%q result=%q reason=%q metadata=%q", eventCategory, actorType, actorID, operation, decision, result, reasonCode, metadata)
 	}
 }
