@@ -87,6 +87,12 @@ func normalizeToolError(err error) error {
 		}
 		return &normalizedToolError{category: "permission_denied", cause: err}
 	}
+	if errors.Is(err, delivery.ErrRevisionConflict) {
+		return &normalizedToolError{category: "revision_conflict", cause: err}
+	}
+	if errors.Is(err, delivery.ErrInvalidExpectedRevision) {
+		return &normalizedToolError{category: "invalid_expected_revision", cause: err}
+	}
 	return err
 }
 

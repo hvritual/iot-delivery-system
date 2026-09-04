@@ -189,6 +189,44 @@ func TestRESTRejectsNonPOSTGateAndCloseWithoutSideEffects(t *testing.T) {
 	}
 }
 
+func TestRESTPatchCombinesWorkItemAndContextAtomically(t *testing.T) {
+	fixture := newRESTFixture(t)
+	itemID := createRESTItem(t, fixture.handler)
+	beforeItem, err := fixture.repository.Get(t.Context(), itemID)
+	if err != nil {
+		t.Fatalf("read item before combined patch: %v", err)
+	}
+	beforeOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil {
+		t.Fatalf("snapshot outbox before combined patch: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPatch, "/api/items/"+itemID, strings.NewReader(withExpectedRevision(`{"progressPercent":40,"decision":{"title":"missing outcome"}}`, beforeItem.Revision)))
+	request.Header.Set("Content-Type", "application/json")
+	fixture.handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("invalid combined patch = %d, want %d: %s", recorder.Code, http.StatusBadRequest, recorder.Body.String())
+	}
+	afterRejected, err := fixture.repository.Get(t.Context(), itemID)
+	if err != nil || !reflect.DeepEqual(afterRejected, beforeItem) {
+		t.Fatalf("invalid combined patch changed item = %#v, %v; want %#v", afterRejected, err, beforeItem)
+	}
+	afterRejectedOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil || !reflect.DeepEqual(afterRejectedOutbox, beforeOutbox) {
+		t.Fatalf("invalid combined patch changed outbox = %#v, %v; want %#v", afterRejectedOutbox, err, beforeOutbox)
+	}
+
+	updated := requestJSON(t, fixture.handler, http.MethodPatch, "/api/items/"+itemID, withExpectedRevision(`{"progressPercent":40,"plan":"atomic context"}`, beforeItem.Revision), http.StatusOK)
+	if got := responseRevision(t, updated); got != beforeItem.Revision+2 {
+		t.Fatalf("combined patch revision = %d, want %d", got, beforeItem.Revision+2)
+	}
+	stored, err := fixture.repository.Get(t.Context(), itemID)
+	if err != nil || stored.ProgressPercent != 40 || stored.Plan != "atomic context" {
+		t.Fatalf("combined patch stored item = %#v, %v", stored, err)
+	}
+}
+
 func TestRESTUnauthorizedAndViewerWritesLeaveSQLiteAndOutboxUnchanged(t *testing.T) {
 	fixture := newRESTFixture(t)
 	beforeOutbox, err := fixture.outbox.Snapshot(t.Context())

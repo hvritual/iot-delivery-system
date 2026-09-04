@@ -247,6 +247,60 @@ func (operations *Operations) UpdateWorkItem(ctx context.Context, id string, exp
 	if err := operations.ready(); err != nil {
 		return delivery.WorkItem{}, err
 	}
+	request, err := updateWorkItemRequest(id, expectedRevision, input)
+	if err != nil {
+		return delivery.WorkItem{}, err
+	}
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanUpdateItem(), request, operations.application.UpdateItem)
+	if err != nil {
+		return delivery.WorkItem{}, err
+	}
+	return workItemFromProto(response.GetItem()), nil
+}
+
+// UpdateWorkItemAndContext composes the two established write operations into
+// one local unit of work for the REST compatibility endpoint. The context
+// operation is authorized first with its registered plan; the update operation
+// remains the transaction root and both generated child plans retain their
+// own metadata and audit behavior.
+func (operations *Operations) UpdateWorkItemAndContext(ctx context.Context, id string, expectedRevision int64, update delivery.WorkItemUpdate, contextUpdate delivery.ContextUpdate) (delivery.WorkItem, error) {
+	if err := operations.ready(); err != nil {
+		return delivery.WorkItem{}, err
+	}
+	request, err := updateWorkItemRequest(id, expectedRevision, update)
+	if err != nil {
+		return delivery.WorkItem{}, err
+	}
+	contextRequest := &deliveryv1.UpdateItemContextRequest{Id: id, Plan: contextUpdate.Plan, Solution: contextUpdate.Solution, Blocker: contextUpdate.Blocker}
+	if contextUpdate.Decision != nil {
+		contextRequest.Decision = &deliveryv1.Decision{Id: contextUpdate.Decision.ID, Title: contextUpdate.Decision.Title, Context: contextUpdate.Decision.Context, Outcome: contextUpdate.Decision.Outcome, Consequences: contextUpdate.Decision.Consequences, CreatedAt: timestamp(contextUpdate.Decision.CreatedAt)}
+	}
+	if _, err := operations.executor.Execute(ctx, policy.OperationPlanUpdateItemContext(), contextRequest, func(context.Context) (any, error) {
+		return nil, nil
+	}); err != nil {
+		return delivery.WorkItem{}, err
+	}
+	rootPlan := policy.OperationPlanUpdateItem()
+	rootPlan.Composition.RequiresOperations = append(rootPlan.Composition.RequiresOperations, policy.OperationPlanUpdateItemContext().OperationID)
+	value, err := operations.executor.Execute(ctx, rootPlan, request, func(callContext context.Context) (any, error) {
+		updated, err := operations.application.UpdateItem(callContext, request)
+		if err != nil {
+			return nil, err
+		}
+		contextRequest.ExpectedRevision = updated.GetItem().GetRevision()
+		return operation.ExecuteChildTyped(callContext, operations.executor, policy.OperationPlanUpdateItemContext(), contextRequest, operations.application.UpdateItemContext)
+	})
+	if err != nil {
+		return delivery.WorkItem{}, err
+	}
+	response, ok := value.(*deliveryv1.WorkItemResponse)
+	if !ok || response == nil {
+		return delivery.WorkItem{}, errors.New("delivery combined update returned an unexpected result")
+	}
+	return workItemFromProto(response.GetItem()), nil
+}
+
+func updateWorkItemRequest(id string, expectedRevision int64, input delivery.WorkItemUpdate) (*deliveryv1.UpdateItemRequest, error) {
 	request := &deliveryv1.UpdateItemRequest{Id: id, ExpectedRevision: expectedRevision}
 	if input.Title != nil {
 		request.UpdateMask = append(request.UpdateMask, "title")
@@ -258,7 +312,7 @@ func (operations *Operations) UpdateWorkItem(ctx context.Context, id string, exp
 	}
 	if input.ProgressPercent != nil {
 		if *input.ProgressPercent < 0 || *input.ProgressPercent > 100 {
-			return delivery.WorkItem{}, errors.New("delivery progress percent must be between 0 and 100")
+			return nil, errors.New("delivery progress percent must be between 0 and 100")
 		}
 		request.UpdateMask = append(request.UpdateMask, "progress_percent")
 		request.ProgressPercent = int32(*input.ProgressPercent)
@@ -309,11 +363,7 @@ func (operations *Operations) UpdateWorkItem(ctx context.Context, id string, exp
 			request.TraceLinks = append(request.TraceLinks, &deliveryv1.TraceLink{Kind: string(v.Kind), Reference: v.Reference, Title: v.Title, Url: v.URL, Status: v.Status, RecordedAt: timestamp(v.RecordedAt)})
 		}
 	}
-	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanUpdateItem(), request, operations.application.UpdateItem)
-	if err != nil {
-		return delivery.WorkItem{}, err
-	}
-	return workItemFromProto(response.GetItem()), nil
+	return request, nil
 }
 
 func (operations *Operations) AddComment(ctx context.Context, id string, expectedRevision int64, input delivery.CommentInput) (delivery.Comment, error) {

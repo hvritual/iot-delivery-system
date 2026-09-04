@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"yunka.io/gateway/authz"
 )
 
@@ -32,6 +33,33 @@ func TestWriteErrorUsesStableAuthorizationCategory(t *testing.T) {
 			}
 			if payload["error"] != wantCategory {
 				t.Fatalf("authorization response = %#v, want error %q", payload, wantCategory)
+			}
+		})
+	}
+}
+
+func TestWriteErrorUsesStableRevisionCategory(t *testing.T) {
+	for _, scenario := range []struct {
+		name         string
+		err          error
+		wantStatus   int
+		wantCategory string
+	}{
+		{name: "conflict", err: delivery.ErrRevisionConflict, wantStatus: http.StatusConflict, wantCategory: "revision_conflict"},
+		{name: "missing revision", err: delivery.ErrInvalidExpectedRevision, wantStatus: http.StatusBadRequest, wantCategory: "invalid_expected_revision"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			writeError(recorder, scenario.err)
+			if recorder.Code != scenario.wantStatus {
+				t.Fatalf("revision response status = %d, want %d: %s", recorder.Code, scenario.wantStatus, recorder.Body.String())
+			}
+			var payload map[string]string
+			if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+				t.Fatalf("decode revision response: %v", err)
+			}
+			if payload["error"] != scenario.wantCategory {
+				t.Fatalf("revision response = %#v, want error %q", payload, scenario.wantCategory)
 			}
 		})
 	}

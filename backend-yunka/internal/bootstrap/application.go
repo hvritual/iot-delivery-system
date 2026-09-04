@@ -18,6 +18,7 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/configrevision"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	deliveryapplication "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
+	deliveryrpc "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/transport/rpc"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryauthz"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/httpapi"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/humanauthz"
@@ -362,7 +363,7 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		HTTPListenAddress: configuration.HTTPAddress,
 		GRPCListenAddress: configuration.GRPCAddress,
 		HTTPMiddleware:    httpMiddleware,
-		GRPCServerOptions: []grpc.ServerOption{grpc.UnaryInterceptor(serviceCredentialManager.GRPCUnaryServerInterceptor(legacyGRPCFallback))},
+		GRPCServerOptions: []grpc.ServerOption{grpc.ChainUnaryInterceptor(deliveryrpc.RevisionErrorUnaryServerInterceptor, serviceCredentialManager.GRPCUnaryServerInterceptor(legacyGRPCFallback))},
 		HealthPath:        "/health",
 		DiagnosticsPath:   "/__yunka/diagnostics",
 		Bootstrap: func(bootstrapCtx context.Context, runtime runtimehost.Runtime) (kernel.BootstrapResult[generatedassembly.Applications], error) {

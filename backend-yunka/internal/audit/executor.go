@@ -43,3 +43,7 @@ func (executor recordingExecutor) Execute(ctx context.Context, plan operationpla
 	}
 	return value, err
 }
+
+func (executor recordingExecutor) ExecuteChild(ctx context.Context, plan operationplan.Plan, input any, invoke operation.Invoker) (any, error) {
+	return operation.ExecuteChild(ctx, executor.delegate, plan, input, invoke)
+}

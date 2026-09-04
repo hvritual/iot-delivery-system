@@ -312,6 +312,12 @@ func writeError(writer http.ResponseWriter, err error) {
 			status = http.StatusUnauthorized
 			message = "unauthenticated"
 		}
+	case errors.Is(err, delivery.ErrRevisionConflict):
+		status = http.StatusConflict
+		message = "revision_conflict"
+	case errors.Is(err, delivery.ErrInvalidExpectedRevision):
+		status = http.StatusBadRequest
+		message = "invalid_expected_revision"
 	case errors.Is(err, delivery.ErrNotFound):
 		status = http.StatusNotFound
 	case errors.Is(err, delivery.ErrDuplicateWorkItem):

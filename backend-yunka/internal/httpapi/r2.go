@@ -49,6 +49,17 @@ func (api *api) patchItem(writer http.ResponseWriter, request *http.Request, id 
 	var item delivery.WorkItem
 	var err error
 	expectedRevision := patch.ExpectedRevision
+	if patch.hasWorkItemUpdate() && patch.hasContextUpdate() {
+		item, err = api.operations.UpdateWorkItemAndContext(request.Context(), id, expectedRevision, patch.WorkItemUpdate, delivery.ContextUpdate{
+			Plan: patch.Plan, Solution: patch.Solution, Blocker: patch.Blocker, Decision: patch.Decision,
+		})
+		if err != nil {
+			writeError(writer, err)
+			return
+		}
+		writeJSON(writer, http.StatusOK, item)
+		return
+	}
 	if patch.hasWorkItemUpdate() {
 		item, err = api.operations.UpdateWorkItem(request.Context(), id, expectedRevision, patch.WorkItemUpdate)
 		if err != nil {

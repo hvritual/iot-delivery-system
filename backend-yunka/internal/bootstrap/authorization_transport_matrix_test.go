@@ -9,11 +9,16 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"reflect"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	deliveryapplication "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/policy"
 	deliveryrpc "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/transport/rpc"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/httpapi"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitycore"
@@ -30,6 +35,7 @@ import (
 	"yunka.io/framework/core/identity"
 	"yunka.io/framework/operation"
 	"yunka.io/gateway/authz"
+	"yunka.io/pkg/operationplan"
 )
 
 type authorizationMatrixFixture struct {
@@ -41,7 +47,65 @@ type authorizationMatrixFixture struct {
 	handler     http.Handler
 }
 
+const (
+	revisionRaceWinner = "winner"
+	revisionRaceLoser  = "loser"
+)
+
+// controlledRevisionExecutor is test-only. It admits real transport calls at
+// the operation boundary before delegating to the production executor.
+type controlledRevisionExecutor struct {
+	delegate          operation.Executor
+	winnerEntered     chan struct{}
+	loserEntered      chan struct{}
+	releaseWinner     chan struct{}
+	releaseLoser      chan struct{}
+	winnerOnce        sync.Once
+	loserOnce         sync.Once
+	releaseWinnerOnce sync.Once
+	releaseLoserOnce  sync.Once
+}
+
+func newControlledRevisionExecutor(delegate operation.Executor) *controlledRevisionExecutor {
+	return &controlledRevisionExecutor{
+		delegate: delegate, winnerEntered: make(chan struct{}), loserEntered: make(chan struct{}),
+		releaseWinner: make(chan struct{}), releaseLoser: make(chan struct{}),
+	}
+}
+
+func (executor *controlledRevisionExecutor) Execute(ctx context.Context, plan operationplan.Plan, input any, invoke operation.Invoker) (any, error) {
+	if plan.OperationID != policy.OperationPlanUpdateItem().OperationID {
+		return executor.delegate.Execute(ctx, plan, input, invoke)
+	}
+	principal, _ := identity.FromContext(ctx)
+	if strings.HasSuffix(principal.Subject, "/"+revisionRaceWinner) {
+		executor.winnerOnce.Do(func() { close(executor.winnerEntered) })
+		select {
+		case <-executor.releaseWinner:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	} else if strings.HasSuffix(principal.Subject, "/"+revisionRaceLoser) {
+		executor.loserOnce.Do(func() { close(executor.loserEntered) })
+		select {
+		case <-executor.releaseLoser:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return executor.delegate.Execute(ctx, plan, input, invoke)
+}
+
+func (executor *controlledRevisionExecutor) releaseAll() {
+	executor.releaseWinnerOnce.Do(func() { close(executor.releaseWinner) })
+	executor.releaseLoserOnce.Do(func() { close(executor.releaseLoser) })
+}
+
 func newAuthorizationMatrixFixture(t *testing.T) *authorizationMatrixFixture {
+	return newAuthorizationMatrixFixtureWithExecutor(t, nil)
+}
+
+func newAuthorizationMatrixFixtureWithExecutor(t *testing.T, decorate func(operation.Executor) operation.Executor) *authorizationMatrixFixture {
 	t.Helper()
 	repository, err := delivery.NewSQLiteRepository(filepath.Join(t.TempDir(), "authorization-matrix.db"))
 	if err != nil {
@@ -50,6 +114,9 @@ func newAuthorizationMatrixFixture(t *testing.T) *authorizationMatrixFixture {
 	t.Cleanup(func() { _ = repository.Close() })
 	if err := identitycore.ApplyMigrations(t.Context(), repository.Database()); err != nil {
 		t.Fatalf("apply identity and authorization migrations: %v", err)
+	}
+	if err := audit.ApplyMigrations(t.Context(), repository.Database()); err != nil {
+		t.Fatalf("apply audit migrations: %v", err)
 	}
 	for _, statement := range []string{
 		`INSERT INTO organizations (id, slug, name) VALUES ('org-a', 'org-a', 'Organization A')`,
@@ -75,13 +142,31 @@ func newAuthorizationMatrixFixture(t *testing.T) *authorizationMatrixFixture {
 		t.Fatalf("open SQLite outbox: %v", err)
 	}
 	service := delivery.NewService(repository, nil, delivery.NewTransactionalOutboxStager(outbox))
-	executor := operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())})
-	application := deliveryapplication.NewAdapter(service)
+	auditStore, err := audit.NewSQLiteStore(repository.Database())
+	if err != nil {
+		t.Fatalf("open SQLite audit store: %v", err)
+	}
+	auditRecorder, err := audit.NewSecurityRecorder(auditStore)
+	if err != nil {
+		t.Fatalf("open production security audit recorder: %v", err)
+	}
+	application, err := deliveryapplication.NewAuditedDeliveryService(deliveryapplication.NewAdapter(service), auditStore, deliveryapplication.WithWorkItemResolver(service.Get))
+	if err != nil {
+		t.Fatalf("assemble production audited delivery application: %v", err)
+	}
+	executor, err := audit.NewRecordingExecutor(operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())}), auditRecorder)
+	if err != nil {
+		t.Fatalf("assemble production recording executor: %v", err)
+	}
 	// Do not attach legacy service extensions: this matrix must exercise the
 	// registered OperationPlans rather than their unregistered compatibility
 	// helpers.
-	operations := deliveryapplication.NewOperations(application, executor)
-	return &authorizationMatrixFixture{repository: repository, outbox: outbox, operations: operations, application: application, executor: executor, handler: httpapi.NewHandler(operations)}
+	var operationExecutor operation.Executor = executor
+	if decorate != nil {
+		operationExecutor = decorate(operationExecutor)
+	}
+	operations := deliveryapplication.NewOperations(application, operationExecutor)
+	return &authorizationMatrixFixture{repository: repository, outbox: outbox, operations: operations, application: application, executor: operationExecutor, handler: httpapi.NewHandler(operations)}
 }
 
 func (fixture *authorizationMatrixFixture) revision(t *testing.T, id string) int64 {
@@ -96,7 +181,7 @@ func (fixture *authorizationMatrixFixture) revision(t *testing.T, id string) int
 func (fixture *authorizationMatrixFixture) grpcGate(t *testing.T, principal identity.Principal, itemID string, gate delivery.Gate) codes.Code {
 	t.Helper()
 	listener := bufconn.Listen(1024 * 1024)
-	server := grpc.NewServer(grpc.UnaryInterceptor(func(ctx context.Context, request any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+	server := grpc.NewServer(grpc.ChainUnaryInterceptor(deliveryrpc.RevisionErrorUnaryServerInterceptor, func(ctx context.Context, request any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		return handler(identity.WithPrincipal(ctx, principal), request)
 	}))
 	if err := deliveryrpc.RegisterOperationExecutor(server, fixture.application, fixture.executor); err != nil {
@@ -135,6 +220,27 @@ func (fixture *authorizationMatrixFixture) grpcCreate(t *testing.T, principal id
 	t.Cleanup(func() { _ = connection.Close() })
 	_, err = deliveryv1.NewDeliveryServiceClient(connection).CreateItem(t.Context(), &deliveryv1.CreateItemRequest{Title: "service-created", Board: string(delivery.BoardResearchDelivery), Owner: "service", ProjectId: projectID, Kind: string(delivery.WorkItemKindTask)})
 	return status.Code(err)
+}
+
+func (fixture *authorizationMatrixFixture) grpcUpdate(t *testing.T, principal identity.Principal, itemID string, expectedRevision int64, progress int32) (codes.Code, string) {
+	t.Helper()
+	listener := bufconn.Listen(1024 * 1024)
+	server := grpc.NewServer(grpc.ChainUnaryInterceptor(deliveryrpc.RevisionErrorUnaryServerInterceptor, func(ctx context.Context, request any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		return handler(identity.WithPrincipal(ctx, principal), request)
+	}))
+	if err := deliveryrpc.RegisterOperationExecutor(server, fixture.application, fixture.executor); err != nil {
+		t.Fatalf("register revision matrix gRPC executor: %v", err)
+	}
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(server.Stop)
+	connection, err := grpc.DialContext(t.Context(), "passthrough:///revision-matrix", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("dial revision matrix gRPC server: %v", err)
+	}
+	t.Cleanup(func() { _ = connection.Close() })
+	_, err = deliveryv1.NewDeliveryServiceClient(connection).UpdateItem(t.Context(), &deliveryv1.UpdateItemRequest{Id: itemID, ExpectedRevision: expectedRevision, UpdateMask: []string{"progress_percent"}, ProgressPercent: progress})
+	result := status.Convert(err)
+	return result.Code(), result.Message()
 }
 
 func matrixPrincipal(userID string) identity.Principal {
@@ -197,24 +303,81 @@ func (fixture *authorizationMatrixFixture) restGate(t *testing.T, principal iden
 	return recorder.Code, category
 }
 
+func (fixture *authorizationMatrixFixture) restGateAtRevision(t *testing.T, principal identity.Principal, itemID string, expectedRevision int64, gate delivery.Gate) (int, string) {
+	t.Helper()
+	body, err := json.Marshal(map[string]any{"expectedRevision": expectedRevision, "evidence": []map[string]string{{"kind": "review", "title": "revision matrix"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/items/"+itemID+"/gates/"+string(gate), bytes.NewReader(body)).WithContext(identity.WithPrincipal(t.Context(), principal))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	fixture.handler.ServeHTTP(recorder, request)
+	var payload map[string]any
+	_ = json.NewDecoder(recorder.Body).Decode(&payload)
+	category, _ := payload["error"].(string)
+	return recorder.Code, category
+}
+
+func (fixture *authorizationMatrixFixture) restCombinedPatch(t *testing.T, principal identity.Principal, itemID string, expectedRevision int64) (int, string) {
+	t.Helper()
+	body, err := json.Marshal(map[string]any{"expectedRevision": expectedRevision, "progressPercent": 47, "plan": "production atomic context"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPatch, "/api/items/"+itemID, bytes.NewReader(body)).WithContext(identity.WithPrincipal(t.Context(), principal))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	fixture.handler.ServeHTTP(recorder, request)
+	var payload map[string]any
+	_ = json.NewDecoder(recorder.Body).Decode(&payload)
+	category, _ := payload["error"].(string)
+	return recorder.Code, category
+}
+
+func (fixture *authorizationMatrixFixture) grpcGateAtRevision(t *testing.T, principal identity.Principal, itemID string, expectedRevision int64, gate delivery.Gate) (codes.Code, string) {
+	t.Helper()
+	listener := bufconn.Listen(1024 * 1024)
+	server := grpc.NewServer(grpc.ChainUnaryInterceptor(deliveryrpc.RevisionErrorUnaryServerInterceptor, func(ctx context.Context, request any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		return handler(identity.WithPrincipal(ctx, principal), request)
+	}))
+	if err := deliveryrpc.RegisterOperationExecutor(server, fixture.application, fixture.executor); err != nil {
+		t.Fatalf("register revision matrix gRPC gate executor: %v", err)
+	}
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(server.Stop)
+	connection, err := grpc.DialContext(t.Context(), "passthrough:///revision-gate-matrix", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("dial revision matrix gRPC gate server: %v", err)
+	}
+	t.Cleanup(func() { _ = connection.Close() })
+	_, err = deliveryv1.NewDeliveryServiceClient(connection).AdvanceGate(t.Context(), &deliveryv1.AdvanceGateRequest{Id: itemID, ExpectedRevision: expectedRevision, Gate: string(gate), Evidence: []*deliveryv1.Evidence{{Kind: "review", Title: "revision matrix"}}})
+	result := status.Convert(err)
+	return result.Code(), result.Message()
+}
+
 func callMatrixMCP(t *testing.T, operations *deliveryapplication.Operations, principal identity.Principal, itemID string, expectedRevision int64, gate delivery.Gate) *mcp.CallToolResult {
+	return callMatrixMCPContext(t, t.Context(), operations, principal, "delivery.advance_gate", map[string]any{"id": itemID, "expectedRevision": expectedRevision, "gate": string(gate), "evidence": []map[string]any{{"kind": "review", "title": "authorization matrix"}}})
+}
+
+func callMatrixMCPContext(t *testing.T, ctx context.Context, operations *deliveryapplication.Operations, principal identity.Principal, name string, arguments map[string]any) *mcp.CallToolResult {
 	t.Helper()
 	server := mcpserver.New(operations, principal)
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
-	serverSession, err := server.Connect(t.Context(), serverTransport, nil)
+	serverSession, err := server.Connect(ctx, serverTransport, nil)
 	if err != nil {
 		t.Fatalf("connect matrix MCP server: %v", err)
 	}
 	defer serverSession.Close()
 	client := mcp.NewClient(&mcp.Implementation{Name: "authorization-matrix", Version: "v1"}, nil)
-	clientSession, err := client.Connect(t.Context(), clientTransport, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
 	if err != nil {
 		t.Fatalf("connect matrix MCP client: %v", err)
 	}
 	defer clientSession.Close()
-	result, err := clientSession.CallTool(t.Context(), &mcp.CallToolParams{Name: "delivery.advance_gate", Arguments: map[string]any{"id": itemID, "expectedRevision": expectedRevision, "gate": string(gate), "evidence": []map[string]any{{"kind": "review", "title": "authorization matrix"}}}})
+	result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: arguments})
 	if err != nil {
-		t.Fatalf("call matrix MCP tool: %v", err)
+		t.Fatalf("call matrix MCP tool %s: %v", name, err)
 	}
 	return result
 }
@@ -227,6 +390,246 @@ func matrixMCPError(result *mcp.CallToolResult) string {
 		return text.Text
 	}
 	return ""
+}
+
+func TestProductionAuthorizationMatrixUsesStableGRPCRevisionErrors(t *testing.T) {
+	fixture := newAuthorizationMatrixFixture(t)
+	_, item := fixture.createProtectedItem(t)
+	admin := matrixPrincipal("admin")
+	if code, message := fixture.grpcUpdate(t, admin, item.ID, item.Revision, 25); code != codes.OK || message != "" {
+		t.Fatalf("prepare gRPC revision conflict = code %s message %q, want OK", code, message)
+	}
+	for _, scenario := range []struct {
+		name             string
+		expectedRevision int64
+		wantCode         codes.Code
+		wantMessage      string
+	}{
+		{name: "missing revision", wantCode: codes.InvalidArgument, wantMessage: "invalid_expected_revision"},
+		{name: "stale revision", expectedRevision: item.Revision, wantCode: codes.Aborted, wantMessage: "revision_conflict"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			code, message := fixture.grpcUpdate(t, admin, item.ID, scenario.expectedRevision, 50)
+			if code != scenario.wantCode || message != scenario.wantMessage {
+				t.Fatalf("gRPC %s = code %s message %q, want code %s message %q", scenario.name, code, message, scenario.wantCode, scenario.wantMessage)
+			}
+		})
+	}
+}
+
+func TestProductionAuthorizationCombinedRESTPatchRequiresBothRegisteredPermissions(t *testing.T) {
+	fixture := newAuthorizationMatrixFixture(t)
+	_, item := fixture.createProtectedItem(t)
+	if status, category := fixture.restCombinedPatch(t, matrixPrincipal("admin"), item.ID, item.Revision); status != http.StatusOK || category != "" {
+		t.Fatalf("production combined REST patch = status %d category %q, want 200", status, category)
+	}
+	updated, err := fixture.repository.Get(t.Context(), item.ID)
+	if err != nil || updated.ProgressPercent != 47 || updated.Plan != "production atomic context" || updated.Revision != item.Revision+2 {
+		t.Fatalf("production combined REST patch stored item = %#v err=%v", updated, err)
+	}
+	beforeConflictOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil {
+		t.Fatalf("snapshot production combined conflict Outbox: %v", err)
+	}
+	if status, category := fixture.restCombinedPatch(t, matrixPrincipal("admin"), item.ID, item.Revision); status != http.StatusConflict || category != "revision_conflict" {
+		t.Fatalf("stale production combined REST patch = status %d category %q, want 409/revision_conflict", status, category)
+	}
+	afterConflict, itemErr := fixture.repository.Get(t.Context(), item.ID)
+	afterConflictOutbox, outboxErr := fixture.outbox.Snapshot(t.Context())
+	if itemErr != nil || !reflect.DeepEqual(afterConflict, updated) || outboxErr != nil || !reflect.DeepEqual(afterConflictOutbox, beforeConflictOutbox) {
+		t.Fatalf("stale production combined patch left partial state: item=%#v itemErr=%v outbox=%#v outboxErr=%v", afterConflict, itemErr, afterConflictOutbox, outboxErr)
+	}
+
+	deniedFixture := newAuthorizationMatrixFixture(t)
+	_, deniedItem := deniedFixture.createProtectedItem(t)
+	beforeItem, err := deniedFixture.repository.Get(t.Context(), deniedItem.ID)
+	if err != nil {
+		t.Fatalf("read denied combined patch item: %v", err)
+	}
+	beforeOutbox, err := deniedFixture.outbox.Snapshot(t.Context())
+	if err != nil {
+		t.Fatalf("snapshot denied combined patch Outbox: %v", err)
+	}
+	if status, category := deniedFixture.restCombinedPatch(t, matrixPrincipal("viewer"), deniedItem.ID, deniedItem.Revision); status != http.StatusForbidden || category != "permission_denied" {
+		t.Fatalf("denied combined REST patch = status %d category %q, want 403/permission_denied", status, category)
+	}
+	afterItem, itemErr := deniedFixture.repository.Get(t.Context(), deniedItem.ID)
+	afterOutbox, outboxErr := deniedFixture.outbox.Snapshot(t.Context())
+	if itemErr != nil || !reflect.DeepEqual(afterItem, beforeItem) || outboxErr != nil || !reflect.DeepEqual(afterOutbox, beforeOutbox) {
+		t.Fatalf("denied combined REST patch changed SQLite or Outbox: item=%#v itemErr=%v outbox=%#v outboxErr=%v", afterItem, itemErr, afterOutbox, outboxErr)
+	}
+}
+
+type revisionRaceResult struct {
+	success bool
+	detail  string
+}
+
+func newRevisionRaceGRPCClient(t *testing.T, fixture *authorizationMatrixFixture, principal identity.Principal) deliveryv1.DeliveryServiceClient {
+	t.Helper()
+	listener := bufconn.Listen(1024 * 1024)
+	server := grpc.NewServer(grpc.ChainUnaryInterceptor(deliveryrpc.RevisionErrorUnaryServerInterceptor, func(ctx context.Context, request any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		return handler(identity.WithPrincipal(ctx, principal), request)
+	}))
+	if err := deliveryrpc.RegisterOperationExecutor(server, fixture.application, fixture.executor); err != nil {
+		t.Fatalf("register revision race gRPC executor: %v", err)
+	}
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(server.Stop)
+	connection, err := grpc.DialContext(t.Context(), "passthrough:///revision-race", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("dial revision race gRPC server: %v", err)
+	}
+	t.Cleanup(func() { _ = connection.Close() })
+	return deliveryv1.NewDeliveryServiceClient(connection)
+}
+
+func newRevisionRaceMCPCall(t *testing.T, operations *deliveryapplication.Operations, principal identity.Principal) func(context.Context, map[string]any) (*mcp.CallToolResult, error) {
+	t.Helper()
+	server := mcpserver.New(operations, principal)
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(t.Context(), serverTransport, nil)
+	if err != nil {
+		t.Fatalf("connect revision race MCP server: %v", err)
+	}
+	t.Cleanup(func() { _ = serverSession.Close() })
+	client := mcp.NewClient(&mcp.Implementation{Name: "revision-race", Version: "v1"}, nil)
+	clientSession, err := client.Connect(t.Context(), clientTransport, nil)
+	if err != nil {
+		t.Fatalf("connect revision race MCP client: %v", err)
+	}
+	t.Cleanup(func() { _ = clientSession.Close() })
+	return func(ctx context.Context, arguments map[string]any) (*mcp.CallToolResult, error) {
+		return clientSession.CallTool(ctx, &mcp.CallToolParams{Name: "delivery.update_work_item", Arguments: arguments})
+	}
+}
+
+func TestProductionRevisionConflictMatrixPreservesExactlyOneCrossTransportWrite(t *testing.T) {
+	for _, scenario := range []struct{ name, winner, loser string }{
+		{name: "REST wins over gRPC", winner: "REST", loser: "gRPC"},
+		{name: "REST wins over MCP", winner: "REST", loser: "MCP"},
+		{name: "gRPC wins over REST", winner: "gRPC", loser: "REST"},
+		{name: "gRPC wins over MCP", winner: "gRPC", loser: "MCP"},
+		{name: "MCP wins over REST", winner: "MCP", loser: "REST"},
+		{name: "MCP wins over gRPC", winner: "MCP", loser: "gRPC"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			var control *controlledRevisionExecutor
+			fixture := newAuthorizationMatrixFixtureWithExecutor(t, func(delegate operation.Executor) operation.Executor {
+				control = newControlledRevisionExecutor(delegate)
+				return control
+			})
+			t.Cleanup(control.releaseAll)
+			_, item := fixture.createProtectedItem(t)
+			beforeOutbox, err := fixture.outbox.Snapshot(t.Context())
+			if err != nil {
+				t.Fatalf("snapshot outbox before revision contest: %v", err)
+			}
+			var beforeSuccessAudit int
+			if err := fixture.repository.Database().QueryRow(`SELECT COUNT(*) FROM iotd_audit_entries WHERE result = 'success'`).Scan(&beforeSuccessAudit); err != nil {
+				t.Fatalf("count successful audit entries before revision contest: %v", err)
+			}
+
+			principal := matrixPrincipal("admin")
+			winnerPrincipal, loserPrincipal := principal, principal
+			winnerPrincipal.Subject += "/" + revisionRaceWinner
+			loserPrincipal.Subject += "/" + revisionRaceLoser
+			winnerGRPC := newRevisionRaceGRPCClient(t, fixture, winnerPrincipal)
+			loserGRPC := newRevisionRaceGRPCClient(t, fixture, loserPrincipal)
+			winnerMCP := newRevisionRaceMCPCall(t, fixture.operations, winnerPrincipal)
+			loserMCP := newRevisionRaceMCPCall(t, fixture.operations, loserPrincipal)
+
+			call := func(ctx context.Context, transport string, principal identity.Principal) revisionRaceResult {
+				title := transport + " payload"
+				progress := int32(map[string]int{"REST": 31, "gRPC": 47, "MCP": 63}[transport])
+				switch transport {
+				case "REST":
+					body, marshalErr := json.Marshal(map[string]any{"expectedRevision": item.Revision, "title": title, "progressPercent": progress})
+					if marshalErr != nil {
+						return revisionRaceResult{detail: marshalErr.Error()}
+					}
+					request := httptest.NewRequest(http.MethodPatch, "/api/items/"+item.ID, bytes.NewReader(body)).WithContext(identity.WithPrincipal(ctx, principal))
+					request.Header.Set("Content-Type", "application/json")
+					recorder := httptest.NewRecorder()
+					fixture.handler.ServeHTTP(recorder, request)
+					var payload map[string]any
+					_ = json.NewDecoder(recorder.Body).Decode(&payload)
+					category, _ := payload["error"].(string)
+					return revisionRaceResult{success: recorder.Code == http.StatusOK, detail: category}
+				case "gRPC":
+					client := loserGRPC
+					if strings.HasSuffix(principal.Subject, "/"+revisionRaceWinner) {
+						client = winnerGRPC
+					}
+					_, callErr := client.UpdateItem(ctx, &deliveryv1.UpdateItemRequest{Id: item.ID, ExpectedRevision: item.Revision, UpdateMask: []string{"title", "progress_percent"}, Title: title, ProgressPercent: progress})
+					converted := status.Convert(callErr)
+					return revisionRaceResult{success: converted.Code() == codes.OK, detail: converted.Message()}
+				case "MCP":
+					caller := loserMCP
+					if strings.HasSuffix(principal.Subject, "/"+revisionRaceWinner) {
+						caller = winnerMCP
+					}
+					result, callErr := caller(ctx, map[string]any{"id": item.ID, "expectedRevision": item.Revision, "title": title, "progressPercent": progress})
+					if callErr != nil {
+						return revisionRaceResult{detail: callErr.Error()}
+					}
+					if result.IsError {
+						return revisionRaceResult{detail: matrixMCPError(result)}
+					}
+					return revisionRaceResult{success: true}
+				default:
+					return revisionRaceResult{detail: "unknown transport"}
+				}
+			}
+
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			winnerResult, loserResult := make(chan revisionRaceResult, 1), make(chan revisionRaceResult, 1)
+			go func() { winnerResult <- call(ctx, scenario.winner, winnerPrincipal) }()
+			go func() { loserResult <- call(ctx, scenario.loser, loserPrincipal) }()
+			for _, entered := range []<-chan struct{}{control.winnerEntered, control.loserEntered} {
+				select {
+				case <-entered:
+				case <-ctx.Done():
+					t.Fatalf("revision race calls did not overlap at operation boundary: %v", ctx.Err())
+				}
+			}
+			control.releaseWinnerOnce.Do(func() { close(control.releaseWinner) })
+			var winner revisionRaceResult
+			select {
+			case winner = <-winnerResult:
+			case <-ctx.Done():
+				t.Fatalf("winner did not complete: %v", ctx.Err())
+			}
+			control.releaseLoserOnce.Do(func() { close(control.releaseLoser) })
+			var loser revisionRaceResult
+			select {
+			case loser = <-loserResult:
+			case <-ctx.Done():
+				t.Fatalf("loser did not complete: %v", ctx.Err())
+			}
+			if !winner.success || winner.detail != "" {
+				t.Fatalf("%s winner result = success=%t detail=%q", scenario.winner, winner.success, winner.detail)
+			}
+			if loser.success || loser.detail != "revision_conflict" {
+				t.Fatalf("%s loser result = success=%t detail=%q, want revision_conflict", scenario.loser, loser.success, loser.detail)
+			}
+
+			wantProgress := map[string]int{"REST": 31, "gRPC": 47, "MCP": 63}[scenario.winner]
+			afterItem, err := fixture.repository.Get(t.Context(), item.ID)
+			if err != nil || afterItem.Revision != item.Revision+1 || afterItem.Title != scenario.winner+" payload" || afterItem.ProgressPercent != wantProgress {
+				t.Fatalf("revision contest item = %#v err=%v; want winner payload only", afterItem, err)
+			}
+			afterOutbox, err := fixture.outbox.Snapshot(t.Context())
+			if err != nil || afterOutbox.Pending != beforeOutbox.Pending+1 {
+				t.Fatalf("revision contest Outbox = before=%#v after=%#v err=%v; want one entry", beforeOutbox, afterOutbox, err)
+			}
+			var afterSuccessAudit int
+			if err := fixture.repository.Database().QueryRow(`SELECT COUNT(*) FROM iotd_audit_entries WHERE result = 'success'`).Scan(&afterSuccessAudit); err != nil || afterSuccessAudit != beforeSuccessAudit+1 {
+				t.Fatalf("revision contest successful audit = before=%d after=%d err=%v; want one entry", beforeSuccessAudit, afterSuccessAudit, err)
+			}
+		})
+	}
 }
 
 func TestMCPRegistrationContainsExactlyTenDictionaryPublicToolsAndSevenExcludedExtensions(t *testing.T) {

@@ -222,6 +222,46 @@ func mcpErrorText(result *mcp.CallToolResult) string {
 	return ""
 }
 
+func TestMCPReturnsStableRevisionErrorCategories(t *testing.T) {
+	fixture := newExecutionFixture(t)
+	admin := fixture.principal(t, "mcp-grpc-admin-key")
+	created := callMCP(t, fixture.operations, admin, "delivery.create_work_item", map[string]any{
+		"title": "MCP revision errors", "board": string(delivery.BoardResearchDelivery), "owner": "admin", "kind": string(delivery.WorkItemKindTask),
+	})
+	if created.IsError {
+		t.Fatalf("create MCP revision test item = %#v text=%q", created, mcpErrorText(created))
+	}
+	items, err := fixture.repository.List(t.Context())
+	if err != nil || len(items) != 1 {
+		t.Fatalf("read created MCP revision test item = %#v, %v", items, err)
+	}
+	item := items[0]
+	updated := callMCP(t, fixture.operations, admin, "delivery.update_work_item", map[string]any{
+		"id": item.ID, "expectedRevision": item.Revision, "progressPercent": 25,
+	})
+	if updated.IsError {
+		t.Fatalf("prepare stale MCP update = %#v text=%q", updated, mcpErrorText(updated))
+	}
+
+	for _, scenario := range []struct {
+		name             string
+		expectedRevision int64
+		wantCategory     string
+	}{
+		{name: "missing revision", wantCategory: "invalid_expected_revision"},
+		{name: "stale revision", expectedRevision: item.Revision, wantCategory: "revision_conflict"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			result := callMCP(t, fixture.operations, admin, "delivery.update_work_item", map[string]any{
+				"id": item.ID, "expectedRevision": scenario.expectedRevision, "progressPercent": 50,
+			})
+			if !result.IsError || mcpErrorText(result) != scenario.wantCategory {
+				t.Fatalf("MCP %s result = %#v text=%q, want stable %q", scenario.name, result, mcpErrorText(result), scenario.wantCategory)
+			}
+		})
+	}
+}
+
 func TestMCPAndGeneratedGRPCShareCreateAndAdvanceGateExecution(t *testing.T) {
 	grpcFixture := newExecutionFixture(t)
 	mcpFixture := newExecutionFixture(t)
