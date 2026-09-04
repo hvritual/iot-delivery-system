@@ -13,6 +13,7 @@ import (
 
 var guardedMutations = map[string]bool{"Create": true, "CreateProject": true, "CreateRelease": true, "CreateSprint": true, "CreateMilestone": true, "UpdateWorkItem": true, "AddComment": true, "UpdateContext": true, "AdvanceGate": true, "Close": true, "SaveView": true, "Save": true, "SaveProject": true, "SaveRelease": true, "SaveSprint": true, "SaveMilestone": true, "CreateSavedView": true}
 var implementationAllowlist = map[string]bool{"internal/delivery/service.go": true, "internal/delivery/repository.go": true, "internal/delivery/sqlite_repository.go": true, "internal/delivery/application/adapter.go": true, "internal/delivery/application/audited.go": true, "internal/delivery/application/operations.go": true}
+var bootstrapServiceConstructionAllowlist = map[string]bool{"internal/bootstrap/runtime_binding.go": true}
 
 func TestProductionWriteCallersUseOperationsBoundary(t *testing.T) {
 	var files []string
@@ -63,6 +64,26 @@ func bad(repo *delivery.SQLiteRepository) { svc := delivery.NewService(nil,nil);
 	}
 }
 
+func TestDeliveryServiceConstructionIsConfinedToRuntimeBinder(t *testing.T) {
+	source := []byte(`package bootstrap
+import "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
+func construct() { _ = delivery.NewService(nil, nil) }`)
+	allowed, err := scanProductionSource("internal/bootstrap/runtime_binding.go", source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if containsViolation(allowed, "constructs delivery.Service") {
+		t.Fatalf("runtime binder was rejected as bootstrap assembly: %v", allowed)
+	}
+	legacy, err := scanProductionSource("internal/bootstrap/application.go", source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsViolation(legacy, "constructs delivery.Service outside bootstrap assembly") {
+		t.Fatalf("legacy prebuilt bootstrap path was not rejected: %v", legacy)
+	}
+}
+
 func scanProductionSource(name string, source []byte) ([]string, error) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, name, source, 0)
@@ -81,7 +102,7 @@ func scanProductionSource(name string, source []byte) ([]string, error) {
 			if !ok {
 				return true
 			}
-			if selector.Sel.Name == "NewService" && selectorReceiverName(selector.X) == "delivery" && name != "internal/bootstrap/application.go" {
+			if selector.Sel.Name == "NewService" && selectorReceiverName(selector.X) == "delivery" && !bootstrapServiceConstructionAllowlist[name] {
 				violations = append(violations, position(fset, value)+" constructs delivery.Service outside bootstrap assembly")
 			}
 			if selector.Sel.Name == "Sync" && name != "internal/obsidian/projection_consumer.go" {

@@ -836,9 +836,14 @@ func TestBootstrapSeedIsAnAuthorizedTransactionalOutboxOperation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read bootstrap source: %v", err)
 	}
-	text := string(source)
+	bindingSource, err := os.ReadFile(filepath.Join(filepath.Dir(sourcePath), "runtime_binding.go"))
+	if err != nil {
+		t.Fatalf("read runtime binding source: %v", err)
+	}
+	text := string(source) + "\n" + string(bindingSource)
 	for _, required := range []string{
-		"service := delivery.NewService(repository, exporter, delivery.NewTransactionalOutboxStager(outboxStore))",
+		"service := delivery.NewService(",
+		"delivery.NewTransactionalOutboxStager(dependencies.DeliveryOutbox)",
 		"if err := seedExample(ctx, operations); err != nil",
 		"func seedExample(ctx context.Context, operations *deliveryapplication.Operations) error",
 		"operations.List(bootstrapContext)",

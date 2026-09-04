@@ -26,14 +26,18 @@ func TestModuleExportsTypedCapabilitiesAndOwnsLifecycleInDependencyOrder(t *test
 	module, err := New(Dependencies{
 		Database: &fakeDatabase{events: events}, Transactions: transactions,
 		Outbox: outboxStore, Notifications: notifications, Projection: projection,
-		Dispatcher: &fakeDispatcher{events: events}, Reminders: &fakeReminders{events: events},
-		Broker: &fakeBroker{events: events},
+		Dispatcher: &fakeDispatcher{events: events}, Broker: &fakeBroker{events: events},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := module.BindApplication(ApplicationDependencies{
+		Reminders: &fakeReminders{events: events},
 		Subscriptions: []event.Subscription{
 			fakeSubscription{name: "projection.close", events: events},
 			fakeSubscription{name: "notification.close", events: events},
 		},
-	})
-	if err != nil {
+	}); err != nil {
 		t.Fatal(err)
 	}
 	catalog := modulecatalog.New()
@@ -109,15 +113,18 @@ func TestAppCleansUpModuleInReverseOrderWhenReminderStartFails(t *testing.T) {
 	module, err := New(Dependencies{
 		Database: &fakeDatabase{events: events}, Transactions: fakeTransactions{},
 		Outbox: fakeOutbox{}, Notifications: fakeNotifications{}, Projection: fakeProjection{},
-		Dispatcher: &fakeDispatcher{events: events},
-		Reminders:  &fakeReminders{events: events, startErr: errors.New("reminder unavailable")},
-		Broker:     &fakeBroker{events: events},
+		Dispatcher: &fakeDispatcher{events: events}, Broker: &fakeBroker{events: events},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := module.BindApplication(ApplicationDependencies{
+		Reminders: &fakeReminders{events: events, startErr: errors.New("reminder unavailable")},
 		Subscriptions: []event.Subscription{
 			fakeSubscription{name: "projection.close", events: events},
 			fakeSubscription{name: "notification.close", events: events},
 		},
-	})
-	if err != nil {
+	}); err != nil {
 		t.Fatal(err)
 	}
 	catalog := modulecatalog.New()
@@ -137,6 +144,31 @@ func TestAppCleansUpModuleInReverseOrderWhenReminderStartFails(t *testing.T) {
 	}
 	if !reflect.DeepEqual(events.values, want) {
 		t.Fatalf("startup cleanup events = %#v, want %#v", events.values, want)
+	}
+}
+
+func TestModuleFailsClosedUntilApplicationBindingAndStillCleansCoreResources(t *testing.T) {
+	events := &eventLog{}
+	module, err := New(Dependencies{
+		Database: &fakeDatabase{events: events}, Transactions: fakeTransactions{},
+		Outbox: fakeOutbox{}, Notifications: fakeNotifications{}, Projection: fakeProjection{},
+		Dispatcher: &fakeDispatcher{events: events}, Broker: &fakeBroker{events: events},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := module.Start(t.Context()); err == nil {
+		t.Fatal("unbound delivery event runtime started")
+	}
+	if err := module.Shutdown(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"dispatcher.shutdown", "broker.close", "database.close"}
+	if !reflect.DeepEqual(events.values, want) {
+		t.Fatalf("unbound cleanup events = %#v, want %#v", events.values, want)
+	}
+	if err := module.BindApplication(ApplicationDependencies{Reminders: &fakeReminders{events: events}}); err == nil {
+		t.Fatal("stopped module accepted late Application binding")
 	}
 }
 
@@ -219,6 +251,7 @@ func (fakeOutbox) Snapshot(context.Context) (outbox.Snapshot, error)            
 
 type fakeNotifications struct{}
 
+func (fakeNotifications) Save(context.Context, notification.Notification) error { return nil }
 func (fakeNotifications) List(context.Context, int) ([]notification.Notification, error) {
 	return nil, nil
 }

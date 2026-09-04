@@ -21,7 +21,6 @@ import (
 	deliveryrpc "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/transport/rpc"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryauthz"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime"
-	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/httpapi"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/humanauthz"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitybinding"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitycore"
@@ -39,7 +38,7 @@ import (
 	"github.com/hvritual/yunka.io/framework/event"
 	frameworkoutbox "github.com/hvritual/yunka.io/framework/event/outbox"
 	"github.com/hvritual/yunka.io/framework/kernel"
-	"github.com/hvritual/yunka.io/framework/operation"
+	"github.com/hvritual/yunka.io/framework/platform"
 	"github.com/hvritual/yunka.io/framework/runtimehost"
 	"github.com/hvritual/yunka.io/gateway/authz"
 	"google.golang.org/grpc"
@@ -143,12 +142,8 @@ func (policy StartupPolicy) ValidateLocalStdio() error {
 }
 
 type Application struct {
-	service       *delivery.Service
-	adapter       deliveryapplication.DeliveryService
 	operations    *deliveryapplication.Operations
 	configOps     *configapplication.Operations
-	executor      operation.Executor
-	eventRuntime  *deliveryruntime.Module
 	serviceAuth   *serviceauth.Manager
 	serviceGrants *serviceauthz.Manager
 	app           *core.App
@@ -253,74 +248,8 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		_ = repository.Close()
 		return nil, fmt.Errorf("create operation security: %w", err)
 	}
-	service := delivery.NewService(repository, exporter, delivery.NewTransactionalOutboxStager(outboxStore))
-	reminders, err := delivery.NewDueReminderScheduler(service, outboxStore, configuration.DueReminder)
-	if err != nil {
-		_ = repository.Close()
-		return nil, fmt.Errorf("configure due reminder scheduler: %w", err)
-	}
-	adapter := deliveryapplication.NewAdapter(service)
-	auditedAdapter, err := deliveryapplication.NewAuditedDeliveryService(
-		adapter,
-		auditStore,
-		deliveryapplication.WithWorkItemResolver(service.Get),
-	)
-	if err != nil {
-		_ = repository.Close()
-		return nil, fmt.Errorf("configure audited delivery application: %w", err)
-	}
 	transactionFactory := localtx.NewSQLiteFactory(repository.Database())
-	executor, err := audit.NewRecordingExecutor(operation.NewExecutorWithOptions(security, operation.ExecutorOptions{
-		Transactions: transactionFactory,
-	}), securityRecorder)
-	if err != nil {
-		_ = repository.Close()
-		return nil, fmt.Errorf("configure security audit executor: %w", err)
-	}
-	configStore, err := configrevision.NewSQLiteStore(repository.Database())
-	if err != nil {
-		_ = repository.Close()
-		return nil, fmt.Errorf("configure config revision store: %w", err)
-	}
-	configOps, err := configapplication.New(configStore, auditStore, executor, configapplication.WithOutbox(outboxStore))
-	if err != nil {
-		_ = repository.Close()
-		return nil, fmt.Errorf("configure config revision operations: %w", err)
-	}
-	operations := deliveryapplication.NewOperations(auditedAdapter, executor, service).WithNotificationReader(notificationStore)
-	if configuration.BootstrapMode == BootstrapModeExample {
-		if err := seedExample(ctx, operations); err != nil {
-			_ = repository.Close()
-			return nil, err
-		}
-	}
 	broker := event.NewLocalBroker(nil)
-	subscriptions := make([]event.Subscription, 0, 2)
-	obsidianSubscription, err := broker.Subscribe(ctx, "delivery.work-item", obsidian.NewProjectionConsumer(service).Handle)
-	if err != nil {
-		_ = broker.Close()
-		_ = repository.Close()
-		return nil, fmt.Errorf("subscribe local Obsidian projection: %w", err)
-	}
-	subscriptions = append(subscriptions, obsidianSubscription)
-	channels := make([]notification.Channel, 0, 1+len(configuration.NotificationChannels))
-	channels = append(channels, notification.NewLocalInboxChannel(notificationStore))
-	channels = append(channels, configuration.NotificationChannels...)
-	router, err := notification.NewRouter(channels...)
-	if err != nil {
-		_ = closeSubscriptions(subscriptions)
-		_ = broker.Close()
-		_ = repository.Close()
-		return nil, fmt.Errorf("configure local notification router: %w", err)
-	}
-	notificationSubscription, err := broker.Subscribe(ctx, notification.DeliveryTopic, notification.NewConsumer(router).Handle)
-	if err != nil {
-		_ = closeSubscriptions(subscriptions)
-		_ = broker.Close()
-		_ = repository.Close()
-		return nil, fmt.Errorf("subscribe local notification delivery: %w", err)
-	}
-	subscriptions = append(subscriptions, notificationSubscription)
 	dispatcher, err := frameworkoutbox.NewDispatcher(outboxStore, broker, frameworkoutbox.DispatcherConfig{
 		WorkerID:       "iot-delivery-local-outbox",
 		PollInterval:   50 * time.Millisecond,
@@ -332,7 +261,6 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		RetryMax:       2 * time.Second,
 	})
 	if err != nil {
-		_ = closeSubscriptions(subscriptions)
 		_ = broker.Close()
 		_ = repository.Close()
 		return nil, fmt.Errorf("create local outbox dispatcher: %w", err)
@@ -340,25 +268,30 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	eventRuntime, err := deliveryruntime.New(deliveryruntime.Dependencies{
 		Database: repository, Transactions: transactionFactory,
 		Outbox: outboxStore, Notifications: notificationStore, Projection: exporter,
-		Dispatcher: dispatcher, Reminders: reminders, Broker: broker, Subscriptions: subscriptions,
+		Dispatcher: dispatcher, Broker: broker,
 	})
 	if err != nil {
 		_ = dispatcher.Shutdown(context.Background())
-		_ = closeSubscriptions(subscriptions)
 		_ = broker.Close()
 		_ = repository.Close()
 		return nil, fmt.Errorf("configure delivery event runtime: %w", err)
 	}
+	runtimePlatform, err := platform.New(platform.Options{})
+	if err != nil {
+		_ = eventRuntime.Shutdown(context.Background())
+		return nil, fmt.Errorf("configure Yunka Platform provider: %w", err)
+	}
 
 	application := &Application{
-		service:       service,
-		adapter:       auditedAdapter,
-		operations:    operations,
-		configOps:     configOps,
-		executor:      executor,
-		eventRuntime:  eventRuntime,
 		serviceAuth:   serviceCredentialManager,
 		serviceGrants: serviceGrantManager,
+	}
+	binder := &applicationRuntimeBinder{
+		repository: repository, auditStore: auditStore, securityRecorder: securityRecorder,
+		security: security, eventRuntime: eventRuntime, broker: broker,
+		notificationChannels: append([]notification.Channel(nil), configuration.NotificationChannels...),
+		dueReminder:          configuration.DueReminder, bootstrapMode: configuration.BootstrapMode,
+		application: application,
 	}
 	var legacyGRPCFallback grpc.UnaryServerInterceptor
 	if authenticator != nil {
@@ -372,29 +305,17 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		HealthPath:        "/health",
 		DiagnosticsPath:   "/__yunka/diagnostics",
 		Bootstrap: func(bootstrapCtx context.Context, runtime runtimehost.Runtime) (kernel.BootstrapResult[generatedassembly.Applications], error) {
-			if application == nil || application.adapter == nil || application.operations == nil || application.executor == nil {
-				return kernel.BootstrapResult[generatedassembly.Applications]{}, errors.New("delivery application is not configured")
-			}
-			result, bootstrapErr := generatedassembly.Bootstrap(bootstrapCtx, generatedassembly.BootstrapOptions{
+			return generatedassembly.Bootstrap(bootstrapCtx, generatedassembly.BootstrapOptions{
+				Platform:          runtimePlatform,
 				AdditionalModules: []modulecatalog.Descriptor{eventRuntime.Descriptor()},
-				Factories: applicationFactories{
-					deliveryManagement: application.adapter,
-					transactions:       transactionFactory,
-					outbox:             outboxStore,
-					notifications:      notificationStore,
-					projection:         exporter,
+				BindRuntimeWithCapabilities: func(bindCtx context.Context, provider *platform.Provider, capabilities modulecatalog.CapabilitySet) (generatedassembly.RuntimeBindings, error) {
+					return binder.Bind(bindCtx, provider, capabilities, runtime.HTTP)
 				},
-				Executor: application.executor,
 				Transports: generatedassembly.TransportBindings{
 					RPC: runtime.RPC,
 				},
 				RuntimeComponents: runtime.RuntimeComponents,
 			})
-			if bootstrapErr != nil {
-				return kernel.BootstrapResult[generatedassembly.Applications]{}, bootstrapErr
-			}
-			httpapi.Register(runtime.HTTP, application.operations)
-			return result, nil
 		},
 	})
 	if err != nil {
@@ -525,39 +446,6 @@ func loopbackAddress(address string) bool {
 	return net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback()
 }
 
-type applicationFactories struct {
-	deliveryManagement deliveryapplication.DeliveryService
-	transactions       *localtx.SQLiteFactory
-	outbox             *localoutbox.SQLiteStore
-	notifications      *notification.SQLiteStore
-	projection         *obsidian.Exporter
-}
-
-func (factories applicationFactories) BuildDeliveryManagement(dependencies generatedassembly.DeliveryManagementDependencies) (deliveryapplication.DeliveryService, error) {
-	if dependencies.SqliteTransactionFactory == nil {
-		return nil, errors.New("SQLite transaction factory capability is not configured")
-	}
-	if dependencies.DeliveryOutbox == nil || dependencies.DeliveryNotifications == nil || dependencies.DeliveryProjection == nil {
-		return nil, errors.New("delivery event runtime capabilities are not configured")
-	}
-	if factories.transactions != nil && dependencies.SqliteTransactionFactory != factories.transactions {
-		return nil, errors.New("SQLite transaction factory capability does not match the root executor")
-	}
-	if factories.outbox != nil && dependencies.DeliveryOutbox != factories.outbox {
-		return nil, errors.New("delivery Outbox capability does not match the configured application")
-	}
-	if factories.notifications != nil && dependencies.DeliveryNotifications != factories.notifications {
-		return nil, errors.New("delivery notification capability does not match the configured application")
-	}
-	if factories.projection != nil && dependencies.DeliveryProjection != factories.projection {
-		return nil, errors.New("delivery projection capability does not match the configured application")
-	}
-	if factories.deliveryManagement == nil {
-		return nil, errors.New("delivery management application adapter is not configured")
-	}
-	return factories.deliveryManagement, nil
-}
-
 // Operations exposes the application-use-case boundary for local adapters
 // such as the stdio MCP server. Callers must still establish an authenticated
 // principal; Operations keeps Yunka execution security and transactions.
@@ -604,26 +492,10 @@ func (application *Application) GRPCAddress() string {
 }
 
 func (application *Application) Close(ctx context.Context) error {
-	if application == nil {
+	if application == nil || application.app == nil {
 		return nil
 	}
-	if application.app != nil {
-		return application.app.Shutdown(ctx)
-	}
-	if application.eventRuntime != nil {
-		return application.eventRuntime.Shutdown(ctx)
-	}
-	return nil
-}
-
-func closeSubscriptions(subscriptions []event.Subscription) error {
-	var closeErr error
-	for index := len(subscriptions) - 1; index >= 0; index-- {
-		if subscriptions[index] != nil {
-			closeErr = errors.Join(closeErr, subscriptions[index].Close())
-		}
-	}
-	return closeErr
+	return application.app.Shutdown(ctx)
 }
 
 func seedExample(ctx context.Context, operations *deliveryapplication.Operations) error {
