@@ -140,7 +140,7 @@ func (policy StartupPolicy) ValidateLocalStdio() error {
 type Application struct {
 	repository    *delivery.SQLiteRepository
 	service       *delivery.Service
-	adapter       *deliveryapplication.Adapter
+	adapter       deliveryapplication.DeliveryService
 	operations    *deliveryapplication.Operations
 	executor      operation.Executor
 	outbox        *localoutbox.SQLiteStore
@@ -210,6 +210,11 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		_ = repository.Close()
 		return nil, err
 	}
+	auditStore, err := audit.NewSQLiteStore(repository.Database())
+	if err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("configure audit store: %w", err)
+	}
 	notificationStore, err := notification.NewSQLiteStore(repository.Database())
 	if err != nil {
 		_ = repository.Close()
@@ -245,10 +250,19 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		return nil, fmt.Errorf("configure due reminder scheduler: %w", err)
 	}
 	adapter := deliveryapplication.NewAdapter(service)
+	auditedAdapter, err := deliveryapplication.NewAuditedDeliveryService(
+		adapter,
+		auditStore,
+		deliveryapplication.WithWorkItemResolver(service.Get),
+	)
+	if err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("configure audited delivery application: %w", err)
+	}
 	executor := operation.NewExecutorWithOptions(security, operation.ExecutorOptions{
 		Transactions: localtx.NewSQLiteFactory(repository.Database()),
 	})
-	operations := deliveryapplication.NewOperations(adapter, executor, service).WithNotificationReader(notificationStore)
+	operations := deliveryapplication.NewOperations(auditedAdapter, executor, service).WithNotificationReader(notificationStore)
 	if configuration.BootstrapMode == BootstrapModeExample {
 		if err := seedExample(ctx, operations); err != nil {
 			_ = repository.Close()
@@ -302,7 +316,7 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	application := &Application{
 		repository:    repository,
 		service:       service,
-		adapter:       adapter,
+		adapter:       auditedAdapter,
 		operations:    operations,
 		executor:      executor,
 		outbox:        outboxStore,
@@ -656,6 +670,7 @@ func seedExample(ctx context.Context, operations *deliveryapplication.Operations
 	bootstrapContext := identity.WithPrincipal(ctx, identity.Principal{
 		Subject:       "bootstrap/seed",
 		UserID:        "bootstrap/seed",
+		TenantID:      localauth.DevelopmentTenantID,
 		Roles:         []string{localauth.RoleLocalAdmin},
 		AuthMethod:    identity.AuthMethodAPIKey,
 		Authenticated: true,

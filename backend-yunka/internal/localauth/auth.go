@@ -32,6 +32,10 @@ const (
 	RoleReleaseManager = "release-manager"
 	RoleLocalAdmin     = "local-admin"
 
+	// DevelopmentTenantID is the stable server-assigned tenant for the
+	// development-only API-key boundary. It is never sourced from a client.
+	DevelopmentTenantID = "local-development"
+
 	serviceCredentialPrefix = "svc."
 )
 
@@ -153,6 +157,7 @@ func (authenticator *Authenticator) authenticate(candidate string) (identity.Pri
 	}
 	return identity.Principal{
 		Subject:       "local-api-key/" + role,
+		TenantID:      DevelopmentTenantID,
 		UserID:        "local-api-key/" + role,
 		Roles:         []string{role},
 		AuthMethod:    identity.AuthMethodAPIKey,

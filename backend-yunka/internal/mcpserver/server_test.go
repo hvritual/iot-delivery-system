@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	deliveryapplication "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
 	deliveryrpc "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/transport/rpc"
@@ -28,6 +29,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 	"yunka.io/framework/core/identity"
+	"yunka.io/framework/core/runtimecontext"
 	"yunka.io/framework/operation"
 	"yunka.io/gateway/authz"
 )
@@ -80,6 +82,13 @@ func newExecutionFixture(t *testing.T) *executionFixture {
 		t.Fatalf("open SQLite repository: %v", err)
 	}
 	t.Cleanup(func() { _ = repository.Close() })
+	if err := audit.ApplyMigrations(t.Context(), repository.Database()); err != nil {
+		t.Fatalf("apply audit migrations: %v", err)
+	}
+	auditStore, err := audit.NewSQLiteStore(repository.Database())
+	if err != nil {
+		t.Fatalf("open SQLite audit store: %v", err)
+	}
 	outbox, err := localoutbox.NewSQLiteStore(repository.Database())
 	if err != nil {
 		t.Fatalf("open SQLite outbox: %v", err)
@@ -94,15 +103,30 @@ func newExecutionFixture(t *testing.T) *executionFixture {
 	}
 	observer := &operationObserver{}
 	service := delivery.NewService(repository, nil, delivery.NewTransactionalOutboxStager(outbox))
+	audited, err := deliveryapplication.NewAuditedDeliveryService(
+		deliveryapplication.NewAdapter(service),
+		auditStore,
+		deliveryapplication.WithWorkItemResolver(service.Get),
+	)
+	if err != nil {
+		t.Fatalf("assemble audited application: %v", err)
+	}
 	executor := operation.NewExecutorWithOptions(
 		security,
 		operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())},
 		observer,
 	)
-	operations := deliveryapplication.NewOperations(deliveryapplication.NewAdapter(service), executor, service)
+	operations := deliveryapplication.NewOperations(audited, executor, service)
 	listener := bufconn.Listen(1024 * 1024)
-	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(authenticator.GRPCUnaryServerInterceptor()))
-	if err := deliveryrpc.RegisterOperationExecutor(grpcServer, deliveryapplication.NewAdapter(service), executor); err != nil {
+	grpcServer := grpc.NewServer(grpc.ChainUnaryInterceptor(
+		func(ctx context.Context, request any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+			ctx = runtimecontext.WithTraceID(ctx, "grpc-trace-a")
+			ctx = runtimecontext.WithMetadata(ctx, runtimecontext.Metadata{Transport: "grpc", Protocol: "grpc", Operation: info.FullMethod, RequestID: "grpc-request-a"})
+			return handler(ctx, request)
+		},
+		authenticator.GRPCUnaryServerInterceptor(),
+	))
+	if err := deliveryrpc.RegisterOperationExecutor(grpcServer, audited, executor); err != nil {
 		t.Fatalf("register generated gRPC operation executor: %v", err)
 	}
 	go func() { _ = grpcServer.Serve(listener) }()
@@ -149,7 +173,8 @@ func callMCP(t *testing.T, operations *deliveryapplication.Operations, principal
 		t.Fatalf("connect MCP client: %v", err)
 	}
 	defer clientSession.Close()
-	result, err := clientSession.CallTool(t.Context(), &mcp.CallToolParams{Name: name, Arguments: arguments})
+	ctx := runtimecontext.WithTraceID(t.Context(), "mcp-trace-a")
+	result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: arguments})
 	if err != nil {
 		t.Fatalf("call MCP tool %s: %v", name, err)
 	}
@@ -252,10 +277,31 @@ func TestMCPAndGeneratedGRPCShareCreateAndAdvanceGateExecution(t *testing.T) {
 	}
 	assertStoredGate(t, grpcFixture.repository, grpcCreated.GetItem().GetId(), delivery.GateSolutionReviewed)
 	assertStoredGate(t, mcpFixture.repository, mcpCreated.Created.ID, delivery.GateSolutionReviewed)
+	assertTransportAuditEntry(t, grpcFixture.repository, "delivery.items.create", grpcCreated.GetItem().GetId(), "grpc", "grpc-trace-a")
+	assertTransportAuditEntry(t, grpcFixture.repository, "delivery.items.advance-gate", grpcCreated.GetItem().GetId(), "grpc", "grpc-trace-a")
+	assertTransportAuditEntry(t, mcpFixture.repository, "delivery.items.create", mcpCreated.Created.ID, "mcp", "")
+	assertTransportAuditEntry(t, mcpFixture.repository, "delivery.items.advance-gate", mcpCreated.Created.ID, "mcp", "")
 	for _, operationID := range []string{"delivery.items.create", "delivery.items.advance-gate"} {
 		if grpcFixture.observer.successfulOperations()[operationID] != 1 || mcpFixture.observer.successfulOperations()[operationID] != 1 {
 			t.Fatalf("successful %s operation IDs do not match across generated gRPC and MCP", operationID)
 		}
+	}
+}
+
+func assertTransportAuditEntry(t *testing.T, repository *delivery.SQLiteRepository, operationID, targetID, transport, traceID string) {
+	t.Helper()
+	var actorType, actorID, storedTargetID, result, storedTraceID, metadata string
+	err := repository.Database().QueryRowContext(t.Context(), `SELECT actor_type, actor_id, target_id, result, COALESCE(trace_id, ''), metadata
+FROM iotd_audit_entries WHERE operation = ? ORDER BY sequence DESC LIMIT 1`, operationID).Scan(&actorType, &actorID, &storedTargetID, &result, &storedTraceID, &metadata)
+	if err != nil {
+		t.Fatalf("read %s audit entry: %v", operationID, err)
+	}
+	if actorType != string(audit.ActorSystem) || actorID != "development-api-key" || storedTargetID != targetID || result != string(audit.ResultSuccess) || storedTraceID != traceID {
+		t.Fatalf("%s audit fields = actor=%s/%s target=%s result=%s trace=%s", operationID, actorType, actorID, storedTargetID, result, storedTraceID)
+	}
+	var parsed map[string]string
+	if err := json.Unmarshal([]byte(metadata), &parsed); err != nil || parsed["transport"] != transport {
+		t.Fatalf("%s audit metadata = %q, %v", operationID, metadata, err)
 	}
 }
 

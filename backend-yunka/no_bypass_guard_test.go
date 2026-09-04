@@ -12,7 +12,7 @@ import (
 )
 
 var guardedMutations = map[string]bool{"Create": true, "CreateProject": true, "CreateRelease": true, "CreateSprint": true, "CreateMilestone": true, "UpdateWorkItem": true, "AddComment": true, "UpdateContext": true, "AdvanceGate": true, "Close": true, "SaveView": true, "Save": true, "SaveProject": true, "SaveRelease": true, "SaveSprint": true, "SaveMilestone": true, "CreateSavedView": true}
-var implementationAllowlist = map[string]bool{"internal/delivery/service.go": true, "internal/delivery/repository.go": true, "internal/delivery/sqlite_repository.go": true, "internal/delivery/application/adapter.go": true, "internal/delivery/application/operations.go": true}
+var implementationAllowlist = map[string]bool{"internal/delivery/service.go": true, "internal/delivery/repository.go": true, "internal/delivery/sqlite_repository.go": true, "internal/delivery/application/adapter.go": true, "internal/delivery/application/audited.go": true, "internal/delivery/application/operations.go": true}
 
 func TestProductionWriteCallersUseOperationsBoundary(t *testing.T) {
 	var files []string

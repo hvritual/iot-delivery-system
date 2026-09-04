@@ -12,6 +12,7 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"yunka.io/framework/core/identity"
+	"yunka.io/framework/core/runtimecontext"
 	"yunka.io/gateway/authz"
 )
 
@@ -96,7 +97,11 @@ func (server *server) toolContext(ctx context.Context) (context.Context, error) 
 	if !server.principal.Authenticated {
 		return nil, errMCPUnauthenticated
 	}
-	return identity.WithPrincipal(ctx, server.principal), nil
+	ctx = identity.WithPrincipal(ctx, server.principal)
+	if _, exists := runtimecontext.MetadataFrom(ctx); !exists {
+		ctx = runtimecontext.WithMetadata(ctx, runtimecontext.Metadata{Transport: "mcp", Protocol: "mcp"})
+	}
+	return ctx, nil
 }
 
 type createProjectArgs struct {

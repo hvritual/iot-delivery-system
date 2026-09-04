@@ -18,6 +18,7 @@ import (
 	"time"
 
 	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/bffassertion"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/bootstrap"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/httpapi"
@@ -37,10 +38,11 @@ func TestApplicationUsesYunkaRuntimeHostForDeliveryAPI(t *testing.T) {
 	t.Setenv(localauth.APIKeyEnvironment, "host-test-key")
 	ctx := context.Background()
 	vault := t.TempDir()
+	databasePath := filepath.Join(t.TempDir(), "iot-delivery-yunka.db")
 	application, err := bootstrap.New(ctx, bootstrap.Config{
 		HTTPAddress:        "127.0.0.1:0",
 		GRPCAddress:        "127.0.0.1:0",
-		DatabasePath:       filepath.Join(t.TempDir(), "iot-delivery-yunka.db"),
+		DatabasePath:       databasePath,
 		ObsidianVault:      vault,
 		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
 		BootstrapMode:      bootstrap.BootstrapModeExample,
@@ -117,6 +119,26 @@ func TestApplicationUsesYunkaRuntimeHostForDeliveryAPI(t *testing.T) {
 	}
 	if createResponse.StatusCode != http.StatusCreated {
 		t.Fatalf("create through hosted application status = %d body=%q, want %d", createResponse.StatusCode, createBody, http.StatusCreated)
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(createBody, &created); err != nil || created.ID == "" {
+		t.Fatalf("decode created HTTP item: %#v, %v", created, err)
+	}
+	database, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open hosted database for audit assertion: %v", err)
+	}
+	defer database.Close()
+	var actorType, actorID, targetType, targetID, result, traceID, requestID, metadata string
+	err = database.QueryRowContext(t.Context(), `SELECT actor_type, actor_id, target_type, target_id, result, trace_id, request_id, metadata
+FROM iotd_audit_entries WHERE operation = 'delivery.items.create' ORDER BY sequence DESC LIMIT 1`).Scan(&actorType, &actorID, &targetType, &targetID, &result, &traceID, &requestID, &metadata)
+	if err != nil {
+		t.Fatalf("read REST audit entry: %v", err)
+	}
+	if actorType != "system" || actorID != "development-api-key" || targetType != "delivery.work-item" || targetID != created.ID || result != "success" || traceID != createResponse.Header.Get(bffassertion.TraceHeader) || requestID != traceID || !strings.Contains(metadata, `"transport":"http"`) {
+		t.Fatalf("REST audit entry = actor=%s/%s target=%s/%s result=%s trace=%s request=%s metadata=%s", actorType, actorID, targetType, targetID, result, traceID, requestID, metadata)
 	}
 	overviewPath := filepath.Join(vault, "10-交付管理", "00-交付总览.md")
 	deadline := time.Now().Add(2 * time.Second)
