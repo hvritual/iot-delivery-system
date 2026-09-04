@@ -87,6 +87,13 @@
           "kind": "message",
           "type": "iot.delivery.v1.Evidence",
           "repeated": true
+        },
+        {
+          "name": "expected_revision",
+          "jsonName": "expectedRevision",
+          "number": 4,
+          "kind": "scalar",
+          "type": "int64"
         }
       ],
       "dto": {
@@ -168,6 +175,13 @@
           "number": 2,
           "kind": "scalar",
           "type": "string"
+        },
+        {
+          "name": "expected_revision",
+          "jsonName": "expectedRevision",
+          "number": 3,
+          "kind": "scalar",
+          "type": "int64"
         }
       ],
       "dto": {
@@ -221,6 +235,13 @@
           "number": 1,
           "kind": "message",
           "type": "iot.delivery.v1.Comment"
+        },
+        {
+          "name": "revision",
+          "jsonName": "revision",
+          "number": 2,
+          "kind": "scalar",
+          "type": "int64"
         }
       ],
       "dto": {
@@ -244,6 +265,13 @@
           "number": 2,
           "kind": "scalar",
           "type": "string"
+        },
+        {
+          "name": "expected_revision",
+          "jsonName": "expectedRevision",
+          "number": 3,
+          "kind": "scalar",
+          "type": "int64"
         }
       ],
       "dto": {
@@ -1226,6 +1254,13 @@
           "kind": "message",
           "type": "iot.delivery.v1.Decision",
           "optional": true
+        },
+        {
+          "name": "expected_revision",
+          "jsonName": "expectedRevision",
+          "number": 6,
+          "kind": "scalar",
+          "type": "int64"
         }
       ],
       "dto": {
@@ -1344,6 +1379,13 @@
           "kind": "message",
           "type": "iot.delivery.v1.TraceLink",
           "repeated": true
+        },
+        {
+          "name": "expected_revision",
+          "jsonName": "expectedRevision",
+          "number": 16,
+          "kind": "scalar",
+          "type": "int64"
         }
       ],
       "dto": {
@@ -1584,6 +1626,13 @@
           "kind": "message",
           "type": "iot.delivery.v1.Activity",
           "repeated": true
+        },
+        {
+          "name": "revision",
+          "jsonName": "revision",
+          "number": 33,
+          "kind": "scalar",
+          "type": "int64"
         }
       ],
       "dto": {

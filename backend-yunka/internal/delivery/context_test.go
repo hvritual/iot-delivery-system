@@ -21,7 +21,7 @@ func TestServiceRecordsPlanSolutionDecisionAndBlocker(t *testing.T) {
 	plan := "按型号和网络运营商拆分离线率。"
 	solution := "对持续离线设备触发诊断任务。"
 	blocker := "等待现场网络抓包。"
-	updated, err := service.UpdateContext(ctx, item.ID, ContextUpdate{
+	updated, err := service.UpdateContext(ctx, item.ID, item.Revision, ContextUpdate{
 		Plan:     &plan,
 		Solution: &solution,
 		Blocker:  &blocker,

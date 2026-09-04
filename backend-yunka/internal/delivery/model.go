@@ -219,6 +219,9 @@ type Comment struct {
 	Body      string    `json:"body"`
 	Author    string    `json:"author"`
 	CreatedAt time.Time `json:"createdAt"`
+	// WorkItemRevision is populated only on mutation results, so a caller can
+	// continue a sequence with the server-confirmed aggregate revision.
+	WorkItemRevision int64 `json:"revision,omitempty"`
 }
 
 type Activity struct {
@@ -240,6 +243,7 @@ type Decision struct {
 
 type WorkItem struct {
 	ID                            string               `json:"id"`
+	Revision                      int64                `json:"revision"`
 	Title                         string               `json:"title"`
 	Board                         Board                `json:"board"`
 	ProjectID                     string               `json:"projectId,omitempty"`
@@ -328,7 +332,8 @@ type WorkItemUpdate struct {
 }
 
 type CommentInput struct {
-	Body string `json:"body"`
+	Body             string `json:"body"`
+	ExpectedRevision int64  `json:"expectedRevision"`
 }
 
 // WorkItemFilter is deliberately reusable by item search, saved views, and

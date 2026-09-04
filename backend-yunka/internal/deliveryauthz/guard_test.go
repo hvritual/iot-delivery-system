@@ -86,7 +86,7 @@ func TestOperationGuardRejectsWorkItemWithoutOwnedProject(t *testing.T) {
 		t.Fatalf("new guard: %v", err)
 	}
 	authorized := authorizedOperation("org-a", "delivery.items.update", "delivery.work-items.update", "contributor", "project:project-a")
-	if _, err := guard.Prepare(t.Context(), authorized, &deliveryv1.UpdateItemRequest{Id: "item-orphan"}); !errors.Is(err, deliveryauthz.ErrDenied) {
+	if _, err := guard.Prepare(t.Context(), authorized, &deliveryv1.UpdateItemRequest{Id: "item-orphan", ExpectedRevision: 1}); !errors.Is(err, deliveryauthz.ErrDenied) {
 		t.Fatalf("orphan item error = %v, want denied", err)
 	}
 }
@@ -136,10 +136,10 @@ func TestOperationGuardRejectsCrossProjectItemAndMissingProjectOwnership(t *test
 		t.Fatal(err)
 	}
 	authorized := authorizedOperation("org-a", "delivery.items.update", "delivery.work-items.update", "contributor", "project:project-a")
-	if _, err := guard.Prepare(t.Context(), authorized, &deliveryv1.UpdateItemRequest{Id: "item-b"}); !errors.Is(err, deliveryauthz.ErrDenied) {
+	if _, err := guard.Prepare(t.Context(), authorized, &deliveryv1.UpdateItemRequest{Id: "item-b", ExpectedRevision: 1}); !errors.Is(err, deliveryauthz.ErrDenied) {
 		t.Fatalf("cross organization item error = %v, want denied", err)
 	}
-	if _, err := guard.Prepare(t.Context(), authorized, &deliveryv1.UpdateItemRequest{Id: "missing"}); !errors.Is(err, deliveryauthz.ErrDenied) {
+	if _, err := guard.Prepare(t.Context(), authorized, &deliveryv1.UpdateItemRequest{Id: "missing", ExpectedRevision: 1}); !errors.Is(err, deliveryauthz.ErrDenied) {
 		t.Fatalf("missing item error = %v, want denied", err)
 	}
 }
@@ -243,7 +243,7 @@ func TestOperationGuardRejectsForgedObjectGrant(t *testing.T) {
 		t.Fatal(err)
 	}
 	authorized := authorizedOperation("org-a", "delivery.items.update", "delivery.work-items.update", "contributor", "object:work-item:item-a")
-	if _, err := guard.Prepare(t.Context(), authorized, &deliveryv1.UpdateItemRequest{Id: "item-a"}); !errors.Is(err, deliveryauthz.ErrDenied) {
+	if _, err := guard.Prepare(t.Context(), authorized, &deliveryv1.UpdateItemRequest{Id: "item-a", ExpectedRevision: 1}); !errors.Is(err, deliveryauthz.ErrDenied) {
 		t.Fatalf("forged object grant error = %v, want denied", err)
 	}
 }

@@ -208,7 +208,7 @@ func TestOperationsUpdatePresenceAndCommentPersistThroughGeneratedWrites(t *test
 		t.Fatal(err)
 	}
 	empty := []delivery.WorkItemDependency{}
-	updated, err := operations.UpdateWorkItem(admin, item.ID, delivery.WorkItemUpdate{Dependencies: &empty})
+	updated, err := operations.UpdateWorkItem(admin, item.ID, currentRevision(t, operations, admin, item.ID), delivery.WorkItemUpdate{Dependencies: &empty})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +216,7 @@ func TestOperationsUpdatePresenceAndCommentPersistThroughGeneratedWrites(t *test
 		t.Fatalf("explicit empty dependencies=%#v", updated.Dependencies)
 	}
 	title := "renamed"
-	unchanged, err := operations.UpdateWorkItem(admin, item.ID, delivery.WorkItemUpdate{Title: &title})
+	unchanged, err := operations.UpdateWorkItem(admin, item.ID, currentRevision(t, operations, admin, item.ID), delivery.WorkItemUpdate{Title: &title})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +227,7 @@ func TestOperationsUpdatePresenceAndCommentPersistThroughGeneratedWrites(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	comment, err := operations.AddComment(admin, item.ID, delivery.CommentInput{Body: "comment"})
+	comment, err := operations.AddComment(admin, item.ID, currentRevision(t, operations, admin, item.ID), delivery.CommentInput{Body: "comment"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +239,7 @@ func TestOperationsUpdatePresenceAndCommentPersistThroughGeneratedWrites(t *test
 		t.Fatalf("comment outbox=%#v err=%v", snapshot, err)
 	}
 	afterCommentTitle := "after-comment"
-	response, err := operations.UpdateWorkItem(admin, item.ID, delivery.WorkItemUpdate{Title: &afterCommentTitle})
+	response, err := operations.UpdateWorkItem(admin, item.ID, currentRevision(t, operations, admin, item.ID), delivery.WorkItemUpdate{Title: &afterCommentTitle})
 	if err != nil || len(response.Comments) != 1 || len(response.Activities) == 0 || response.Comments[0].Author != "actor" || response.Comments[0].CreatedAt.IsZero() || response.Activities[len(response.Activities)-1].OccurredAt.IsZero() {
 		t.Fatalf("work item response lost comment/activity: %#v err=%v", response, err)
 	}
@@ -292,7 +292,7 @@ func TestOperationsRejectsInvalidDependenciesWithoutOutboxSideEffects(t *testing
 		t.Fatal(err)
 	}
 	deps := []delivery.WorkItemDependency{{ItemID: foreign.ID, Relation: delivery.DependencyDependsOn}}
-	if _, err := operations.UpdateWorkItem(admin, local.ID, delivery.WorkItemUpdate{Dependencies: &deps}); !errors.Is(err, delivery.ErrProjectParentMismatch) {
+	if _, err := operations.UpdateWorkItem(admin, local.ID, currentRevision(t, operations, admin, local.ID), delivery.WorkItemUpdate{Dependencies: &deps}); !errors.Is(err, delivery.ErrProjectParentMismatch) {
 		t.Fatalf("cross-project error=%v", err)
 	}
 	after, err := store.Snapshot(ctx)
@@ -307,7 +307,7 @@ func TestOperationsRejectsInvalidDependenciesWithoutOutboxSideEffects(t *testing
 		t.Fatalf("cross project side effect outbox=%#v stored=%#v", after, stored)
 	}
 	deps = []delivery.WorkItemDependency{{ItemID: local.ID, Relation: delivery.DependencyDependsOn}}
-	if _, err := operations.UpdateWorkItem(admin, local.ID, delivery.WorkItemUpdate{Dependencies: &deps}); !errors.Is(err, delivery.ErrCircularDependency) {
+	if _, err := operations.UpdateWorkItem(admin, local.ID, currentRevision(t, operations, admin, local.ID), delivery.WorkItemUpdate{Dependencies: &deps}); !errors.Is(err, delivery.ErrCircularDependency) {
 		t.Fatalf("self-cycle error=%v", err)
 	}
 	after, err = store.Snapshot(ctx)
@@ -330,7 +330,7 @@ func TestOperationsRejectsInvalidDependenciesWithoutOutboxSideEffects(t *testing
 		t.Fatal(err)
 	}
 	deps = []delivery.WorkItemDependency{{ItemID: b.ID, Relation: delivery.DependencyDependsOn}}
-	if _, err := operations.UpdateWorkItem(admin, a.ID, delivery.WorkItemUpdate{Dependencies: &deps}); err != nil {
+	if _, err := operations.UpdateWorkItem(admin, a.ID, currentRevision(t, operations, admin, a.ID), delivery.WorkItemUpdate{Dependencies: &deps}); err != nil {
 		t.Fatal(err)
 	}
 	before, err = store.Snapshot(ctx)
@@ -338,7 +338,7 @@ func TestOperationsRejectsInvalidDependenciesWithoutOutboxSideEffects(t *testing
 		t.Fatal(err)
 	}
 	deps = []delivery.WorkItemDependency{{ItemID: a.ID, Relation: delivery.DependencyDependsOn}}
-	if _, err := operations.UpdateWorkItem(admin, b.ID, delivery.WorkItemUpdate{Dependencies: &deps}); !errors.Is(err, delivery.ErrCircularDependency) {
+	if _, err := operations.UpdateWorkItem(admin, b.ID, currentRevision(t, operations, admin, b.ID), delivery.WorkItemUpdate{Dependencies: &deps}); !errors.Is(err, delivery.ErrCircularDependency) {
 		t.Fatalf("two-node error=%v", err)
 	}
 	after, err = store.Snapshot(ctx)
@@ -394,10 +394,10 @@ func TestOperationsViewerWriteOperationsHaveNoSideEffects(t *testing.T) {
 		_, e := operations.Create(viewer, delivery.CreateInput{Title: "denied", Board: delivery.BoardResearchDelivery, Owner: "viewer"})
 		return e
 	}, func() error {
-		_, e := operations.UpdateWorkItem(viewer, item.ID, delivery.WorkItemUpdate{Title: &title})
+		_, e := operations.UpdateWorkItem(viewer, item.ID, currentRevision(t, operations, viewer, item.ID), delivery.WorkItemUpdate{Title: &title})
 		return e
 	}, func() error {
-		_, e := operations.AddComment(viewer, item.ID, delivery.CommentInput{Body: "denied"})
+		_, e := operations.AddComment(viewer, item.ID, currentRevision(t, operations, viewer, item.ID), delivery.CommentInput{Body: "denied"})
 		return e
 	}}
 	for _, call := range calls {
@@ -463,7 +463,7 @@ func TestOperationsGovernanceWritesUseGeneratedContractsWhenServiceIsProvided(t 
 	empty := ""
 	decisionTime := time.Date(2026, 9, 3, 9, 0, 0, 0, time.UTC)
 	decision := delivery.Decision{ID: "ADR-caller-001", Title: " preserve all decision fields ", Context: " context ", Outcome: " outcome ", Consequences: " consequences ", CreatedAt: decisionTime}
-	updated, err := operations.UpdateContext(administrator, item.ID, delivery.ContextUpdate{Plan: &empty, Solution: &empty, Blocker: &empty, Decision: &decision})
+	updated, err := operations.UpdateContext(administrator, item.ID, currentRevision(t, operations, administrator, item.ID), delivery.ContextUpdate{Plan: &empty, Solution: &empty, Blocker: &empty, Decision: &decision})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -505,15 +505,15 @@ func TestOperationsGovernanceWritesUseGeneratedContractsWhenServiceIsProvided(t 
 		}
 	}
 	assertNoSideEffect("close before production validation", delivery.ErrReleaseNotValidated, func() error {
-		_, callErr := operations.Close(administrator, item.ID, "retrospective")
+		_, callErr := operations.Close(administrator, item.ID, currentRevision(t, operations, administrator, item.ID), "retrospective")
 		return callErr
 	})
 	assertNoSideEffect("advance without evidence", delivery.ErrEvidenceRequired, func() error {
-		_, callErr := operations.AdvanceGate(administrator, item.ID, delivery.GateSolutionReviewed, nil)
+		_, callErr := operations.AdvanceGate(administrator, item.ID, currentRevision(t, operations, administrator, item.ID), delivery.GateSolutionReviewed, nil)
 		return callErr
 	})
 	assertNoSideEffect("advance with incomplete evidence", delivery.ErrEvidenceRequired, func() error {
-		_, callErr := operations.AdvanceGate(administrator, item.ID, delivery.GateSolutionReviewed, []delivery.Evidence{{Kind: "test"}})
+		_, callErr := operations.AdvanceGate(administrator, item.ID, currentRevision(t, operations, administrator, item.ID), delivery.GateSolutionReviewed, []delivery.Evidence{{Kind: "test"}})
 		return callErr
 	})
 
@@ -521,7 +521,7 @@ func TestOperationsGovernanceWritesUseGeneratedContractsWhenServiceIsProvided(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	advanced, err := operations.AdvanceGate(administrator, item.ID, delivery.GateSolutionReviewed, []delivery.Evidence{{Kind: "review", Title: "solution approved", Reference: "ADR-caller-001"}})
+	advanced, err := operations.AdvanceGate(administrator, item.ID, currentRevision(t, operations, administrator, item.ID), delivery.GateSolutionReviewed, []delivery.Evidence{{Kind: "review", Title: "solution approved", Reference: "ADR-caller-001"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -537,7 +537,7 @@ func TestOperationsGovernanceWritesUseGeneratedContractsWhenServiceIsProvided(t 
 		t.Fatalf("advance outbox = %#v, %v", afterAdvance, err)
 	}
 	assertNoSideEffect("skip a delivery gate", delivery.ErrInvalidGateTransition, func() error {
-		_, callErr := operations.AdvanceGate(administrator, item.ID, delivery.GateTestPassed, []delivery.Evidence{{Kind: "test", Title: "skip"}})
+		_, callErr := operations.AdvanceGate(administrator, item.ID, currentRevision(t, operations, administrator, item.ID), delivery.GateTestPassed, []delivery.Evidence{{Kind: "test", Title: "skip"}})
 		return callErr
 	})
 
@@ -550,7 +550,7 @@ func TestOperationsGovernanceWritesUseGeneratedContractsWhenServiceIsProvided(t 
 		if gate == delivery.GateProductionValidated {
 			actor = reviewer
 		}
-		advanced, err = operations.AdvanceGate(actor, item.ID, gate, []delivery.Evidence{{Kind: "test", Title: string(gate)}})
+		advanced, err = operations.AdvanceGate(actor, item.ID, currentRevision(t, operations, actor, item.ID), gate, []delivery.Evidence{{Kind: "test", Title: string(gate)}})
 		if err != nil {
 			t.Fatalf("advance %s: %v", gate, err)
 		}
@@ -563,14 +563,14 @@ func TestOperationsGovernanceWritesUseGeneratedContractsWhenServiceIsProvided(t 
 		t.Fatalf("generated advance calls = %d, item = %#v", applicationPort.advanceGateCalls, advanced)
 	}
 	assertNoSideEffect("close without retrospective", delivery.ErrRetrospectiveRequired, func() error {
-		_, callErr := operations.Close(reviewer, item.ID, " \t ")
+		_, callErr := operations.Close(reviewer, item.ID, currentRevision(t, operations, reviewer, item.ID), " \t ")
 		return callErr
 	})
 	beforeClose, err := store.Snapshot(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	closed, err := operations.Close(reviewer, item.ID, "  retained retrospective  ")
+	closed, err := operations.Close(reviewer, item.ID, currentRevision(t, operations, reviewer, item.ID), "  retained retrospective  ")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -595,13 +595,13 @@ func TestOperationsGovernanceWritesUseGeneratedContractsWhenServiceIsProvided(t 
 	viewerCalls := applicationPort.updateContextCalls + applicationPort.advanceGateCalls + applicationPort.closeCalls
 	errViewerCallsDenied := errors.New("viewer calls were all denied")
 	assertNoSideEffect("viewer generated governance writes", errViewerCallsDenied, func() error {
-		if _, callErr := operations.UpdateContext(viewer, item.ID, delivery.ContextUpdate{Plan: &empty}); !authz.IsDenied(callErr) {
+		if _, callErr := operations.UpdateContext(viewer, item.ID, currentRevision(t, operations, viewer, item.ID), delivery.ContextUpdate{Plan: &empty}); !authz.IsDenied(callErr) {
 			return callErr
 		}
-		if _, callErr := operations.AdvanceGate(viewer, item.ID, delivery.GateProductionValidated, []delivery.Evidence{{Kind: "test", Title: "denied"}}); !authz.IsDenied(callErr) {
+		if _, callErr := operations.AdvanceGate(viewer, item.ID, currentRevision(t, operations, viewer, item.ID), delivery.GateProductionValidated, []delivery.Evidence{{Kind: "test", Title: "denied"}}); !authz.IsDenied(callErr) {
 			return callErr
 		}
-		if _, callErr := operations.Close(viewer, item.ID, "denied"); !authz.IsDenied(callErr) {
+		if _, callErr := operations.Close(viewer, item.ID, currentRevision(t, operations, viewer, item.ID), "denied"); !authz.IsDenied(callErr) {
 			return callErr
 		}
 		return errViewerCallsDenied
@@ -656,7 +656,7 @@ func TestOperationsRejectsOutOfRangeProgressBeforeWriting(t *testing.T) {
 		t.Fatal(err)
 	}
 	invalid := 101
-	if _, err := operations.UpdateWorkItem(admin, item.ID, delivery.WorkItemUpdate{ProgressPercent: &invalid}); err == nil {
+	if _, err := operations.UpdateWorkItem(admin, item.ID, currentRevision(t, operations, admin, item.ID), delivery.WorkItemUpdate{ProgressPercent: &invalid}); err == nil {
 		t.Fatal("out of range update accepted")
 	}
 	stored, err := repository.Get(ctx, item.ID)
@@ -712,7 +712,7 @@ func TestOperationsUpdateAllFieldPresenceThroughGeneratedContract(t *testing.T) 
 		t.Fatal(err)
 	}
 	keepTitle := "kept"
-	kept, err := operations.UpdateWorkItem(admin, item.ID, delivery.WorkItemUpdate{Title: &keepTitle})
+	kept, err := operations.UpdateWorkItem(admin, item.ID, currentRevision(t, operations, admin, item.ID), delivery.WorkItemUpdate{Title: &keepTitle})
 	if err != nil || kept.ReleaseID != release.ID || kept.SprintID != sprint.ID || kept.MilestoneID != milestone.ID || kept.StartDate != "2026-09-01" || kept.DueDate != "2026-09-02" || kept.EstimatePoints != 5 || kept.ProgressPercent != 50 || len(kept.Dependencies) != 1 || len(kept.IoTBindings) != 1 || len(kept.TraceLinks) != 1 {
 		t.Fatalf("omitted fields not kept: %#v err=%v", kept, err)
 	}
@@ -722,7 +722,7 @@ func TestOperationsUpdateAllFieldPresenceThroughGeneratedContract(t *testing.T) 
 	emptyDeps := []delivery.WorkItemDependency{}
 	emptyBindings := []delivery.IoTBinding{}
 	emptyTraces := []delivery.TraceLink{}
-	updated, err := operations.UpdateWorkItem(admin, item.ID, delivery.WorkItemUpdate{Title: &title, Owner: &owner, Priority: &priority, ReleaseID: &empty, SprintID: &empty, MilestoneID: &empty, StartDate: &empty, DueDate: &empty, EstimatePoints: &zeroFloat, ProgressPercent: &zeroInt, Dependencies: &emptyDeps, IoTBindings: &emptyBindings, TraceLinks: &emptyTraces})
+	updated, err := operations.UpdateWorkItem(admin, item.ID, currentRevision(t, operations, admin, item.ID), delivery.WorkItemUpdate{Title: &title, Owner: &owner, Priority: &priority, ReleaseID: &empty, SprintID: &empty, MilestoneID: &empty, StartDate: &empty, DueDate: &empty, EstimatePoints: &zeroFloat, ProgressPercent: &zeroInt, Dependencies: &emptyDeps, IoTBindings: &emptyBindings, TraceLinks: &emptyTraces})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -998,4 +998,19 @@ func TestOperationsPlanningCreatesRequireGeneratedWritePermission(t *testing.T) 
 	if snapshot.Pending != 0 {
 		t.Fatalf("denied planning creates queued %d events, want 0", snapshot.Pending)
 	}
+}
+
+func currentRevision(t *testing.T, operations *application.Operations, ctx context.Context, id string) int64 {
+	t.Helper()
+	items, err := operations.List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range items {
+		if item.ID == id {
+			return item.Revision
+		}
+	}
+	t.Fatalf("delivery item %q not found", id)
+	return 0
 }

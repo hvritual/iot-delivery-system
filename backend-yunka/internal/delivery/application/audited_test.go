@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
@@ -91,6 +93,227 @@ func TestSuccessfulCreateRecordsAuditEntryInTheSameSQLiteTransaction(t *testing.
 	}
 }
 
+func TestAuditedSQLiteMutationsRejectStaleRevisionWithoutWorkItemOutboxOrAuditChanges(t *testing.T) {
+	t.Parallel()
+
+	for name, run := range map[string]func(t *testing.T, fixture *auditedFixture, item delivery.WorkItem){
+		"update": func(t *testing.T, fixture *auditedFixture, item delivery.WorkItem) {
+			title := "winner"
+			if _, err := fixture.operations.UpdateWorkItem(fixture.admin, item.ID, item.Revision, delivery.WorkItemUpdate{Title: &title}); err != nil {
+				t.Fatal(err)
+			}
+			assertStaleWriteHasNoSQLiteResidue(t, fixture, item.ID, func() error {
+				_, err := fixture.operations.UpdateWorkItem(fixture.admin, item.ID, item.Revision, delivery.WorkItemUpdate{Title: &title})
+				return err
+			})
+		},
+		"comment": func(t *testing.T, fixture *auditedFixture, item delivery.WorkItem) {
+			if _, err := fixture.operations.AddComment(fixture.admin, item.ID, item.Revision, delivery.CommentInput{Body: "winner"}); err != nil {
+				t.Fatal(err)
+			}
+			assertStaleWriteHasNoSQLiteResidue(t, fixture, item.ID, func() error {
+				_, err := fixture.operations.AddComment(fixture.admin, item.ID, item.Revision, delivery.CommentInput{Body: "loser"})
+				return err
+			})
+		},
+		"context": func(t *testing.T, fixture *auditedFixture, item delivery.WorkItem) {
+			plan := "winner"
+			if _, err := fixture.operations.UpdateContext(fixture.admin, item.ID, item.Revision, delivery.ContextUpdate{Plan: &plan}); err != nil {
+				t.Fatal(err)
+			}
+			assertStaleWriteHasNoSQLiteResidue(t, fixture, item.ID, func() error {
+				_, err := fixture.operations.UpdateContext(fixture.admin, item.ID, item.Revision, delivery.ContextUpdate{Plan: &plan})
+				return err
+			})
+		},
+		"advance gate": func(t *testing.T, fixture *auditedFixture, item delivery.WorkItem) {
+			if _, err := fixture.operations.AdvanceGate(fixture.admin, item.ID, item.Revision, delivery.GateSolutionReviewed, []delivery.Evidence{{Kind: "review", Title: "winner"}}); err != nil {
+				t.Fatal(err)
+			}
+			assertStaleWriteHasNoSQLiteResidue(t, fixture, item.ID, func() error {
+				_, err := fixture.operations.AdvanceGate(fixture.admin, item.ID, item.Revision, delivery.GateDevelopmentCompleted, []delivery.Evidence{{Kind: "review", Title: "loser"}})
+				return err
+			})
+		},
+		"close": func(t *testing.T, fixture *auditedFixture, item delivery.WorkItem) {
+			for _, gate := range []delivery.Gate{delivery.GateSolutionReviewed, delivery.GateDevelopmentCompleted, delivery.GateTestPassed} {
+				current := fixture.currentRevision(t, item.ID)
+				if _, err := fixture.operations.AdvanceGate(fixture.admin, item.ID, current, gate, []delivery.Evidence{{Kind: "test", Title: string(gate)}}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			current := fixture.currentRevision(t, item.ID)
+			if _, err := fixture.operations.AdvanceGate(fixture.reviewer, item.ID, current, delivery.GateProductionValidated, []delivery.Evidence{{Kind: "review", Title: "independent"}}); err != nil {
+				t.Fatal(err)
+			}
+			expected := fixture.currentRevision(t, item.ID)
+			if _, err := fixture.operations.Close(fixture.reviewer, item.ID, expected, "winner"); err != nil {
+				t.Fatal(err)
+			}
+			assertStaleWriteHasNoSQLiteResidue(t, fixture, item.ID, func() error {
+				_, err := fixture.operations.Close(fixture.reviewer, item.ID, expected, "loser")
+				return err
+			})
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fixture := newAuditedFixture(t)
+			run(t, fixture, fixture.item(t))
+		})
+	}
+}
+
+func TestAuditedSQLiteCASConflictAfterOutboxStageRollsBackLoser(t *testing.T) {
+	fixture := newAuditedFixture(t)
+	fixture.repository.Database().SetMaxOpenConns(2)
+	seed := fixture.item(t)
+
+	readReady := make(chan struct{})
+	releaseStaleRead := make(chan struct{})
+	stageObserved := make(chan struct{})
+	loserRepository := &staleSnapshotRepository{
+		Repository: fixture.repository,
+		itemID:     seed.ID,
+		stale:      seed,
+		readReady:  readReady,
+		release:    releaseStaleRead,
+		staged:     stageObserved,
+	}
+	loserService := delivery.NewService(
+		loserRepository,
+		nil,
+		&stageObservedStager{delegate: delivery.NewTransactionalOutboxStager(fixture.outbox), observed: stageObserved},
+	)
+	loserAudited, err := application.NewAuditedDeliveryService(
+		application.NewAdapter(loserService),
+		fixture.store,
+		application.WithAuditIDGenerator(func() (string, error) { return "audit-cas-loser", nil }),
+		application.WithWorkItemResolver(loserService.Get),
+	)
+	if err != nil {
+		t.Fatalf("assemble loser audited application: %v", err)
+	}
+	loserOperations := application.NewOperations(loserAudited, fixture.executor)
+	loserTitle := "loser payload must roll back"
+	loserResult := make(chan error, 1)
+	go func() {
+		_, operationErr := loserOperations.UpdateWorkItem(fixture.admin, seed.ID, seed.Revision, delivery.WorkItemUpdate{Title: &loserTitle})
+		loserResult <- operationErr
+	}()
+
+	<-readReady
+	winnerTitle := "winner payload survives"
+	winner, err := fixture.operations.UpdateWorkItem(fixture.admin, seed.ID, seed.Revision, delivery.WorkItemUpdate{Title: &winnerTitle})
+	if err != nil {
+		t.Fatalf("winner update: %v", err)
+	}
+	beforeLoserItem, err := fixture.repository.Get(t.Context(), seed.ID)
+	if err != nil {
+		t.Fatalf("read winner item: %v", err)
+	}
+	beforeLoserOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil {
+		t.Fatalf("snapshot winner outbox: %v", err)
+	}
+	var beforeLoserAudit int
+	if err := fixture.repository.Database().QueryRowContext(t.Context(), `SELECT COUNT(*) FROM iotd_audit_entries`).Scan(&beforeLoserAudit); err != nil {
+		t.Fatalf("count winner audit entries: %v", err)
+	}
+
+	close(releaseStaleRead)
+	if operationErr := <-loserResult; !errors.Is(operationErr, delivery.ErrRevisionConflict) {
+		t.Fatalf("loser update error = %v, want ErrRevisionConflict", operationErr)
+	}
+	if winner.Revision != seed.Revision+1 || beforeLoserItem.Title != winnerTitle || beforeLoserItem.Revision != winner.Revision {
+		t.Fatalf("winner state = %#v, want preserved winner payload at revision %d", beforeLoserItem, seed.Revision+1)
+	}
+	afterLoserItem, err := fixture.repository.Get(t.Context(), seed.ID)
+	if err != nil || !reflect.DeepEqual(afterLoserItem, beforeLoserItem) {
+		t.Fatalf("loser changed work item after staged CAS conflict: %#v, %v; want %#v", afterLoserItem, err, beforeLoserItem)
+	}
+	afterLoserOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil || !reflect.DeepEqual(afterLoserOutbox, beforeLoserOutbox) {
+		t.Fatalf("loser left staged outbox residue: %#v, %v; want %#v", afterLoserOutbox, err, beforeLoserOutbox)
+	}
+	var afterLoserAudit int
+	if err := fixture.repository.Database().QueryRowContext(t.Context(), `SELECT COUNT(*) FROM iotd_audit_entries`).Scan(&afterLoserAudit); err != nil || afterLoserAudit != beforeLoserAudit {
+		t.Fatalf("loser left audit residue: %d -> %d, %v", beforeLoserAudit, afterLoserAudit, err)
+	}
+}
+
+type staleSnapshotRepository struct {
+	delivery.Repository
+	itemID    string
+	stale     delivery.WorkItem
+	readReady chan struct{}
+	release   chan struct{}
+	staged    <-chan struct{}
+	once      sync.Once
+}
+
+func (repository *staleSnapshotRepository) Get(ctx context.Context, id string) (delivery.WorkItem, error) {
+	if id != repository.itemID {
+		return repository.Repository.Get(ctx, id)
+	}
+	repository.once.Do(func() { close(repository.readReady) })
+	<-repository.release
+	return repository.stale, nil
+}
+
+func (repository *staleSnapshotRepository) Save(ctx context.Context, item delivery.WorkItem, expectedRevision int64) error {
+	select {
+	case <-repository.staged:
+	default:
+		return errors.New("repository save happened before outbox stage")
+	}
+	return repository.Repository.Save(ctx, item, expectedRevision)
+}
+
+type stageObservedStager struct {
+	delegate delivery.MutationStager
+	observed chan struct{}
+	once     sync.Once
+}
+
+func (stager *stageObservedStager) Stage(ctx context.Context, eventType string, item delivery.WorkItem) error {
+	if err := stager.delegate.Stage(ctx, eventType, item); err != nil {
+		return err
+	}
+	stager.once.Do(func() { close(stager.observed) })
+	return nil
+}
+
+func assertStaleWriteHasNoSQLiteResidue(t *testing.T, fixture *auditedFixture, id string, stale func() error) {
+	t.Helper()
+	beforeItem, err := fixture.repository.Get(t.Context(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var beforeAudit int
+	if err := fixture.repository.Database().QueryRowContext(t.Context(), `SELECT COUNT(*) FROM iotd_audit_entries`).Scan(&beforeAudit); err != nil {
+		t.Fatal(err)
+	}
+	if err := stale(); !errors.Is(err, delivery.ErrRevisionConflict) {
+		t.Fatalf("stale write error = %v, want ErrRevisionConflict", err)
+	}
+	afterItem, err := fixture.repository.Get(t.Context(), id)
+	if err != nil || !reflect.DeepEqual(afterItem, beforeItem) {
+		t.Fatalf("stale write changed work item: %#v, %v", afterItem, err)
+	}
+	afterOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil || !reflect.DeepEqual(afterOutbox, beforeOutbox) {
+		t.Fatalf("stale write changed outbox: %#v, %v", afterOutbox, err)
+	}
+	var afterAudit int
+	if err := fixture.repository.Database().QueryRowContext(t.Context(), `SELECT COUNT(*) FROM iotd_audit_entries`).Scan(&afterAudit); err != nil || afterAudit != beforeAudit {
+		t.Fatalf("stale write changed audit count: %d -> %d, %v", beforeAudit, afterAudit, err)
+	}
+}
+
 func TestAllRegisteredSuccessfulWriteOperationsRecordOneSafeAuditEntry(t *testing.T) {
 	t.Parallel()
 
@@ -122,7 +345,7 @@ func TestAllRegisteredSuccessfulWriteOperationsRecordOneSafeAuditEntry(t *testin
 			call: func(t *testing.T, fixture *auditedFixture) (string, string, error) {
 				item := fixture.item(t)
 				title := "changed"
-				updated, err := fixture.operations.UpdateWorkItem(fixture.admin, item.ID, delivery.WorkItemUpdate{Title: &title})
+				updated, err := fixture.operations.UpdateWorkItem(fixture.admin, item.ID, fixture.currentRevision(t, item.ID), delivery.WorkItemUpdate{Title: &title})
 				return updated.ID, updated.ID, err
 			},
 		},
@@ -130,7 +353,7 @@ func TestAllRegisteredSuccessfulWriteOperationsRecordOneSafeAuditEntry(t *testin
 			name: "create comment", operation: "delivery.items.comment.create", actorID: "user-a", wantType: "delivery.comment", wantEvent: "delivery.work-item.commented",
 			call: func(t *testing.T, fixture *auditedFixture) (string, string, error) {
 				item := fixture.item(t)
-				comment, err := fixture.operations.AddComment(fixture.admin, item.ID, delivery.CommentInput{Body: "not retained in audit"})
+				comment, err := fixture.operations.AddComment(fixture.admin, item.ID, fixture.currentRevision(t, item.ID), delivery.CommentInput{Body: "not retained in audit"})
 				return comment.ID, item.ID, err
 			},
 		},
@@ -138,14 +361,16 @@ func TestAllRegisteredSuccessfulWriteOperationsRecordOneSafeAuditEntry(t *testin
 			name: "update context", operation: "delivery.items.update-context", actorID: "user-a", wantType: "delivery.work-item", wantEvent: "delivery.work-item.context-updated",
 			call: func(t *testing.T, fixture *auditedFixture) (string, string, error) {
 				plan := "private plan text"
-				item, err := fixture.operations.UpdateContext(fixture.admin, fixture.item(t).ID, delivery.ContextUpdate{Plan: &plan})
+				seed := fixture.item(t)
+				item, err := fixture.operations.UpdateContext(fixture.admin, seed.ID, fixture.currentRevision(t, seed.ID), delivery.ContextUpdate{Plan: &plan})
 				return item.ID, item.ID, err
 			},
 		},
 		{
 			name: "advance gate", operation: "delivery.items.advance-gate", actorID: "user-a", wantType: "delivery.work-item", wantEvent: "delivery.work-item.gate-advanced",
 			call: func(t *testing.T, fixture *auditedFixture) (string, string, error) {
-				item, err := fixture.operations.AdvanceGate(fixture.admin, fixture.item(t).ID, delivery.GateSolutionReviewed, []delivery.Evidence{{Kind: "review", Title: "reviewed"}})
+				seed := fixture.item(t)
+				item, err := fixture.operations.AdvanceGate(fixture.admin, seed.ID, fixture.currentRevision(t, seed.ID), delivery.GateSolutionReviewed, []delivery.Evidence{{Kind: "review", Title: "reviewed"}})
 				return item.ID, item.ID, err
 			},
 		},
@@ -154,14 +379,14 @@ func TestAllRegisteredSuccessfulWriteOperationsRecordOneSafeAuditEntry(t *testin
 			call: func(t *testing.T, fixture *auditedFixture) (string, string, error) {
 				item := fixture.item(t)
 				for _, gate := range []delivery.Gate{delivery.GateSolutionReviewed, delivery.GateDevelopmentCompleted, delivery.GateTestPassed} {
-					if _, err := fixture.operations.AdvanceGate(fixture.admin, item.ID, gate, []delivery.Evidence{{Kind: "test", Title: string(gate)}}); err != nil {
+					if _, err := fixture.operations.AdvanceGate(fixture.admin, item.ID, fixture.currentRevision(t, item.ID), gate, []delivery.Evidence{{Kind: "test", Title: string(gate)}}); err != nil {
 						return "", "", err
 					}
 				}
-				if _, err := fixture.operations.AdvanceGate(fixture.reviewer, item.ID, delivery.GateProductionValidated, []delivery.Evidence{{Kind: "validation", Title: "independent"}}); err != nil {
+				if _, err := fixture.operations.AdvanceGate(fixture.reviewer, item.ID, fixture.currentRevision(t, item.ID), delivery.GateProductionValidated, []delivery.Evidence{{Kind: "validation", Title: "independent"}}); err != nil {
 					return "", "", err
 				}
-				closed, err := fixture.operations.Close(fixture.reviewer, item.ID, "not retained in audit")
+				closed, err := fixture.operations.Close(fixture.reviewer, item.ID, fixture.currentRevision(t, item.ID), "not retained in audit")
 				return closed.ID, closed.ID, err
 			},
 		},
@@ -396,6 +621,7 @@ type auditedFixture struct {
 	service    *delivery.Service
 	seed       *application.Operations
 	operations *application.Operations
+	executor   operation.Executor
 	audited    application.DeliveryService
 	store      *audit.SQLiteStore
 	outbox     *localoutbox.SQLiteStore
@@ -454,6 +680,7 @@ func newAuditedFixture(t *testing.T) *auditedFixture {
 		service:    service,
 		seed:       application.NewOperations(application.NewAdapter(service), executor),
 		operations: application.NewOperations(audited, executor),
+		executor:   executor,
 		audited:    audited,
 		store:      store,
 		outbox:     outbox,
@@ -504,6 +731,15 @@ func (fixture *auditedFixture) item(t *testing.T) delivery.WorkItem {
 		t.Fatalf("seed item: %v", err)
 	}
 	return item
+}
+
+func (fixture *auditedFixture) currentRevision(t *testing.T, id string) int64 {
+	t.Helper()
+	item, err := fixture.repository.Get(t.Context(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return item.Revision
 }
 
 func (fixture *auditedFixture) entryForOperation(t *testing.T, operationID string) audit.Entry {

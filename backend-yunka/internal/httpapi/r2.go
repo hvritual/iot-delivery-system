@@ -33,10 +33,11 @@ func (api *api) item(writer http.ResponseWriter, request *http.Request, id strin
 
 type itemPatch struct {
 	delivery.WorkItemUpdate
-	Plan     *string            `json:"plan,omitempty"`
-	Solution *string            `json:"solution,omitempty"`
-	Blocker  *string            `json:"blocker,omitempty"`
-	Decision *delivery.Decision `json:"decision,omitempty"`
+	ExpectedRevision int64              `json:"expectedRevision"`
+	Plan             *string            `json:"plan,omitempty"`
+	Solution         *string            `json:"solution,omitempty"`
+	Blocker          *string            `json:"blocker,omitempty"`
+	Decision         *delivery.Decision `json:"decision,omitempty"`
 }
 
 func (api *api) patchItem(writer http.ResponseWriter, request *http.Request, id string) {
@@ -47,15 +48,17 @@ func (api *api) patchItem(writer http.ResponseWriter, request *http.Request, id 
 	}
 	var item delivery.WorkItem
 	var err error
+	expectedRevision := patch.ExpectedRevision
 	if patch.hasWorkItemUpdate() {
-		item, err = api.operations.UpdateWorkItem(request.Context(), id, patch.WorkItemUpdate)
+		item, err = api.operations.UpdateWorkItem(request.Context(), id, expectedRevision, patch.WorkItemUpdate)
 		if err != nil {
 			writeError(writer, err)
 			return
 		}
+		expectedRevision = item.Revision
 	}
 	if patch.hasContextUpdate() {
-		item, err = api.operations.UpdateContext(request.Context(), id, delivery.ContextUpdate{
+		item, err = api.operations.UpdateContext(request.Context(), id, expectedRevision, delivery.ContextUpdate{
 			Plan:     patch.Plan,
 			Solution: patch.Solution,
 			Blocker:  patch.Blocker,
@@ -90,7 +93,7 @@ func (api *api) comments(writer http.ResponseWriter, request *http.Request, id s
 		writeJSON(writer, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	comment, err := api.operations.AddComment(request.Context(), id, input)
+	comment, err := api.operations.AddComment(request.Context(), id, input.ExpectedRevision, input)
 	if err != nil {
 		writeError(writer, err)
 		return

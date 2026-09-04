@@ -31,6 +31,7 @@ export interface Iot_Delivery_V1_AdvanceGateRequest {
   id?: string;
   gate?: string;
   evidence?: readonly Iot_Delivery_V1_Evidence[];
+  expectedRevision?: string;
 }
 
 export interface Iot_Delivery_V1_BoardSummary {
@@ -46,6 +47,7 @@ export interface Iot_Delivery_V1_BoardSummary {
 export interface Iot_Delivery_V1_CloseItemRequest {
   id?: string;
   retrospective?: string;
+  expectedRevision?: string;
 }
 
 export interface Iot_Delivery_V1_Comment {
@@ -57,11 +59,13 @@ export interface Iot_Delivery_V1_Comment {
 
 export interface Iot_Delivery_V1_CommentResponse {
   comment?: Iot_Delivery_V1_Comment;
+  revision?: string;
 }
 
 export interface Iot_Delivery_V1_CreateItemCommentRequest {
   id?: string;
   body?: string;
+  expectedRevision?: string;
 }
 
 export interface Iot_Delivery_V1_CreateItemRequest {
@@ -240,6 +244,7 @@ export interface Iot_Delivery_V1_UpdateItemContextRequest {
   solution?: string;
   blocker?: string;
   decision?: Iot_Delivery_V1_Decision;
+  expectedRevision?: string;
 }
 
 export interface Iot_Delivery_V1_UpdateItemRequest {
@@ -258,6 +263,7 @@ export interface Iot_Delivery_V1_UpdateItemRequest {
   dependencies?: readonly Iot_Delivery_V1_WorkItemDependency[];
   iotBindings?: readonly Iot_Delivery_V1_IoTBinding[];
   traceLinks?: readonly Iot_Delivery_V1_TraceLink[];
+  expectedRevision?: string;
 }
 
 export interface Iot_Delivery_V1_WorkItem {
@@ -293,6 +299,7 @@ export interface Iot_Delivery_V1_WorkItem {
   traceLinks?: readonly Iot_Delivery_V1_TraceLink[];
   comments?: readonly Iot_Delivery_V1_Comment[];
   activities?: readonly Iot_Delivery_V1_Activity[];
+  revision?: string;
 }
 
 export interface Iot_Delivery_V1_WorkItemDependency {

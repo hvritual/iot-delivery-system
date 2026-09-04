@@ -152,11 +152,16 @@ export default function App() {
   }
 
   function handleCreate(input) { return runMutation(() => createItem(input)); }
-  function handleContext(id, input) { return runMutation(() => updateItemContext(id, input)); }
-  function handleUpdateItem(id, input) { return runMutation(() => updateWorkItem(id, input)); }
-  function handleAddComment(id, body) { return runMutation(() => addComment(id, body)); }
-  function handleAdvance(id, gate, evidence) { return runMutation(() => advanceGate(id, gate, evidence)); }
-  function handleClose(id, retrospective) { return runMutation(() => closeItem(id, retrospective)); }
+  function expectedRevisionFor(id) {
+    const revision = dashboard.items.find((item) => item.id === id)?.revision;
+    if (!Number.isInteger(revision) || revision <= 0) throw new Error("当前事项缺少有效版本，请刷新后重试。");
+    return revision;
+  }
+  function handleContext(id, input) { return runMutation(() => updateItemContext(id, expectedRevisionFor(id), input)); }
+  function handleUpdateItem(id, input) { return runMutation(() => updateWorkItem(id, expectedRevisionFor(id), input)); }
+  function handleAddComment(id, body) { return runMutation(() => addComment(id, expectedRevisionFor(id), body)); }
+  function handleAdvance(id, gate, evidence) { return runMutation(() => advanceGate(id, expectedRevisionFor(id), gate, evidence)); }
+  function handleClose(id, retrospective) { return runMutation(() => closeItem(id, expectedRevisionFor(id), retrospective)); }
   function handleCreateProject(input) { return runWorkspaceMutation(() => createProject(input)); }
   function handleCreateRelease(input) { return runWorkspaceMutation(() => createRelease(input)); }
   function handleCreateSprint(input) { return runWorkspaceMutation(() => createSprint(input)); }

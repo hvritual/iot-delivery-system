@@ -7,13 +7,17 @@ import (
 	"sync"
 )
 
-var ErrNotFound = errors.New("delivery item not found")
+var (
+	ErrNotFound                = errors.New("delivery item not found")
+	ErrRevisionConflict        = errors.New("delivery item revision conflict")
+	ErrInvalidExpectedRevision = errors.New("delivery item expected revision must be positive")
+)
 
 type Repository interface {
 	Create(context.Context, WorkItem) error
 	Get(context.Context, string) (WorkItem, error)
 	List(context.Context) ([]WorkItem, error)
-	Save(context.Context, WorkItem) error
+	Save(context.Context, WorkItem, int64) error
 	CreateProject(context.Context, Project) error
 	GetProject(context.Context, string) (Project, error)
 	ListProjects(context.Context) ([]Project, error)
@@ -56,6 +60,12 @@ func NewMemoryRepository() *MemoryRepository {
 }
 
 func (repository *MemoryRepository) Create(_ context.Context, item WorkItem) error {
+	if item.Revision == 0 {
+		item.Revision = 1
+	}
+	if item.Revision != 1 {
+		return errors.New("new delivery item revision must be 1")
+	}
 	repository.mu.Lock()
 	defer repository.mu.Unlock()
 	repository.items[item.ID] = cloneWorkItem(item)
@@ -88,11 +98,21 @@ func (repository *MemoryRepository) List(_ context.Context) ([]WorkItem, error) 
 	return items, nil
 }
 
-func (repository *MemoryRepository) Save(_ context.Context, item WorkItem) error {
+func (repository *MemoryRepository) Save(_ context.Context, item WorkItem, expectedRevision int64) error {
+	if expectedRevision <= 0 {
+		return ErrInvalidExpectedRevision
+	}
 	repository.mu.Lock()
 	defer repository.mu.Unlock()
-	if _, ok := repository.items[item.ID]; !ok {
+	stored, ok := repository.items[item.ID]
+	if !ok {
 		return ErrNotFound
+	}
+	if stored.Revision != expectedRevision {
+		return ErrRevisionConflict
+	}
+	if item.Revision != expectedRevision+1 {
+		return errors.New("delivery item revision must increment exactly once")
 	}
 	repository.items[item.ID] = cloneWorkItem(item)
 	return nil

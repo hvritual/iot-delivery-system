@@ -39,7 +39,7 @@ func TestAdapterRejectsUnknownUpdateMask(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = adapter.UpdateItem(context.Background(), &deliveryv1.UpdateItemRequest{Id: created.GetItem().GetId(), UpdateMask: []string{"unknown"}})
+	_, err = adapter.UpdateItem(context.Background(), &deliveryv1.UpdateItemRequest{Id: created.GetItem().GetId(), ExpectedRevision: created.GetItem().GetRevision(), UpdateMask: []string{"unknown"}})
 	if err == nil || !strings.Contains(err.Error(), "unsupported delivery work item update field: unknown") {
 		t.Fatalf("unknown mask error=%v", err)
 	}
@@ -59,12 +59,20 @@ func TestAdapterClassifiesSelfProductionVerificationAsPermissionDenied(t *testin
 		t.Fatalf("create item: %v", err)
 	}
 	for _, gate := range []delivery.Gate{delivery.GateSolutionReviewed, delivery.GateDevelopmentCompleted, delivery.GateTestPassed} {
-		if _, err := adapter.AdvanceGate(implementer, &deliveryv1.AdvanceGateRequest{Id: created.GetItem().GetId(), Gate: string(gate), Evidence: []*deliveryv1.Evidence{{Kind: "test", Title: string(gate)}}}); err != nil {
+		current, getErr := service.Get(t.Context(), created.GetItem().GetId())
+		if getErr != nil {
+			t.Fatal(getErr)
+		}
+		if _, err := adapter.AdvanceGate(implementer, &deliveryv1.AdvanceGateRequest{Id: created.GetItem().GetId(), ExpectedRevision: current.Revision, Gate: string(gate), Evidence: []*deliveryv1.Evidence{{Kind: "test", Title: string(gate)}}}); err != nil {
 			t.Fatalf("advance %s: %v", gate, err)
 		}
 	}
 
-	_, err = adapter.AdvanceGate(implementer, &deliveryv1.AdvanceGateRequest{Id: created.GetItem().GetId(), Gate: string(delivery.GateProductionValidated), Evidence: []*deliveryv1.Evidence{{Kind: "validation", Title: "self review"}}})
+	current, getErr := service.Get(t.Context(), created.GetItem().GetId())
+	if getErr != nil {
+		t.Fatal(getErr)
+	}
+	_, err = adapter.AdvanceGate(implementer, &deliveryv1.AdvanceGateRequest{Id: created.GetItem().GetId(), ExpectedRevision: current.Revision, Gate: string(delivery.GateProductionValidated), Evidence: []*deliveryv1.Evidence{{Kind: "validation", Title: "self review"}}})
 	if !authz.IsDenied(err) || !errors.Is(err, delivery.ErrImplementerCannotVerifyOwnChange) {
 		t.Fatalf("self production verification error = %v, want permission-denied wrapper preserving the domain sentinel", err)
 	}

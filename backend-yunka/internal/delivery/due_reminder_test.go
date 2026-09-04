@@ -64,7 +64,7 @@ func TestDueReminderSchedulerSkipsCompletedItems(t *testing.T) {
 		t.Fatalf("create item: %v", err)
 	}
 	completed := 100
-	if _, err := service.UpdateWorkItem(ctx, item.ID, delivery.WorkItemUpdate{ProgressPercent: &completed}); err != nil {
+	if _, err := service.UpdateWorkItem(ctx, item.ID, item.Revision, delivery.WorkItemUpdate{ProgressPercent: &completed}); err != nil {
 		t.Fatalf("complete item: %v", err)
 	}
 	scheduler, err := delivery.NewDueReminderScheduler(service, outbox.NewMemoryStore(), delivery.DueReminderConfig{})

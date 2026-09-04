@@ -84,6 +84,15 @@ func newAuthorizationMatrixFixture(t *testing.T) *authorizationMatrixFixture {
 	return &authorizationMatrixFixture{repository: repository, outbox: outbox, operations: operations, application: application, executor: executor, handler: httpapi.NewHandler(operations)}
 }
 
+func (fixture *authorizationMatrixFixture) revision(t *testing.T, id string) int64 {
+	t.Helper()
+	item, err := fixture.repository.Get(t.Context(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return item.Revision
+}
+
 func (fixture *authorizationMatrixFixture) grpcGate(t *testing.T, principal identity.Principal, itemID string, gate delivery.Gate) codes.Code {
 	t.Helper()
 	listener := bufconn.Listen(1024 * 1024)
@@ -100,7 +109,11 @@ func (fixture *authorizationMatrixFixture) grpcGate(t *testing.T, principal iden
 		t.Fatalf("dial matrix gRPC server: %v", err)
 	}
 	t.Cleanup(func() { _ = connection.Close() })
-	_, err = deliveryv1.NewDeliveryServiceClient(connection).AdvanceGate(t.Context(), &deliveryv1.AdvanceGateRequest{Id: itemID, Gate: string(gate), Evidence: []*deliveryv1.Evidence{{Kind: "review", Title: "authorization matrix"}}})
+	expectedRevision := int64(1)
+	if item, getErr := fixture.repository.Get(t.Context(), itemID); getErr == nil {
+		expectedRevision = item.Revision
+	}
+	_, err = deliveryv1.NewDeliveryServiceClient(connection).AdvanceGate(t.Context(), &deliveryv1.AdvanceGateRequest{Id: itemID, ExpectedRevision: expectedRevision, Gate: string(gate), Evidence: []*deliveryv1.Evidence{{Kind: "review", Title: "authorization matrix"}}})
 	return status.Code(err)
 }
 
@@ -165,7 +178,15 @@ func (fixture *authorizationMatrixFixture) createProtectedItem(t *testing.T) (de
 
 func (fixture *authorizationMatrixFixture) restGate(t *testing.T, principal identity.Principal, itemID string, gate delivery.Gate) (int, string) {
 	t.Helper()
-	request := httptest.NewRequest(http.MethodPost, "/api/items/"+itemID+"/gates/"+string(gate), bytes.NewBufferString(`{"evidence":[{"kind":"review","title":"authorization matrix"}]}`))
+	expectedRevision := int64(1)
+	if item, err := fixture.repository.Get(t.Context(), itemID); err == nil {
+		expectedRevision = item.Revision
+	}
+	body, err := json.Marshal(map[string]any{"expectedRevision": expectedRevision, "evidence": []map[string]string{{"kind": "review", "title": "authorization matrix"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/items/"+itemID+"/gates/"+string(gate), bytes.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
 	request = request.WithContext(identity.WithPrincipal(request.Context(), principal))
 	recorder := httptest.NewRecorder()
@@ -176,7 +197,7 @@ func (fixture *authorizationMatrixFixture) restGate(t *testing.T, principal iden
 	return recorder.Code, category
 }
 
-func callMatrixMCP(t *testing.T, operations *deliveryapplication.Operations, principal identity.Principal, itemID string, gate delivery.Gate) *mcp.CallToolResult {
+func callMatrixMCP(t *testing.T, operations *deliveryapplication.Operations, principal identity.Principal, itemID string, expectedRevision int64, gate delivery.Gate) *mcp.CallToolResult {
 	t.Helper()
 	server := mcpserver.New(operations, principal)
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -191,7 +212,7 @@ func callMatrixMCP(t *testing.T, operations *deliveryapplication.Operations, pri
 		t.Fatalf("connect matrix MCP client: %v", err)
 	}
 	defer clientSession.Close()
-	result, err := clientSession.CallTool(t.Context(), &mcp.CallToolParams{Name: "delivery.advance_gate", Arguments: map[string]any{"id": itemID, "gate": string(gate), "evidence": []map[string]any{{"kind": "review", "title": "authorization matrix"}}}})
+	result, err := clientSession.CallTool(t.Context(), &mcp.CallToolParams{Name: "delivery.advance_gate", Arguments: map[string]any{"id": itemID, "expectedRevision": expectedRevision, "gate": string(gate), "evidence": []map[string]any{{"kind": "review", "title": "authorization matrix"}}}})
 	if err != nil {
 		t.Fatalf("call matrix MCP tool: %v", err)
 	}
@@ -293,7 +314,7 @@ func TestProductionAuthorizationMatrixRejectsRESTAndMCPWithoutSideEffects(t *tes
 			t.Helper()
 			admin := identity.WithPrincipal(t.Context(), matrixPrincipal("admin"))
 			for _, gate := range []delivery.Gate{delivery.GateSolutionReviewed, delivery.GateDevelopmentCompleted, delivery.GateTestPassed} {
-				if _, err := fixture.operations.AdvanceGate(admin, item.ID, gate, []delivery.Evidence{{Kind: "test", Title: string(gate)}}); err != nil {
+				if _, err := fixture.operations.AdvanceGate(admin, item.ID, fixture.revision(t, item.ID), gate, []delivery.Evidence{{Kind: "test", Title: string(gate)}}); err != nil {
 					t.Fatalf("prepare self-production-validation gate %s: %v", gate, err)
 				}
 			}
@@ -329,7 +350,7 @@ func TestProductionAuthorizationMatrixRejectsRESTAndMCPWithoutSideEffects(t *tes
 			if got := fixture.grpcGate(t, scenario.principal, itemID, scenario.gate); got != wantGRPC {
 				t.Fatalf("gRPC advance gate = %s, want %s", got, wantGRPC)
 			}
-			mcpResult := callMatrixMCP(t, fixture.operations, scenario.principal, itemID, scenario.gate)
+			mcpResult := callMatrixMCP(t, fixture.operations, scenario.principal, itemID, beforeItem.Revision, scenario.gate)
 			if !mcpResult.IsError || matrixMCPError(mcpResult) != scenario.wantCategory {
 				t.Fatalf("MCP advance gate = %#v text=%q, want stable %q", mcpResult, matrixMCPError(mcpResult), scenario.wantCategory)
 			}
@@ -357,13 +378,13 @@ func TestProductionAuthorizationMatrixAllowsRegisteredOperationClasses(t *testin
 		t.Fatalf("allow project planning write: %v", err)
 	}
 	title := "Allowed item updated"
-	if _, err := fixture.operations.UpdateWorkItem(admin, item.ID, delivery.WorkItemUpdate{Title: &title}); err != nil {
+	if _, err := fixture.operations.UpdateWorkItem(admin, item.ID, fixture.revision(t, item.ID), delivery.WorkItemUpdate{Title: &title}); err != nil {
 		t.Fatalf("allow object update: %v", err)
 	}
 	if _, err := fixture.operations.CreateRelease(admin, delivery.ReleaseInput{ProjectID: project.ID, Name: "R1", Version: "1.0.0"}); err != nil {
 		t.Fatalf("allow project release write: %v", err)
 	}
-	if _, err := fixture.operations.AdvanceGate(admin, item.ID, delivery.GateSolutionReviewed, []delivery.Evidence{{Kind: "review", Title: "approved"}}); err != nil {
+	if _, err := fixture.operations.AdvanceGate(admin, item.ID, fixture.revision(t, item.ID), delivery.GateSolutionReviewed, []delivery.Evidence{{Kind: "review", Title: "approved"}}); err != nil {
 		t.Fatalf("allow high-risk gate advance: %v", err)
 	}
 	closeItem, err := fixture.operations.Create(admin, delivery.CreateInput{Title: "Closable item", Board: delivery.BoardResearchDelivery, Owner: "admin", ProjectID: project.ID, Kind: delivery.WorkItemKindTask})
@@ -371,15 +392,15 @@ func TestProductionAuthorizationMatrixAllowsRegisteredOperationClasses(t *testin
 		t.Fatalf("create closable item: %v", err)
 	}
 	for _, gate := range []delivery.Gate{delivery.GateSolutionReviewed, delivery.GateDevelopmentCompleted, delivery.GateTestPassed} {
-		if _, err := fixture.operations.AdvanceGate(admin, closeItem.ID, gate, []delivery.Evidence{{Kind: "test", Title: string(gate)}}); err != nil {
+		if _, err := fixture.operations.AdvanceGate(admin, closeItem.ID, fixture.revision(t, closeItem.ID), gate, []delivery.Evidence{{Kind: "test", Title: string(gate)}}); err != nil {
 			t.Fatalf("prepare close gate %s: %v", gate, err)
 		}
 	}
 	reviewer := identity.WithPrincipal(t.Context(), matrixPrincipal("reviewer"))
-	if _, err := fixture.operations.AdvanceGate(reviewer, closeItem.ID, delivery.GateProductionValidated, []delivery.Evidence{{Kind: "validation", Title: "independent"}}); err != nil {
+	if _, err := fixture.operations.AdvanceGate(reviewer, closeItem.ID, fixture.revision(t, closeItem.ID), delivery.GateProductionValidated, []delivery.Evidence{{Kind: "validation", Title: "independent"}}); err != nil {
 		t.Fatalf("allow independent production validation: %v", err)
 	}
-	if _, err := fixture.operations.Close(reviewer, closeItem.ID, "independent retrospective"); err != nil {
+	if _, err := fixture.operations.Close(reviewer, closeItem.ID, fixture.revision(t, closeItem.ID), "independent retrospective"); err != nil {
 		t.Fatalf("allow high-risk close: %v", err)
 	}
 	if snapshot, err := fixture.outbox.Snapshot(t.Context()); err != nil || snapshot.Pending < 10 {
@@ -403,7 +424,7 @@ func TestPostAuthTransportMatrixAllowsGateWithEquivalentSQLiteAndOutboxEffects(t
 			return fixture.grpcGate(t, matrixPrincipal("scoped"), item.ID, delivery.GateSolutionReviewed)
 		}},
 		{name: "MCP", call: func(t *testing.T, fixture *authorizationMatrixFixture, item delivery.WorkItem) codes.Code {
-			result := callMatrixMCP(t, fixture.operations, matrixPrincipal("scoped"), item.ID, delivery.GateSolutionReviewed)
+			result := callMatrixMCP(t, fixture.operations, matrixPrincipal("scoped"), item.ID, fixture.revision(t, item.ID), delivery.GateSolutionReviewed)
 			if result.IsError {
 				t.Fatalf("MCP gate allow = IsError true text=%q", matrixMCPError(result))
 			}

@@ -29,17 +29,17 @@ export function findSimilar(input) {
   return request("/api/items/similarity", { method: "POST", body: JSON.stringify(input) });
 }
 
-export function updateWorkItem(id, input) {
+export function updateWorkItem(id, expectedRevision, input) {
   return request(`/api/items/${encodeURIComponent(id)}`, {
     method: "PATCH",
-    body: JSON.stringify(input),
+    body: JSON.stringify({ ...input, expectedRevision }),
   });
 }
 
-export function addComment(id, body) {
+export function addComment(id, expectedRevision, body) {
   return request(`/api/items/${encodeURIComponent(id)}/comments`, {
     method: "POST",
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({ body, expectedRevision }),
   });
 }
 
@@ -99,18 +99,19 @@ export function fetchNotifications(limit = 20) {
   return request(withQuery("/api/notifications", { limit }));
 }
 
-export function updateItemContext(id, input) {
+export function updateItemContext(id, expectedRevision, input) {
   return request(`/api/items/${encodeURIComponent(id)}`, {
     method: "PATCH",
-    body: JSON.stringify(input),
+    body: JSON.stringify({ ...input, expectedRevision }),
   });
 }
 
-export function advanceGate(id, gate, evidence) {
+export function advanceGate(id, expectedRevision, gate, evidence) {
   const record = typeof evidence === "string" ? { title: evidence } : evidence;
   return request(`/api/items/${encodeURIComponent(id)}/gates/${encodeURIComponent(gate)}`, {
     method: "POST",
     body: JSON.stringify({
+      expectedRevision,
       evidence: [{
         kind: "交付证据",
         title: record?.title ?? "",
@@ -120,10 +121,10 @@ export function advanceGate(id, gate, evidence) {
   });
 }
 
-export function closeItem(id, retrospective) {
+export function closeItem(id, expectedRevision, retrospective) {
   return request(`/api/items/${encodeURIComponent(id)}/close`, {
     method: "POST",
-    body: JSON.stringify({ retrospective }),
+    body: JSON.stringify({ retrospective, expectedRevision }),
   });
 }
 

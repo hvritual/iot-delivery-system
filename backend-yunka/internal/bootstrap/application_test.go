@@ -638,7 +638,7 @@ func TestApplicationIdentityCoreMigrationPreservesDeliveryDataAndEnforcesDatabas
 	if err != nil {
 		t.Fatalf("create delivery SQLite database: %v", err)
 	}
-	if _, err := repository.Database().Exec(`INSERT INTO iotd_delivery_items (id, payload, updated_at) VALUES ('preexisting-delivery', '{}', '2026-09-03T00:00:00Z')`); err != nil {
+	if _, err := repository.Database().Exec(`INSERT INTO iotd_delivery_items (id, payload, updated_at, revision) VALUES ('preexisting-delivery', '{}', '2026-09-03T00:00:00Z', 1)`); err != nil {
 		t.Fatalf("insert preexisting delivery row: %v", err)
 	}
 	if err := repository.Close(); err != nil {
@@ -796,7 +796,7 @@ func TestBootstrapSeedIsAnAuthorizedTransactionalOutboxOperation(t *testing.T) {
 		"func seedExample(ctx context.Context, operations *deliveryapplication.Operations) error",
 		"operations.List(bootstrapContext)",
 		"operations.Create(bootstrapContext, delivery.CreateInput{",
-		"operations.UpdateContext(bootstrapContext, item.ID, delivery.ContextUpdate{",
+		"operations.UpdateContext(bootstrapContext, item.ID, item.Revision, delivery.ContextUpdate{",
 		"Authenticated: true",
 	} {
 		if !strings.Contains(text, required) {

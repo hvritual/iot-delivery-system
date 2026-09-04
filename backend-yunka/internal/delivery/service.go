@@ -291,6 +291,7 @@ func (service *Service) Create(ctx context.Context, input CreateInput) (WorkItem
 		return WorkItem{}, err
 	}
 	item := WorkItem{
+		Revision:        1,
 		ID:              id,
 		Title:           strings.TrimSpace(input.Title),
 		Board:           input.Board,
@@ -878,13 +879,19 @@ func (service *Service) FindSimilar(ctx context.Context, query SimilarityQuery) 
 // UpdateWorkItem changes the editable planning, scheduling, scope, and trace
 // fields while preserving the delivery gate state machine. Gate and close
 // transitions remain explicit operations with their own evidence checks.
-func (service *Service) UpdateWorkItem(ctx context.Context, id string, input WorkItemUpdate) (WorkItem, error) {
+func (service *Service) UpdateWorkItem(ctx context.Context, id string, expectedRevision int64, input WorkItemUpdate) (WorkItem, error) {
 	if service == nil || service.repository == nil {
 		return WorkItem{}, errors.New("delivery service is not configured")
+	}
+	if expectedRevision <= 0 {
+		return WorkItem{}, ErrInvalidExpectedRevision
 	}
 	item, err := service.repository.Get(ctx, strings.TrimSpace(id))
 	if err != nil {
 		return WorkItem{}, err
+	}
+	if item.Revision != expectedRevision {
+		return WorkItem{}, ErrRevisionConflict
 	}
 	changed := false
 	if input.Title != nil {
@@ -983,23 +990,30 @@ func (service *Service) UpdateWorkItem(ctx context.Context, id string, input Wor
 	}, item.ID); err != nil {
 		return WorkItem{}, err
 	}
+	item.Revision = expectedRevision + 1
 	item.UpdatedAt = now
 	item.Activities = append(item.Activities, service.newActivity(ctx, item, "updated", "更新交付事项", now))
 	if err := service.persistMutation(ctx, "delivery.work-item.updated", item, func() error {
-		return service.repository.Save(ctx, item)
+		return service.repository.Save(ctx, item, expectedRevision)
 	}); err != nil {
 		return WorkItem{}, err
 	}
 	return item, nil
 }
 
-func (service *Service) AddComment(ctx context.Context, id string, input CommentInput) (Comment, error) {
+func (service *Service) AddComment(ctx context.Context, id string, expectedRevision int64, input CommentInput) (Comment, error) {
 	if service == nil || service.repository == nil {
 		return Comment{}, errors.New("delivery service is not configured")
+	}
+	if expectedRevision <= 0 {
+		return Comment{}, ErrInvalidExpectedRevision
 	}
 	item, err := service.repository.Get(ctx, strings.TrimSpace(id))
 	if err != nil {
 		return Comment{}, err
+	}
+	if item.Revision != expectedRevision {
+		return Comment{}, ErrRevisionConflict
 	}
 	body := strings.TrimSpace(input.Body)
 	if body == "" {
@@ -1013,13 +1027,15 @@ func (service *Service) AddComment(ctx context.Context, id string, input Comment
 		CreatedAt: now,
 	}
 	item.Comments = append(item.Comments, comment)
+	item.Revision = expectedRevision + 1
 	item.UpdatedAt = now
 	item.Activities = append(item.Activities, service.newActivity(ctx, item, "commented", "新增事项评论", now))
 	if err := service.persistMutation(ctx, "delivery.work-item.commented", item, func() error {
-		return service.repository.Save(ctx, item)
+		return service.repository.Save(ctx, item, expectedRevision)
 	}); err != nil {
 		return Comment{}, err
 	}
+	comment.WorkItemRevision = item.Revision
 	return comment, nil
 }
 
@@ -1198,13 +1214,19 @@ func effectiveProgress(item WorkItem) float64 {
 	return float64(item.ProgressPercent)
 }
 
-func (service *Service) AdvanceGate(ctx context.Context, id string, next Gate, evidence []Evidence) (WorkItem, error) {
+func (service *Service) AdvanceGate(ctx context.Context, id string, expectedRevision int64, next Gate, evidence []Evidence) (WorkItem, error) {
+	if expectedRevision <= 0 {
+		return WorkItem{}, ErrInvalidExpectedRevision
+	}
 	if len(evidence) == 0 {
 		return WorkItem{}, ErrEvidenceRequired
 	}
 	item, err := service.repository.Get(ctx, id)
 	if err != nil {
 		return WorkItem{}, err
+	}
+	if item.Revision != expectedRevision {
+		return WorkItem{}, ErrRevisionConflict
 	}
 	if !isNextGate(item.Gate, next) {
 		return WorkItem{}, fmt.Errorf("%w: %s -> %s", ErrInvalidGateTransition, item.Gate, next)
@@ -1254,20 +1276,27 @@ func (service *Service) AdvanceGate(ctx context.Context, id string, next Gate, e
 		item.ProductionValidationPrincipal = principal
 	}
 	item.Evidence = append(item.Evidence, evidence...)
+	item.Revision = expectedRevision + 1
 	item.UpdatedAt = now
 	item.Activities = append(item.Activities, service.newActivity(ctx, item, "gate_advanced", "推进交付关卡", now))
 	if err := service.persistMutation(ctx, "delivery.work-item.gate-advanced", item, func() error {
-		return service.repository.Save(ctx, item)
+		return service.repository.Save(ctx, item, expectedRevision)
 	}); err != nil {
 		return WorkItem{}, err
 	}
 	return item, nil
 }
 
-func (service *Service) Close(ctx context.Context, id, retrospective string) (WorkItem, error) {
+func (service *Service) Close(ctx context.Context, id string, expectedRevision int64, retrospective string) (WorkItem, error) {
+	if expectedRevision <= 0 {
+		return WorkItem{}, ErrInvalidExpectedRevision
+	}
 	item, err := service.repository.Get(ctx, id)
 	if err != nil {
 		return WorkItem{}, err
+	}
+	if item.Revision != expectedRevision {
+		return WorkItem{}, ErrRevisionConflict
 	}
 	if item.Gate != GateProductionValidated {
 		return WorkItem{}, ErrReleaseNotValidated
@@ -1291,21 +1320,28 @@ func (service *Service) Close(ctx context.Context, id, retrospective string) (Wo
 	}
 	item.Status = StatusClosed
 	item.Retrospective = retrospective
+	item.Revision = expectedRevision + 1
 	now := service.now().UTC()
 	item.UpdatedAt = now
 	item.Activities = append(item.Activities, service.newActivity(ctx, item, "closed", "关闭交付事项", now))
 	if err := service.persistMutation(ctx, "delivery.work-item.closed", item, func() error {
-		return service.repository.Save(ctx, item)
+		return service.repository.Save(ctx, item, expectedRevision)
 	}); err != nil {
 		return WorkItem{}, err
 	}
 	return item, nil
 }
 
-func (service *Service) UpdateContext(ctx context.Context, id string, input ContextUpdate) (WorkItem, error) {
+func (service *Service) UpdateContext(ctx context.Context, id string, expectedRevision int64, input ContextUpdate) (WorkItem, error) {
+	if expectedRevision <= 0 {
+		return WorkItem{}, ErrInvalidExpectedRevision
+	}
 	item, err := service.repository.Get(ctx, id)
 	if err != nil {
 		return WorkItem{}, err
+	}
+	if item.Revision != expectedRevision {
+		return WorkItem{}, ErrRevisionConflict
 	}
 	now := service.now().UTC()
 	if input.Plan != nil {
@@ -1342,10 +1378,11 @@ func (service *Service) UpdateContext(ctx context.Context, id string, input Cont
 		}
 		item.Decisions = append(item.Decisions, decision)
 	}
+	item.Revision = expectedRevision + 1
 	item.UpdatedAt = now
 	item.Activities = append(item.Activities, service.newActivity(ctx, item, "context_updated", "更新事项上下文", now))
 	if err := service.persistMutation(ctx, "delivery.work-item.context-updated", item, func() error {
-		return service.repository.Save(ctx, item)
+		return service.repository.Save(ctx, item, expectedRevision)
 	}); err != nil {
 		return WorkItem{}, err
 	}

@@ -214,13 +214,14 @@ func (api *api) itemAction(writer http.ResponseWriter, request *http.Request) {
 			return
 		}
 		var input struct {
-			Evidence []delivery.Evidence `json:"evidence"`
+			ExpectedRevision int64               `json:"expectedRevision"`
+			Evidence         []delivery.Evidence `json:"evidence"`
 		}
 		if err := decodeJSON(request, &input); err != nil {
 			writeJSON(writer, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
-		item, err := api.operations.AdvanceGate(request.Context(), parts[0], delivery.Gate(parts[2]), input.Evidence)
+		item, err := api.operations.AdvanceGate(request.Context(), parts[0], input.ExpectedRevision, delivery.Gate(parts[2]), input.Evidence)
 		if err != nil {
 			writeError(writer, err)
 			return
@@ -235,13 +236,14 @@ func (api *api) itemAction(writer http.ResponseWriter, request *http.Request) {
 			return
 		}
 		var input struct {
-			Retrospective string `json:"retrospective"`
+			ExpectedRevision int64  `json:"expectedRevision"`
+			Retrospective    string `json:"retrospective"`
 		}
 		if err := decodeJSON(request, &input); err != nil {
 			writeJSON(writer, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
-		item, err := api.operations.Close(request.Context(), parts[0], input.Retrospective)
+		item, err := api.operations.Close(request.Context(), parts[0], input.ExpectedRevision, input.Retrospective)
 		if err != nil {
 			writeError(writer, err)
 			return

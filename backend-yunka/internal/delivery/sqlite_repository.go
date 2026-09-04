@@ -19,7 +19,8 @@ const sqliteSchema = `
 CREATE TABLE IF NOT EXISTS iotd_delivery_items (
     id TEXT PRIMARY KEY,
     payload TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    revision INTEGER NOT NULL CHECK (revision > 0)
 );
 CREATE TABLE IF NOT EXISTS iotd_delivery_projects (
     id TEXT PRIMARY KEY,
@@ -84,6 +85,10 @@ func NewSQLiteRepository(databasePath string) (*SQLiteRepository, error) {
 		_ = database.Close()
 		return nil, fmt.Errorf("initialize SQLite schema: %w", err)
 	}
+	if err := migrateItemRevision(context.Background(), database); err != nil {
+		_ = database.Close()
+		return nil, err
+	}
 	return &SQLiteRepository{database: database}, nil
 }
 
@@ -102,6 +107,12 @@ func (repository *SQLiteRepository) Database() *sql.DB {
 }
 
 func (repository *SQLiteRepository) Create(ctx context.Context, item WorkItem) error {
+	if item.Revision == 0 {
+		item.Revision = 1
+	}
+	if item.Revision != 1 {
+		return errors.New("new delivery item revision must be 1")
+	}
 	payload, err := json.Marshal(item)
 	if err != nil {
 		return fmt.Errorf("encode delivery item: %w", err)
@@ -110,7 +121,7 @@ func (repository *SQLiteRepository) Create(ctx context.Context, item WorkItem) e
 	if err != nil {
 		return err
 	}
-	_, err = executor.ExecContext(ctx, `INSERT INTO iotd_delivery_items (id, payload, updated_at) VALUES (?, ?, ?)`, item.ID, string(payload), item.UpdatedAt.UTC().Format(timeLayout))
+	_, err = executor.ExecContext(ctx, `INSERT INTO iotd_delivery_items (id, payload, updated_at, revision) VALUES (?, ?, ?, ?)`, item.ID, string(payload), item.UpdatedAt.UTC().Format(timeLayout), item.Revision)
 	if err != nil {
 		return fmt.Errorf("insert delivery item: %w", err)
 	}
@@ -123,14 +134,15 @@ func (repository *SQLiteRepository) Get(ctx context.Context, id string) (WorkIte
 		return WorkItem{}, err
 	}
 	var payload string
-	err = executor.QueryRowContext(ctx, `SELECT payload FROM iotd_delivery_items WHERE id = ?`, id).Scan(&payload)
+	var revision int64
+	err = executor.QueryRowContext(ctx, `SELECT payload, revision FROM iotd_delivery_items WHERE id = ?`, id).Scan(&payload, &revision)
 	if errors.Is(err, sql.ErrNoRows) {
 		return WorkItem{}, ErrNotFound
 	}
 	if err != nil {
 		return WorkItem{}, fmt.Errorf("read delivery item: %w", err)
 	}
-	return decodeWorkItem(payload)
+	return decodeWorkItemAtRevision(payload, revision)
 }
 
 func (repository *SQLiteRepository) List(ctx context.Context) ([]WorkItem, error) {
@@ -138,7 +150,7 @@ func (repository *SQLiteRepository) List(ctx context.Context) ([]WorkItem, error
 	if err != nil {
 		return nil, err
 	}
-	rows, err := executor.QueryContext(ctx, `SELECT payload FROM iotd_delivery_items ORDER BY updated_at DESC, id ASC`)
+	rows, err := executor.QueryContext(ctx, `SELECT payload, revision FROM iotd_delivery_items ORDER BY updated_at DESC, id ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("list delivery items: %w", err)
 	}
@@ -146,10 +158,11 @@ func (repository *SQLiteRepository) List(ctx context.Context) ([]WorkItem, error
 	items := make([]WorkItem, 0)
 	for rows.Next() {
 		var payload string
-		if err := rows.Scan(&payload); err != nil {
+		var revision int64
+		if err := rows.Scan(&payload, &revision); err != nil {
 			return nil, fmt.Errorf("scan delivery item: %w", err)
 		}
-		item, err := decodeWorkItem(payload)
+		item, err := decodeWorkItemAtRevision(payload, revision)
 		if err != nil {
 			return nil, err
 		}
@@ -161,7 +174,13 @@ func (repository *SQLiteRepository) List(ctx context.Context) ([]WorkItem, error
 	return items, nil
 }
 
-func (repository *SQLiteRepository) Save(ctx context.Context, item WorkItem) error {
+func (repository *SQLiteRepository) Save(ctx context.Context, item WorkItem, expectedRevision int64) error {
+	if expectedRevision <= 0 {
+		return ErrInvalidExpectedRevision
+	}
+	if item.Revision != expectedRevision+1 {
+		return errors.New("delivery item revision must increment exactly once")
+	}
 	payload, err := json.Marshal(item)
 	if err != nil {
 		return fmt.Errorf("encode delivery item: %w", err)
@@ -170,7 +189,7 @@ func (repository *SQLiteRepository) Save(ctx context.Context, item WorkItem) err
 	if err != nil {
 		return err
 	}
-	result, err := executor.ExecContext(ctx, `UPDATE iotd_delivery_items SET payload = ?, updated_at = ? WHERE id = ?`, string(payload), item.UpdatedAt.UTC().Format(timeLayout), item.ID)
+	result, err := executor.ExecContext(ctx, `UPDATE iotd_delivery_items SET payload = ?, updated_at = ?, revision = revision + 1 WHERE id = ? AND revision = ?`, string(payload), item.UpdatedAt.UTC().Format(timeLayout), item.ID, expectedRevision)
 	if err != nil {
 		return fmt.Errorf("update delivery item: %w", err)
 	}
@@ -179,7 +198,15 @@ func (repository *SQLiteRepository) Save(ctx context.Context, item WorkItem) err
 		return fmt.Errorf("check updated delivery item: %w", err)
 	}
 	if changed == 0 {
-		return ErrNotFound
+		var exists int
+		err := executor.QueryRowContext(ctx, `SELECT 1 FROM iotd_delivery_items WHERE id = ?`, item.ID).Scan(&exists)
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("classify delivery item update: %w", err)
+		}
+		return ErrRevisionConflict
 	}
 	return nil
 }
@@ -502,6 +529,62 @@ func decodeWorkItem(payload string) (WorkItem, error) {
 		return WorkItem{}, fmt.Errorf("decode delivery item: %w", err)
 	}
 	return item, nil
+}
+
+func decodeWorkItemAtRevision(payload string, revision int64) (WorkItem, error) {
+	item, err := decodeWorkItem(payload)
+	if err != nil {
+		return WorkItem{}, err
+	}
+	if revision <= 0 {
+		return WorkItem{}, errors.New("stored delivery item revision must be positive")
+	}
+	item.Revision = revision
+	return item, nil
+}
+
+func migrateItemRevision(ctx context.Context, database *sql.DB) error {
+	rows, err := database.QueryContext(ctx, `PRAGMA table_info(iotd_delivery_items)`)
+	if err != nil {
+		return fmt.Errorf("inspect delivery item schema: %w", err)
+	}
+	defer rows.Close()
+	foundRevision := false
+	for rows.Next() {
+		var columnID int
+		var name, columnType string
+		var notNull, primaryKey int
+		var defaultValue any
+		if err := rows.Scan(&columnID, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+			return fmt.Errorf("scan delivery item schema: %w", err)
+		}
+		if name == "revision" {
+			if strings.ToUpper(strings.TrimSpace(columnType)) != "INTEGER" {
+				return errors.New("delivery item revision column must have INTEGER type")
+			}
+			if notNull == 0 {
+				return errors.New("delivery item revision column must be NOT NULL")
+			}
+			foundRevision = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate delivery item schema: %w", err)
+	}
+	if foundRevision {
+		var schema string
+		if err := database.QueryRowContext(ctx, `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'iotd_delivery_items'`).Scan(&schema); err != nil {
+			return fmt.Errorf("read delivery item schema: %w", err)
+		}
+		if !strings.Contains(strings.ToUpper(schema), "CHECK (REVISION > 0)") {
+			return errors.New("delivery item revision column must enforce revision > 0")
+		}
+		return nil
+	}
+	if _, err := database.ExecContext(ctx, `ALTER TABLE iotd_delivery_items ADD COLUMN revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0)`); err != nil {
+		return fmt.Errorf("migrate delivery item revision: %w", err)
+	}
+	return nil
 }
 
 func decodeProject(payload string) (Project, error) {

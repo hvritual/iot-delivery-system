@@ -197,6 +197,7 @@ message WorkItemResponse {
 message CommentResponse {
   option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
   Comment comment = 1;
+  int64 revision = 2;
 }
 
 message ProjectResponse {
@@ -320,6 +321,7 @@ message WorkItem {
   repeated TraceLink trace_links = 30;
   repeated Comment comments = 31;
   repeated Activity activities = 32;
+  int64 revision = 33;
 }
 message WorkItemDependency {
   option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
@@ -417,11 +419,13 @@ message UpdateItemRequest {
   repeated WorkItemDependency dependencies = 13;
   repeated IoTBinding iot_bindings = 14;
   repeated TraceLink trace_links = 15;
+  int64 expected_revision = 16;
 }
 message CreateItemCommentRequest {
   option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
   string id = 1;
   string body = 2;
+  int64 expected_revision = 3;
 }
 
 message CreateProjectRequest {
@@ -468,6 +472,7 @@ message UpdateItemContextRequest {
   optional string solution = 3;
   optional string blocker = 4;
   optional Decision decision = 5;
+  int64 expected_revision = 6;
 }
 
 message AdvanceGateRequest {
@@ -475,10 +480,12 @@ message AdvanceGateRequest {
   string id = 1;
   string gate = 2;
   repeated Evidence evidence = 3;
+  int64 expected_revision = 4;
 }
 
 message CloseItemRequest {
   option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
   string id = 1;
   string retrospective = 2;
+  int64 expected_revision = 3;
 }

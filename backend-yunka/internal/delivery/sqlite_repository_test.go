@@ -69,13 +69,13 @@ func TestSQLiteRepositoryWaitsForConcurrentWriterInsteadOfFailingBusy(t *testing
 		t.Fatalf("begin lock-holding transaction: %v", err)
 	}
 	defer transaction.Rollback()
-	if _, err := transaction.ExecContext(ctx, `INSERT INTO iotd_delivery_items (id, payload, updated_at) VALUES (?, ?, ?)`, "lock-holder", `{}`, time.Now().UTC().Format(timeLayout)); err != nil {
+	if _, err := transaction.ExecContext(ctx, `INSERT INTO iotd_delivery_items (id, payload, updated_at, revision) VALUES (?, ?, ?, ?)`, "lock-holder", `{}`, time.Now().UTC().Format(timeLayout), 1); err != nil {
 		t.Fatalf("write lock-holding item: %v", err)
 	}
 
 	waiter := make(chan error, 1)
 	go func() {
-		_, writeErr := repository.Database().ExecContext(context.Background(), `INSERT INTO iotd_delivery_items (id, payload, updated_at) VALUES (?, ?, ?)`, "waiter", `{}`, time.Now().UTC().Format(timeLayout))
+		_, writeErr := repository.Database().ExecContext(context.Background(), `INSERT INTO iotd_delivery_items (id, payload, updated_at, revision) VALUES (?, ?, ?, ?)`, "waiter", `{}`, time.Now().UTC().Format(timeLayout), 1)
 		waiter <- writeErr
 	}()
 

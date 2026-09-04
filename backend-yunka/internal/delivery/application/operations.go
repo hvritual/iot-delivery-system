@@ -142,11 +142,11 @@ func (operations *Operations) Create(ctx context.Context, input delivery.CreateI
 	return workItemFromProto(response.GetItem()), nil
 }
 
-func (operations *Operations) UpdateContext(ctx context.Context, id string, input delivery.ContextUpdate) (delivery.WorkItem, error) {
+func (operations *Operations) UpdateContext(ctx context.Context, id string, expectedRevision int64, input delivery.ContextUpdate) (delivery.WorkItem, error) {
 	if err := operations.ready(); err != nil {
 		return delivery.WorkItem{}, err
 	}
-	request := &deliveryv1.UpdateItemContextRequest{Id: id, Plan: input.Plan, Solution: input.Solution, Blocker: input.Blocker}
+	request := &deliveryv1.UpdateItemContextRequest{Id: id, ExpectedRevision: expectedRevision, Plan: input.Plan, Solution: input.Solution, Blocker: input.Blocker}
 	if input.Decision != nil {
 		request.Decision = decisionToProto(*input.Decision)
 	}
@@ -157,7 +157,7 @@ func (operations *Operations) UpdateContext(ctx context.Context, id string, inpu
 	return workItemFromProto(response.GetItem()), nil
 }
 
-func (operations *Operations) AdvanceGate(ctx context.Context, id string, next delivery.Gate, evidence []delivery.Evidence) (delivery.WorkItem, error) {
+func (operations *Operations) AdvanceGate(ctx context.Context, id string, expectedRevision int64, next delivery.Gate, evidence []delivery.Evidence) (delivery.WorkItem, error) {
 	if err := operations.ready(); err != nil {
 		return delivery.WorkItem{}, err
 	}
@@ -171,9 +171,7 @@ func (operations *Operations) AdvanceGate(ctx context.Context, id string, next d
 		})
 	}
 	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanAdvanceGate(), &deliveryv1.AdvanceGateRequest{
-		Id:       id,
-		Gate:     string(next),
-		Evidence: records,
+		Id: id, ExpectedRevision: expectedRevision, Gate: string(next), Evidence: records,
 	}, operations.application.AdvanceGate)
 	if err != nil {
 		return delivery.WorkItem{}, err
@@ -181,13 +179,12 @@ func (operations *Operations) AdvanceGate(ctx context.Context, id string, next d
 	return workItemFromProto(response.GetItem()), nil
 }
 
-func (operations *Operations) Close(ctx context.Context, id, retrospective string) (delivery.WorkItem, error) {
+func (operations *Operations) Close(ctx context.Context, id string, expectedRevision int64, retrospective string) (delivery.WorkItem, error) {
 	if err := operations.ready(); err != nil {
 		return delivery.WorkItem{}, err
 	}
 	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanCloseItem(), &deliveryv1.CloseItemRequest{
-		Id:            id,
-		Retrospective: retrospective,
+		Id: id, ExpectedRevision: expectedRevision, Retrospective: retrospective,
 	}, operations.application.CloseItem)
 	if err != nil {
 		return delivery.WorkItem{}, err
@@ -246,11 +243,11 @@ func (operations *Operations) Get(ctx context.Context, id string) (delivery.Work
 	})
 }
 
-func (operations *Operations) UpdateWorkItem(ctx context.Context, id string, input delivery.WorkItemUpdate) (delivery.WorkItem, error) {
+func (operations *Operations) UpdateWorkItem(ctx context.Context, id string, expectedRevision int64, input delivery.WorkItemUpdate) (delivery.WorkItem, error) {
 	if err := operations.ready(); err != nil {
 		return delivery.WorkItem{}, err
 	}
-	request := &deliveryv1.UpdateItemRequest{Id: id}
+	request := &deliveryv1.UpdateItemRequest{Id: id, ExpectedRevision: expectedRevision}
 	if input.Title != nil {
 		request.UpdateMask = append(request.UpdateMask, "title")
 		request.Title = *input.Title
@@ -319,16 +316,16 @@ func (operations *Operations) UpdateWorkItem(ctx context.Context, id string, inp
 	return workItemFromProto(response.GetItem()), nil
 }
 
-func (operations *Operations) AddComment(ctx context.Context, id string, input delivery.CommentInput) (delivery.Comment, error) {
+func (operations *Operations) AddComment(ctx context.Context, id string, expectedRevision int64, input delivery.CommentInput) (delivery.Comment, error) {
 	if err := operations.ready(); err != nil {
 		return delivery.Comment{}, err
 	}
-	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanCreateItemComment(), &deliveryv1.CreateItemCommentRequest{Id: id, Body: input.Body}, operations.application.CreateItemComment)
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanCreateItemComment(), &deliveryv1.CreateItemCommentRequest{Id: id, Body: input.Body, ExpectedRevision: expectedRevision}, operations.application.CreateItemComment)
 	if err != nil {
 		return delivery.Comment{}, err
 	}
 	value := response.GetComment()
-	return delivery.Comment{ID: value.GetId(), Body: value.GetBody(), Author: value.GetAuthor(), CreatedAt: timeFromProto(value.GetCreatedAt())}, nil
+	return delivery.Comment{ID: value.GetId(), Body: value.GetBody(), Author: value.GetAuthor(), CreatedAt: timeFromProto(value.GetCreatedAt()), WorkItemRevision: response.GetRevision()}, nil
 }
 
 func (operations *Operations) Search(ctx context.Context, filter delivery.WorkItemFilter) ([]delivery.WorkItem, error) {
@@ -516,6 +513,7 @@ func workItemFromProto(value *deliveryv1.WorkItem) delivery.WorkItem {
 		return delivery.WorkItem{}
 	}
 	item := delivery.WorkItem{
+		Revision:  value.GetRevision(),
 		ID:        value.GetId(),
 		Title:     value.GetTitle(),
 		Board:     delivery.Board(value.GetBoard()),

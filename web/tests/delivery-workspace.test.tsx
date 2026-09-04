@@ -8,12 +8,17 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { DeliveryWorkspace } from "@/components/delivery-workspace";
 import {
-  fetchMilestones,
+	addComment,
+	advanceGate,
+	closeItem,
+	fetchMilestones,
   fetchNotifications,
   fetchProjects,
   fetchReleases,
   fetchSavedViews,
-  fetchSprints,
+	fetchSprints,
+	updateItemContext,
+	updateWorkItem,
 } from "@/src/api.js";
 
 afterEach(() => {
@@ -28,7 +33,7 @@ const dashboard = {
     { board: "运营保障与安全", total: 0 },
     { board: "客户与业务价值", total: 0 },
   ],
-  items: [{ id: "delivery-1", board: "研发交付效能", title: "交付证据联通", isSample: false }],
+  items: [{ id: "delivery-1", board: "研发交付效能", title: "交付证据联通", revision: 7, isSample: false }],
 };
 
 vi.mock("@/src/api.js", () => ({
@@ -92,9 +97,23 @@ vi.mock("@/src/components/BoardGrid.jsx", () => ({
   StatusLegend: () => <div data-testid="status-legend" />,
 }));
 vi.mock("@/src/components/DeliveryTable.jsx", () => ({
-  DeliveryTable: ({ items }: { items: typeof dashboard.items }) => <div data-testid="delivery-table">{items.length} 项</div>,
+  DeliveryTable: ({ items, onSelectItem }: { items: typeof dashboard.items; onSelectItem: (id: string) => void }) => <div data-testid="delivery-table">{items.length} 项<button onClick={() => onSelectItem("delivery-1")} type="button">选择交付事项</button></div>,
 }));
-vi.mock("@/src/components/ItemPanel.jsx", () => ({ ItemPanel: () => <aside data-testid="item-panel" /> }));
+vi.mock("@/src/components/ItemPanel.jsx", () => ({
+  ItemPanel: ({ onAddComment, onAdvance, onClose, onUpdateContext, onUpdateItem }: {
+    onAddComment: (id: string, body: string) => void;
+    onAdvance: (id: string, gate: string, evidence: string) => void;
+    onClose: (id: string, retrospective: string) => void;
+    onUpdateContext: (id: string, input: object) => void;
+    onUpdateItem: (id: string, input: object) => void;
+  }) => <aside data-testid="item-panel">
+    <button onClick={() => onUpdateItem("delivery-1", { title: "已更新" })} type="button">更新事项</button>
+    <button onClick={() => onUpdateContext("delivery-1", { plan: "已更新计划" })} type="button">更新上下文</button>
+    <button onClick={() => onAddComment("delivery-1", "补充评论")} type="button">添加评论</button>
+    <button onClick={() => onAdvance("delivery-1", "solution_reviewed", "评审通过")} type="button">推进关卡</button>
+    <button onClick={() => onClose("delivery-1", "复盘完成")} type="button">关闭事项</button>
+  </aside>,
+}));
 vi.mock("@/src/components/CreateItemDialog.jsx", () => ({
   CreateItemDialog: () => <div data-testid="create-item-dialog">新建事项表单</div>,
 }));
@@ -122,7 +141,7 @@ beforeAll(() => {
 });
 
 describe("DeliveryWorkspace", () => {
-  it("moves from the desktop cockpit into independent project and item workspaces", async () => {
+	it("moves from the desktop cockpit into independent project and item workspaces", async () => {
     const user = userEvent.setup();
     render(<DeliveryWorkspace />);
 
@@ -159,5 +178,24 @@ describe("DeliveryWorkspace", () => {
 		expect(screen.getByTestId("board-grid")).toBeInTheDocument();
 		expect(screen.getByText("当前为旧后端对照模式")).toBeInTheDocument();
 		expect(screen.queryByTestId("project-workspace")).not.toBeInTheDocument();
+	});
+
+	it("uses the selected work item's current revision for every mutation", async () => {
+		const user = userEvent.setup();
+		render(<DeliveryWorkspace />);
+
+		await user.click(screen.getByRole("button", { name: "交付事项" }));
+		await user.click(screen.getByRole("button", { name: "选择交付事项" }));
+		await user.click(screen.getByRole("button", { name: "更新事项" }));
+		await user.click(screen.getByRole("button", { name: "更新上下文" }));
+		await user.click(screen.getByRole("button", { name: "添加评论" }));
+		await user.click(screen.getByRole("button", { name: "推进关卡" }));
+		await user.click(screen.getByRole("button", { name: "关闭事项" }));
+
+		await waitFor(() => expect(updateWorkItem).toHaveBeenCalledWith("delivery-1", 7, { title: "已更新" }));
+		expect(updateItemContext).toHaveBeenCalledWith("delivery-1", 7, { plan: "已更新计划" });
+		expect(addComment).toHaveBeenCalledWith("delivery-1", 7, "补充评论");
+		expect(advanceGate).toHaveBeenCalledWith("delivery-1", 7, "solution_reviewed", "评审通过");
+		expect(closeItem).toHaveBeenCalledWith("delivery-1", 7, "复盘完成");
 	});
 });

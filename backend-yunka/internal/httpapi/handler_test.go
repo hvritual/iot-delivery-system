@@ -3,6 +3,7 @@ package httpapi_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -35,9 +36,10 @@ func TestHandlerCreatesAdvancesAndSummarizesDeliveryItems(t *testing.T) {
 		t.Fatalf("decode created item: %v", err)
 	}
 
-	advanceRequest := httptest.NewRequest(http.MethodPost, "/api/items/"+created.ID+"/gates/solution_reviewed", bytes.NewBufferString(`{
+	advanceRequest := httptest.NewRequest(http.MethodPost, "/api/items/"+created.ID+"/gates/solution_reviewed", bytes.NewBufferString(fmt.Sprintf(`{
+		"expectedRevision":%d,
 		"evidence":[{"kind":"review","title":"方案评审通过","reference":"ADR-001"}]
-	}`))
+	}`, created.Revision)))
 	advanceRequest.Header.Set("Content-Type", "application/json")
 	advanceRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(advanceRecorder, advanceRequest)
@@ -82,12 +84,13 @@ func TestHandlerRecordsDeliveryContext(t *testing.T) {
 		t.Fatalf("decode created item: %v", err)
 	}
 
-	request := httptest.NewRequest(http.MethodPatch, "/api/items/"+created.ID, bytes.NewBufferString(`{
+	request := httptest.NewRequest(http.MethodPatch, "/api/items/"+created.ID, bytes.NewBufferString(fmt.Sprintf(`{
+		"expectedRevision":%d,
 		"plan":"按型号拆分离线率。",
 		"solution":"持续离线自动创建诊断任务。",
 		"blocker":"等待现场网络抓包。",
 		"decision":{"title":"先按型号聚合", "outcome":"先完成型号维度分析"}
-	}`))
+	}`, created.Revision)))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
@@ -100,6 +103,29 @@ func TestHandlerRecordsDeliveryContext(t *testing.T) {
 	}
 	if updated.Status != delivery.StatusBlocked || len(updated.Decisions) != 1 {
 		t.Fatalf("updated item = %#v, want blocked item with one decision", updated)
+	}
+}
+
+func TestHandlerCombinesWorkItemAndContextPatchWithChainedRevision(t *testing.T) {
+	t.Parallel()
+
+	fixture := newRESTFixture(t)
+	created := createJSON(t, fixture.handler, http.MethodPost, "/api/items", `{
+		"title":"组合更新事项", "board":"研发交付效能", "owner":"交付负责人"
+	}`, http.StatusCreated)
+	itemID := responseID(t, created)
+
+	updated := createJSON(t, fixture.handler, http.MethodPatch, "/api/items/"+itemID, fmt.Sprintf(`{
+		"expectedRevision":%d,
+		"progressPercent":60,
+		"plan":"先完成设备灰度。",
+		"solution":"持续监测并自动回滚。"
+	}`, responseRevision(t, created)), http.StatusOK)
+	if got, want := responseRevision(t, updated), responseRevision(t, created)+2; got != want {
+		t.Fatalf("combined patch revision = %d, want %d", got, want)
+	}
+	if updated["progressPercent"] != float64(60) || updated["plan"] != "先完成设备灰度。" || updated["solution"] != "持续监测并自动回滚。" {
+		t.Fatalf("combined patch = %#v, want work-item and context fields retained", updated)
 	}
 }
 
@@ -116,7 +142,7 @@ func TestHandlerReturnsUnprocessableWhenGateEvidenceIsMissing(t *testing.T) {
 	}
 
 	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/api/items/"+item.ID+"/gates/solution_reviewed", bytes.NewBufferString(`{"evidence":[]}`)))
+	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/api/items/"+item.ID+"/gates/solution_reviewed", bytes.NewBufferString(fmt.Sprintf(`{"expectedRevision":%d,"evidence":[]}`, item.Revision))))
 	if recorder.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("missing-evidence response = %d, want %d: %s", recorder.Code, http.StatusUnprocessableEntity, recorder.Body.String())
 	}
@@ -294,11 +320,12 @@ func TestHandlerSupportsPlanningTaskAuditSearchSavedViewsAndProgress(t *testing.
 	}`, http.StatusCreated)
 	itemID, _ := item["id"].(string)
 
-	patch := httptest.NewRequest(http.MethodPatch, "/api/items/"+itemID, bytes.NewBufferString(`{
+	patch := httptest.NewRequest(http.MethodPatch, "/api/items/"+itemID, bytes.NewBufferString(fmt.Sprintf(`{
+		"expectedRevision":%d,
 		"progressPercent":60,
 		"iotBindings":[{"kind":"device","reference":"SN-001","label":"测试机"}],
 		"traceLinks":[{"kind":"pull_request","reference":"PR-88","title":"灰度发布实现"}]
-	}`))
+	}`, responseRevision(t, item))))
 	patch.Header.Set("Content-Type", "application/json")
 	patched := httptest.NewRecorder()
 	handler.ServeHTTP(patched, patch)
@@ -313,7 +340,7 @@ func TestHandlerSupportsPlanningTaskAuditSearchSavedViewsAndProgress(t *testing.
 		t.Fatalf("edited item = %#v, want progress and IoT/trace links", edited)
 	}
 
-	comment := httptest.NewRequest(http.MethodPost, "/api/items/"+itemID+"/comments", bytes.NewBufferString(`{"body":"首批门店已进入灰度。"}`))
+	comment := httptest.NewRequest(http.MethodPost, "/api/items/"+itemID+"/comments", bytes.NewBufferString(fmt.Sprintf(`{"body":"首批门店已进入灰度。","expectedRevision":%d}`, edited.Revision)))
 	comment.Header.Set("Content-Type", "application/json")
 	commented := httptest.NewRecorder()
 	handler.ServeHTTP(commented, comment)

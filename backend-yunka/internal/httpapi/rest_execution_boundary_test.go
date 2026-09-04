@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -87,15 +88,16 @@ func TestRESTWriteRoutesUseOperationsWithSQLiteExecutorAndOutbox(t *testing.T) {
 	milestone := requestJSON(t, fixture.handler, http.MethodPost, "/api/milestones", `{"projectId":"`+projectID+`","name":"Gate","targetDate":"2026-09-10"}`, http.StatusCreated)
 	item := requestJSON(t, fixture.handler, http.MethodPost, "/api/items", `{"title":"route compatibility","board":"研发交付效能","owner":"delivery-owner","projectId":"`+projectID+`","kind":"task","releaseId":"`+responseID(t, release)+`","sprintId":"`+responseID(t, sprint)+`","milestoneId":"`+responseID(t, milestone)+`"}`, http.StatusCreated)
 	itemID := responseID(t, item)
-	requestJSON(t, fixture.handler, http.MethodPatch, "/api/items/"+itemID, `{"progressPercent":40,"plan":"record delivery context","decision":{"title":"REST executor","outcome":"keep route compatibility"}}`, http.StatusOK)
-	requestJSON(t, fixture.handler, http.MethodPost, "/api/items/"+itemID+"/comments", `{"body":"executor-backed comment"}`, http.StatusCreated)
-	requestJSON(t, fixture.handler, http.MethodPost, "/api/items/"+itemID+"/gates/solution_reviewed", `{"evidence":[{"kind":"review","title":"solution approved","reference":"ADR-REST-001"}]}`, http.StatusOK)
+	item = requestJSON(t, fixture.handler, http.MethodPatch, "/api/items/"+itemID, withExpectedRevision(`{"progressPercent":40,"plan":"record delivery context","decision":{"title":"REST executor","outcome":"keep route compatibility"}}`, responseRevision(t, item)), http.StatusOK)
+	comment := requestJSON(t, fixture.handler, http.MethodPost, "/api/items/"+itemID+"/comments", withExpectedRevision(`{"body":"executor-backed comment"}`, responseRevision(t, item)), http.StatusCreated)
+	item["revision"] = comment["revision"]
+	item = requestJSON(t, fixture.handler, http.MethodPost, "/api/items/"+itemID+"/gates/solution_reviewed", withExpectedRevision(`{"evidence":[{"kind":"review","title":"solution approved","reference":"ADR-REST-001"}]}`, responseRevision(t, item)), http.StatusOK)
 	requestJSON(t, fixture.handler, http.MethodPost, "/api/views", `{"name":"REST boundary","filter":{"projectId":"`+projectID+`"}}`, http.StatusCreated)
 
 	for _, gate := range []string{"development_completed", "test_passed"} {
-		requestJSON(t, fixture.handler, http.MethodPost, "/api/items/"+itemID+"/gates/"+gate, `{"evidence":[{"kind":"test","title":"`+gate+`"}]}`, http.StatusOK)
+		item = requestJSON(t, fixture.handler, http.MethodPost, "/api/items/"+itemID+"/gates/"+gate, withExpectedRevision(`{"evidence":[{"kind":"test","title":"`+gate+`"}]}`, responseRevision(t, item)), http.StatusOK)
 	}
-	denied := requestJSON(t, fixture.handler, http.MethodPost, "/api/items/"+itemID+"/gates/production_validated", `{"evidence":[{"kind":"test","title":"production_validated"}]}`, http.StatusForbidden)
+	denied := requestJSON(t, fixture.handler, http.MethodPost, "/api/items/"+itemID+"/gates/production_validated", withExpectedRevision(`{"evidence":[{"kind":"test","title":"production_validated"}]}`, responseRevision(t, item)), http.StatusForbidden)
 	if denied["error"] != "permission_denied" {
 		t.Fatalf("API key production validation error = %#v, want stable permission_denied", denied)
 	}
@@ -262,9 +264,10 @@ func createRESTItem(t *testing.T, handler http.Handler) string {
 
 func createTestPassedRESTItem(t *testing.T, handler http.Handler) string {
 	t.Helper()
-	itemID := createRESTItem(t, handler)
+	item := requestJSON(t, handler, http.MethodPost, "/api/items", `{"title":"method boundary `+strings.ReplaceAll(t.Name(), "/", "-")+`","board":"研发交付效能","owner":"delivery-owner"}`, http.StatusCreated)
+	itemID := responseID(t, item)
 	for _, gate := range []string{"solution_reviewed", "development_completed", "test_passed"} {
-		requestJSON(t, handler, http.MethodPost, "/api/items/"+itemID+"/gates/"+gate, `{"evidence":[{"kind":"test","title":"`+gate+`"}]}`, http.StatusOK)
+		item = requestJSON(t, handler, http.MethodPost, "/api/items/"+itemID+"/gates/"+gate, withExpectedRevision(`{"evidence":[{"kind":"test","title":"`+gate+`"}]}`, responseRevision(t, item)), http.StatusOK)
 	}
 	return itemID
 }
@@ -292,4 +295,17 @@ func responseID(t *testing.T, value map[string]any) string {
 		t.Fatalf("response ID = %#v, want non-empty", value["id"])
 	}
 	return id
+}
+
+func responseRevision(t *testing.T, value map[string]any) int64 {
+	t.Helper()
+	revision, ok := value["revision"].(float64)
+	if !ok || revision <= 0 || revision != float64(int64(revision)) {
+		t.Fatalf("response revision = %#v, want positive integer", value["revision"])
+	}
+	return int64(revision)
+}
+
+func withExpectedRevision(body string, revision int64) string {
+	return fmt.Sprintf(`{"expectedRevision":%d,%s`, revision, strings.TrimPrefix(strings.TrimSpace(body), "{"))
 }

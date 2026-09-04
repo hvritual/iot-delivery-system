@@ -55,6 +55,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 type WorkItem = {
   id: string;
   board: string;
+  revision?: number;
   isSample?: boolean;
   [key: string]: unknown;
 };
@@ -250,11 +251,16 @@ export function DeliveryWorkspace() {
     if (result) setActiveSurface("items");
     return result;
   }
-  function handleContext(id: string, input: any) { return runMutation(() => updateItemContext(id, input)); }
-  function handleUpdateItem(id: string, input: any) { return runMutation(() => updateWorkItem(id, input)); }
-  function handleAddComment(id: string, body: string) { return runMutation(() => addComment(id, body)); }
-  function handleAdvance(id: string, gate: string, evidence: string) { return runMutation(() => advanceGate(id, gate, evidence)); }
-  function handleClose(id: string, retrospective: string) { return runMutation(() => closeItem(id, retrospective)); }
+  function expectedRevisionFor(id: string) {
+    const revision = dashboard.items.find((item) => item.id === id)?.revision;
+    if (typeof revision !== "number" || !Number.isInteger(revision) || revision <= 0) throw new Error("当前事项缺少有效版本，请刷新后重试。");
+    return revision;
+  }
+  function handleContext(id: string, input: any) { return runMutation(() => updateItemContext(id, expectedRevisionFor(id), input)); }
+  function handleUpdateItem(id: string, input: any) { return runMutation(() => updateWorkItem(id, expectedRevisionFor(id), input)); }
+  function handleAddComment(id: string, body: string) { return runMutation(() => addComment(id, expectedRevisionFor(id), body)); }
+  function handleAdvance(id: string, gate: string, evidence: string) { return runMutation(() => advanceGate(id, expectedRevisionFor(id), gate, evidence)); }
+  function handleClose(id: string, retrospective: string) { return runMutation(() => closeItem(id, expectedRevisionFor(id), retrospective)); }
   function handleCreateProject(input: any) { return runWorkspaceMutation(() => createProject(input)); }
   function handleCreateRelease(input: any) { return runWorkspaceMutation(() => createRelease(input)); }
   function handleCreateSprint(input: any) { return runWorkspaceMutation(() => createSprint(input)); }

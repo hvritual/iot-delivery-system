@@ -124,7 +124,7 @@ func (adapter *Adapter) UpdateItem(ctx context.Context, request *deliveryv1.Upda
 			return nil, errors.New("unsupported delivery work item update field: " + field)
 		}
 	}
-	item, err := service.UpdateWorkItem(ctx, request.GetId(), update)
+	item, err := service.UpdateWorkItem(ctx, request.GetId(), request.GetExpectedRevision(), update)
 	if err != nil {
 		return nil, err
 	}
@@ -171,11 +171,11 @@ func (adapter *Adapter) CreateItemComment(ctx context.Context, request *delivery
 	if err != nil {
 		return nil, err
 	}
-	comment, err := service.AddComment(ctx, request.GetId(), delivery.CommentInput{Body: request.GetBody()})
+	comment, err := service.AddComment(ctx, request.GetId(), request.GetExpectedRevision(), delivery.CommentInput{Body: request.GetBody()})
 	if err != nil {
 		return nil, err
 	}
-	return &deliveryv1.CommentResponse{Comment: &deliveryv1.Comment{Id: comment.ID, Body: comment.Body, Author: comment.Author, CreatedAt: timestamp(comment.CreatedAt)}}, nil
+	return &deliveryv1.CommentResponse{Comment: &deliveryv1.Comment{Id: comment.ID, Body: comment.Body, Author: comment.Author, CreatedAt: timestamp(comment.CreatedAt)}, Revision: comment.WorkItemRevision}, nil
 }
 
 func (adapter *Adapter) CreateProject(ctx context.Context, request *deliveryv1.CreateProjectRequest) (*deliveryv1.ProjectResponse, error) {
@@ -276,7 +276,7 @@ func (adapter *Adapter) UpdateItemContext(ctx context.Context, request *delivery
 	if request.Decision != nil {
 		input.Decision = decisionFromProto(request.Decision)
 	}
-	item, err := service.UpdateContext(ctx, request.GetId(), input)
+	item, err := service.UpdateContext(ctx, request.GetId(), request.GetExpectedRevision(), input)
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +303,7 @@ func (adapter *Adapter) AdvanceGate(ctx context.Context, request *deliveryv1.Adv
 			RecordedAt: timeFromProto(record.GetRecordedAt()),
 		})
 	}
-	item, err := service.AdvanceGate(ctx, request.GetId(), delivery.Gate(request.GetGate()), evidence)
+	item, err := service.AdvanceGate(ctx, request.GetId(), request.GetExpectedRevision(), delivery.Gate(request.GetGate()), evidence)
 	if err != nil {
 		return nil, normalizeAuthorizationError(err)
 	}
@@ -318,7 +318,7 @@ func (adapter *Adapter) CloseItem(ctx context.Context, request *deliveryv1.Close
 	if err != nil {
 		return nil, err
 	}
-	item, err := service.Close(ctx, request.GetId(), request.GetRetrospective())
+	item, err := service.Close(ctx, request.GetId(), request.GetExpectedRevision(), request.GetRetrospective())
 	if err != nil {
 		return nil, normalizeAuthorizationError(err)
 	}
@@ -419,6 +419,7 @@ func workItem(item delivery.WorkItem) *deliveryv1.WorkItem {
 		activities = append(activities, &deliveryv1.Activity{Id: value.ID, Type: value.Type, Summary: value.Summary, Actor: value.Actor, OccurredAt: timestamp(value.OccurredAt)})
 	}
 	return &deliveryv1.WorkItem{
+		Revision:      item.Revision,
 		Id:            item.ID,
 		Title:         item.Title,
 		Board:         string(item.Board),

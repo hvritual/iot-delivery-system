@@ -144,7 +144,7 @@ func TestSeparationOfDutiesRejectionsLeaveSQLiteAndOutboxUnchanged(t *testing.T)
 			run: func(t *testing.T, fixture separationOfDutiesFixture) {
 				item := fixture.advanceToTestPassed(t)
 				item.ImplementationPrincipal = delivery.PrincipalSource{Kind: "human", AuthMethod: identity.AuthMethodJWT, SubjectID: "implementer"}
-				if err := fixture.repository.Save(t.Context(), item); err != nil {
+				if err := saveWorkItemForTransactionalTest(t.Context(), fixture.repository, item); err != nil {
 					t.Fatal(err)
 				}
 				fixture.assertRejectedAdvance(t, item.ID, fixture.reviewer)
@@ -173,7 +173,11 @@ func TestSeparationOfDutiesRejectionsLeaveSQLiteAndOutboxUnchanged(t *testing.T)
 					t.Fatal(err)
 				}
 				_, err = fixture.executor.Execute(fixture.crossTenantReviewer, fixture.plan, nil, func(callContext context.Context) (any, error) {
-					return fixture.service.Close(callContext, item.ID, "cross tenant retrospective")
+					stored, err := fixture.repository.Get(callContext, item.ID)
+					if err != nil {
+						return delivery.WorkItem{}, err
+					}
+					return fixture.service.Close(callContext, item.ID, stored.Revision, "cross tenant retrospective")
 				})
 				if !errors.Is(err, delivery.ErrImplementationSourceRequired) {
 					t.Fatalf("cross-tenant close error = %v", err)
@@ -252,8 +256,12 @@ func (fixture separationOfDutiesFixture) advanceToTestPassed(t *testing.T) deliv
 
 func (fixture separationOfDutiesFixture) advance(t *testing.T, ctx context.Context, itemID string, gate delivery.Gate) (delivery.WorkItem, error) {
 	t.Helper()
+	item, err := fixture.repository.Get(t.Context(), itemID)
+	if err != nil {
+		return delivery.WorkItem{}, err
+	}
 	value, err := fixture.executor.Execute(ctx, fixture.plan, nil, func(callContext context.Context) (any, error) {
-		return fixture.service.AdvanceGate(callContext, itemID, gate, []delivery.Evidence{{Kind: "test", Title: string(gate)}})
+		return fixture.service.AdvanceGate(callContext, itemID, item.Revision, gate, []delivery.Evidence{{Kind: "test", Title: string(gate)}})
 	})
 	if err != nil {
 		return delivery.WorkItem{}, err
@@ -282,4 +290,10 @@ func (fixture separationOfDutiesFixture) assertRejectedAdvance(t *testing.T, ite
 	if err != nil || !reflect.DeepEqual(afterOutbox, beforeOutbox) {
 		t.Fatalf("rejected production validation changed outbox: %#v, %v", afterOutbox, err)
 	}
+}
+
+func saveWorkItemForTransactionalTest(ctx context.Context, repository *delivery.SQLiteRepository, item delivery.WorkItem) error {
+	expectedRevision := item.Revision
+	item.Revision++
+	return repository.Save(ctx, item, expectedRevision)
 }

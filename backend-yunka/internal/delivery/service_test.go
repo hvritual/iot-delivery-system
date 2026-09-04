@@ -23,7 +23,7 @@ func TestServiceRequiresGateEvidenceAndRetrospective(t *testing.T) {
 		t.Fatalf("create delivery item: %v", err)
 	}
 
-	if _, err := service.AdvanceGate(ctx, item.ID, GateSolutionReviewed, nil); err == nil {
+	if _, err := service.AdvanceGate(ctx, item.ID, item.Revision, GateSolutionReviewed, nil); err == nil {
 		t.Fatal("advance without evidence should fail")
 	}
 
@@ -37,7 +37,7 @@ func TestServiceRequiresGateEvidenceAndRetrospective(t *testing.T) {
 		if nextGate == GateProductionValidated {
 			actor = reviewer
 		}
-		item, err = service.AdvanceGate(actor, item.ID, nextGate, []Evidence{{
+		item, err = service.AdvanceGate(actor, item.ID, item.Revision, nextGate, []Evidence{{
 			Kind:  "test-or-review",
 			Title: "证明 " + string(nextGate) + " 已完成",
 		}})
@@ -46,11 +46,11 @@ func TestServiceRequiresGateEvidenceAndRetrospective(t *testing.T) {
 		}
 	}
 
-	if _, err := service.Close(reviewer, item.ID, ""); err == nil {
+	if _, err := service.Close(reviewer, item.ID, item.Revision, ""); err == nil {
 		t.Fatal("close without a retrospective should fail")
 	}
 
-	closed, err := service.Close(reviewer, item.ID, "灰度阶段发现回滚证据需要在发布前归档。")
+	closed, err := service.Close(reviewer, item.ID, item.Revision, "灰度阶段发现回滚证据需要在发布前归档。")
 	if err != nil {
 		t.Fatalf("close delivery item: %v", err)
 	}

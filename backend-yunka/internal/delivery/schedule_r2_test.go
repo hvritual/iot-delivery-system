@@ -19,12 +19,12 @@ func TestServiceRejectsCircularDependenciesOnUpdate(t *testing.T) {
 	first := deliveryTestItem(t, ctx, service, project.ID, "准备灰度设备", "固件负责人", 3)
 	second := deliveryTestItem(t, ctx, service, project.ID, "执行灰度发布", "发布负责人", 5)
 
-	if _, err := service.UpdateWorkItem(ctx, second.ID, delivery.WorkItemUpdate{Dependencies: &[]delivery.WorkItemDependency{{
+	if _, err := service.UpdateWorkItem(ctx, second.ID, second.Revision, delivery.WorkItemUpdate{Dependencies: &[]delivery.WorkItemDependency{{
 		ItemID: first.ID, Relation: delivery.DependencyDependsOn,
 	}}}); err != nil {
 		t.Fatalf("create one-way dependency: %v", err)
 	}
-	if _, err := service.UpdateWorkItem(ctx, first.ID, delivery.WorkItemUpdate{Dependencies: &[]delivery.WorkItemDependency{{
+	if _, err := service.UpdateWorkItem(ctx, first.ID, first.Revision, delivery.WorkItemUpdate{Dependencies: &[]delivery.WorkItemDependency{{
 		ItemID: second.ID, Relation: delivery.DependencyDependsOn,
 	}}}); !errors.Is(err, delivery.ErrCircularDependency) {
 		t.Fatalf("reverse dependency error = %v, want ErrCircularDependency", err)
@@ -42,7 +42,7 @@ func TestServiceBuildsProjectScheduleWithCapacityAndDeliveryRisks(t *testing.T) 
 	blocked := deliveryTestItem(t, ctx, service, project.ID, "补齐回滚预案", "测试负责人", 2)
 
 	yesterday := time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")
-	if _, err := service.UpdateWorkItem(ctx, dependent.ID, delivery.WorkItemUpdate{
+	if _, err := service.UpdateWorkItem(ctx, dependent.ID, dependent.Revision, delivery.WorkItemUpdate{
 		DueDate: &yesterday,
 		Dependencies: &[]delivery.WorkItemDependency{{
 			ItemID: prerequisite.ID, Relation: delivery.DependencyDependsOn,
@@ -51,7 +51,7 @@ func TestServiceBuildsProjectScheduleWithCapacityAndDeliveryRisks(t *testing.T) 
 		t.Fatalf("schedule dependent work item: %v", err)
 	}
 	blocker := "等待设备回归环境恢复"
-	if _, err := service.UpdateContext(ctx, blocked.ID, delivery.ContextUpdate{Blocker: &blocker}); err != nil {
+	if _, err := service.UpdateContext(ctx, blocked.ID, blocked.Revision, delivery.ContextUpdate{Blocker: &blocker}); err != nil {
 		t.Fatalf("block work item: %v", err)
 	}
 
@@ -85,7 +85,7 @@ func TestServiceTreatsBlocksRelationshipAsResolvedWhenBlockingItemCompletes(t *t
 	project := deliveryTestProject(t, ctx, service)
 	blocker := deliveryTestItem(t, ctx, service, project.ID, "完成回滚验证", "研发负责人", 3)
 	blocked := deliveryTestItem(t, ctx, service, project.ID, "发布生产版本", "发布负责人", 5)
-	if _, err := service.UpdateWorkItem(ctx, blocker.ID, delivery.WorkItemUpdate{Dependencies: &[]delivery.WorkItemDependency{{
+	if _, err := service.UpdateWorkItem(ctx, blocker.ID, blocker.Revision, delivery.WorkItemUpdate{Dependencies: &[]delivery.WorkItemDependency{{
 		ItemID: blocked.ID, Relation: delivery.DependencyBlocks,
 	}}}); err != nil {
 		t.Fatalf("mark work item as blocking another: %v", err)
@@ -95,7 +95,7 @@ func TestServiceTreatsBlocksRelationshipAsResolvedWhenBlockingItemCompletes(t *t
 		t.Fatalf("schedule before blocker completes = %#v, error=%v; want one dependency blockage", before, err)
 	}
 	completed := 100
-	if _, err := service.UpdateWorkItem(ctx, blocker.ID, delivery.WorkItemUpdate{ProgressPercent: &completed}); err != nil {
+	if _, err := service.UpdateWorkItem(ctx, blocker.ID, blocker.Revision+1, delivery.WorkItemUpdate{ProgressPercent: &completed}); err != nil {
 		t.Fatalf("complete blocking work item: %v", err)
 	}
 	after, err := service.ProjectSchedule(ctx, project.ID)

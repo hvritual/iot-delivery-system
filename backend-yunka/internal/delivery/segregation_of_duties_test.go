@@ -22,7 +22,7 @@ func TestServiceRejectsImplementerProductionValidationWithoutSideEffects(t *test
 		t.Fatal(err)
 	}
 	for _, gate := range []Gate{GateSolutionReviewed, GateDevelopmentCompleted, GateTestPassed} {
-		item, err = service.AdvanceGate(implementer, item.ID, gate, []Evidence{{Kind: "test", Title: string(gate)}})
+		item, err = service.AdvanceGate(implementer, item.ID, item.Revision, gate, []Evidence{{Kind: "test", Title: string(gate)}})
 		if err != nil {
 			t.Fatalf("advance to %s: %v", gate, err)
 		}
@@ -32,7 +32,7 @@ func TestServiceRejectsImplementerProductionValidationWithoutSideEffects(t *test
 		t.Fatal(err)
 	}
 
-	if _, err := service.AdvanceGate(implementer, item.ID, GateProductionValidated, []Evidence{{Kind: "validation", Title: "same person"}}); err == nil {
+	if _, err := service.AdvanceGate(implementer, item.ID, serviceRevision(t, service, item.ID), GateProductionValidated, []Evidence{{Kind: "validation", Title: "same person"}}); err == nil {
 		t.Fatal("implementer production validation was accepted")
 	}
 	after, err := service.Get(t.Context(), item.ID)
@@ -59,7 +59,7 @@ func TestServiceRejectsMalformedProductionPrincipalWithoutSideEffects(t *testing
 		UserID:        " reviewer ",
 	})
 
-	if _, err := service.AdvanceGate(malformedReviewer, item.ID, GateProductionValidated, []Evidence{{Kind: "validation", Title: "malformed"}}); err == nil {
+	if _, err := service.AdvanceGate(malformedReviewer, item.ID, serviceRevision(t, service, item.ID), GateProductionValidated, []Evidence{{Kind: "validation", Title: "malformed"}}); err == nil {
 		t.Fatal("malformed production principal was accepted")
 	}
 	after, err := service.Get(t.Context(), item.ID)
@@ -99,14 +99,14 @@ func TestServiceRejectsMalformedPersistedImplementationSourceWithoutSideEffects(
 			service := NewService(NewMemoryRepository(), nil)
 			item := advanceToTestPassed(t, service, humanPrincipalContext(t, "implementer"), "malformed source "+name)
 			item.ImplementationPrincipal = source
-			if err := service.repository.Save(t.Context(), item); err != nil {
+			if err := saveWorkItemForTest(t.Context(), service.repository, item); err != nil {
 				t.Fatal(err)
 			}
 			before, err := service.Get(t.Context(), item.ID)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := service.AdvanceGate(humanPrincipalContext(t, "reviewer"), item.ID, GateProductionValidated, []Evidence{{Kind: "validation", Title: name}}); !errors.Is(err, ErrImplementationSourceRequired) {
+			if _, err := service.AdvanceGate(humanPrincipalContext(t, "reviewer"), item.ID, serviceRevision(t, service, item.ID), GateProductionValidated, []Evidence{{Kind: "validation", Title: name}}); !errors.Is(err, ErrImplementationSourceRequired) {
 				t.Fatalf("production validation error = %v", err)
 			}
 			after, err := service.Get(t.Context(), item.ID)
@@ -122,7 +122,7 @@ func TestServiceRejectsMalformedPersistedImplementationSourceWhenClosing(t *test
 	implementer := humanPrincipalContext(t, "implementer")
 	item := advanceToTestPassed(t, service, implementer, "malformed close source")
 	reviewer := humanPrincipalContext(t, "reviewer")
-	if _, err := service.AdvanceGate(reviewer, item.ID, GateProductionValidated, []Evidence{{Kind: "validation", Title: "independent"}}); err != nil {
+	if _, err := service.AdvanceGate(reviewer, item.ID, serviceRevision(t, service, item.ID), GateProductionValidated, []Evidence{{Kind: "validation", Title: "independent"}}); err != nil {
 		t.Fatal(err)
 	}
 	stored, err := service.Get(t.Context(), item.ID)
@@ -130,14 +130,14 @@ func TestServiceRejectsMalformedPersistedImplementationSourceWhenClosing(t *test
 		t.Fatal(err)
 	}
 	stored.ImplementationPrincipal = PrincipalSource{Kind: "human", AuthMethod: identity.AuthMethodJWT, SubjectID: "implementer"}
-	if err := service.repository.Save(t.Context(), stored); err != nil {
+	if err := saveWorkItemForTest(t.Context(), service.repository, stored); err != nil {
 		t.Fatal(err)
 	}
 	before, err := service.Get(t.Context(), item.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Close(reviewer, item.ID, "retrospective"); !errors.Is(err, ErrImplementationSourceRequired) {
+	if _, err := service.Close(reviewer, item.ID, serviceRevision(t, service, item.ID), "retrospective"); !errors.Is(err, ErrImplementationSourceRequired) {
 		t.Fatalf("malformed-source close error = %v", err)
 	}
 	after, err := service.Get(t.Context(), item.ID)
@@ -154,7 +154,7 @@ func TestServiceRejectsCrossTenantProductionValidationAndCloseWithoutSideEffects
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := service.AdvanceGate(humanPrincipalContextForTenant(t, "org-b", "reviewer"), item.ID, GateProductionValidated, []Evidence{{Kind: "validation", Title: "cross tenant"}}); !errors.Is(err, ErrImplementationSourceRequired) {
+		if _, err := service.AdvanceGate(humanPrincipalContextForTenant(t, "org-b", "reviewer"), item.ID, serviceRevision(t, service, item.ID), GateProductionValidated, []Evidence{{Kind: "validation", Title: "cross tenant"}}); !errors.Is(err, ErrImplementationSourceRequired) {
 			t.Fatalf("cross-tenant production validation error = %v", err)
 		}
 		after, err := service.Get(t.Context(), item.ID)
@@ -167,14 +167,14 @@ func TestServiceRejectsCrossTenantProductionValidationAndCloseWithoutSideEffects
 		service := NewService(NewMemoryRepository(), nil)
 		implementer := humanPrincipalContextForTenant(t, "org-a", "implementer")
 		item := advanceToTestPassed(t, service, implementer, "cross tenant close")
-		if _, err := service.AdvanceGate(humanPrincipalContextForTenant(t, "org-a", "reviewer"), item.ID, GateProductionValidated, []Evidence{{Kind: "validation", Title: "same tenant"}}); err != nil {
+		if _, err := service.AdvanceGate(humanPrincipalContextForTenant(t, "org-a", "reviewer"), item.ID, serviceRevision(t, service, item.ID), GateProductionValidated, []Evidence{{Kind: "validation", Title: "same tenant"}}); err != nil {
 			t.Fatal(err)
 		}
 		before, err := service.Get(t.Context(), item.ID)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := service.Close(humanPrincipalContextForTenant(t, "org-b", "reviewer"), item.ID, "cross tenant retrospective"); !errors.Is(err, ErrImplementationSourceRequired) {
+		if _, err := service.Close(humanPrincipalContextForTenant(t, "org-b", "reviewer"), item.ID, serviceRevision(t, service, item.ID), "cross tenant retrospective"); !errors.Is(err, ErrImplementationSourceRequired) {
 			t.Fatalf("cross-tenant close error = %v", err)
 		}
 		after, err := service.Get(t.Context(), item.ID)
@@ -192,11 +192,11 @@ func TestServiceAllowsDifferentJWTReviewerAndClosesWithoutThreePersonRule(t *tes
 			reviewer := humanPrincipalContext(t, "reviewer")
 			item := advanceToTestPassed(t, service, implementer, "different reviewer "+owner)
 			item.Owner = owner
-			if err := service.repository.Save(t.Context(), item); err != nil {
+			if err := saveWorkItemForTest(t.Context(), service.repository, item); err != nil {
 				t.Fatal(err)
 			}
 
-			validated, err := service.AdvanceGate(reviewer, item.ID, GateProductionValidated, []Evidence{{Kind: "validation", Title: "independent review"}})
+			validated, err := service.AdvanceGate(reviewer, item.ID, serviceRevision(t, service, item.ID), GateProductionValidated, []Evidence{{Kind: "validation", Title: "independent review"}})
 			if err != nil {
 				t.Fatalf("different reviewer production validation: %v", err)
 			}
@@ -211,7 +211,7 @@ func TestServiceAllowsDifferentJWTReviewerAndClosesWithoutThreePersonRule(t *tes
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := service.Close(implementer, item.ID, "independent review completed"); !errors.Is(err, ErrImplementerCannotVerifyOwnChange) {
+			if _, err := service.Close(implementer, item.ID, serviceRevision(t, service, item.ID), "independent review completed"); !errors.Is(err, ErrImplementerCannotVerifyOwnChange) {
 				t.Fatalf("implementer close error = %v", err)
 			}
 			afterRejectedClose, err := service.Get(t.Context(), item.ID)
@@ -221,7 +221,7 @@ func TestServiceAllowsDifferentJWTReviewerAndClosesWithoutThreePersonRule(t *tes
 			if !reflect.DeepEqual(afterRejectedClose, beforeClose) {
 				t.Fatal("rejected close changed item")
 			}
-			closed, err := service.Close(reviewer, item.ID, "independent review completed")
+			closed, err := service.Close(reviewer, item.ID, serviceRevision(t, service, item.ID), "independent review completed")
 			if err != nil {
 				t.Fatalf("reviewer close: %v", err)
 			}
@@ -244,7 +244,7 @@ func TestServiceFailsClosedForNonHumanAndLegacyProductionActions(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := service.AdvanceGate(actor, item.ID, GateProductionValidated, []Evidence{{Kind: "validation", Title: name}}); !errors.Is(err, ErrProductionPrincipalRequired) {
+			if _, err := service.AdvanceGate(actor, item.ID, serviceRevision(t, service, item.ID), GateProductionValidated, []Evidence{{Kind: "validation", Title: name}}); !errors.Is(err, ErrProductionPrincipalRequired) {
 				t.Fatalf("production validation error = %v", err)
 			}
 			after, err := service.Get(t.Context(), item.ID)
@@ -259,15 +259,15 @@ func TestServiceFailsClosedForNonHumanAndLegacyProductionActions(t *testing.T) {
 
 	legacy := item
 	legacy.ImplementationPrincipal = PrincipalSource{}
-	if err := service.repository.Save(t.Context(), legacy); err != nil {
+	if err := saveWorkItemForTest(t.Context(), service.repository, legacy); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.AdvanceGate(humanPrincipalContext(t, "reviewer"), legacy.ID, GateProductionValidated, []Evidence{{Kind: "validation", Title: "legacy"}}); !errors.Is(err, ErrImplementationSourceRequired) {
+	if _, err := service.AdvanceGate(humanPrincipalContext(t, "reviewer"), legacy.ID, serviceRevision(t, service, legacy.ID), GateProductionValidated, []Evidence{{Kind: "validation", Title: "legacy"}}); !errors.Is(err, ErrImplementationSourceRequired) {
 		t.Fatalf("legacy production validation error = %v", err)
 	}
 
 	closable := advanceToTestPassed(t, service, implementer, "nonhuman close")
-	if _, err := service.AdvanceGate(humanPrincipalContext(t, "reviewer"), closable.ID, GateProductionValidated, []Evidence{{Kind: "validation", Title: "independent"}}); err != nil {
+	if _, err := service.AdvanceGate(humanPrincipalContext(t, "reviewer"), closable.ID, serviceRevision(t, service, closable.ID), GateProductionValidated, []Evidence{{Kind: "validation", Title: "independent"}}); err != nil {
 		t.Fatal(err)
 	}
 	for name, actor := range map[string]context.Context{"missing": t.Context(), "api-key": apiKey, "service": serviceIdentity} {
@@ -276,7 +276,7 @@ func TestServiceFailsClosedForNonHumanAndLegacyProductionActions(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := service.Close(actor, closable.ID, "retrospective"); !errors.Is(err, ErrProductionPrincipalRequired) {
+			if _, err := service.Close(actor, closable.ID, serviceRevision(t, service, closable.ID), "retrospective"); !errors.Is(err, ErrProductionPrincipalRequired) {
 				t.Fatalf("close error = %v", err)
 			}
 			after, err := service.Get(t.Context(), closable.ID)
@@ -293,20 +293,35 @@ func TestServiceFailsClosedForNonHumanAndLegacyProductionActions(t *testing.T) {
 		t.Fatal(err)
 	}
 	legacyClose.ImplementationPrincipal = PrincipalSource{}
-	if err := service.repository.Save(t.Context(), legacyClose); err != nil {
+	if err := saveWorkItemForTest(t.Context(), service.repository, legacyClose); err != nil {
 		t.Fatal(err)
 	}
 	beforeLegacyClose, err := service.Get(t.Context(), legacyClose.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Close(humanPrincipalContext(t, "reviewer"), legacyClose.ID, "retrospective"); !errors.Is(err, ErrImplementationSourceRequired) {
+	if _, err := service.Close(humanPrincipalContext(t, "reviewer"), legacyClose.ID, serviceRevision(t, service, legacyClose.ID), "retrospective"); !errors.Is(err, ErrImplementationSourceRequired) {
 		t.Fatalf("legacy close error = %v", err)
 	}
 	afterLegacyClose, err := service.Get(t.Context(), legacyClose.ID)
 	if err != nil || !reflect.DeepEqual(afterLegacyClose, beforeLegacyClose) {
 		t.Fatalf("legacy close changed item: %#v, %v", afterLegacyClose, err)
 	}
+}
+
+func saveWorkItemForTest(ctx context.Context, repository Repository, item WorkItem) error {
+	expectedRevision := item.Revision
+	item.Revision++
+	return repository.Save(ctx, item, expectedRevision)
+}
+
+func serviceRevision(t *testing.T, service *Service, id string) int64 {
+	t.Helper()
+	item, err := service.Get(t.Context(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return item.Revision
 }
 
 func TestSQLiteRepositoryRetainsImplementationSourceForSeparationOfDuties(t *testing.T) {
@@ -326,10 +341,10 @@ func TestSQLiteRepositoryRetainsImplementationSourceForSeparationOfDuties(t *tes
 	}
 	t.Cleanup(func() { _ = reopened.Close() })
 	service := NewService(reopened, nil)
-	if _, err := service.AdvanceGate(implementer, item.ID, GateProductionValidated, []Evidence{{Kind: "validation", Title: "same after reopen"}}); !errors.Is(err, ErrImplementerCannotVerifyOwnChange) {
+	if _, err := service.AdvanceGate(implementer, item.ID, serviceRevision(t, service, item.ID), GateProductionValidated, []Evidence{{Kind: "validation", Title: "same after reopen"}}); !errors.Is(err, ErrImplementerCannotVerifyOwnChange) {
 		t.Fatalf("same implementer after reopen error = %v", err)
 	}
-	if _, err := service.AdvanceGate(humanPrincipalContext(t, "reviewer"), item.ID, GateProductionValidated, []Evidence{{Kind: "validation", Title: "different after reopen"}}); err != nil {
+	if _, err := service.AdvanceGate(humanPrincipalContext(t, "reviewer"), item.ID, serviceRevision(t, service, item.ID), GateProductionValidated, []Evidence{{Kind: "validation", Title: "different after reopen"}}); err != nil {
 		t.Fatalf("different reviewer after reopen: %v", err)
 	}
 }
@@ -341,7 +356,7 @@ func advanceToTestPassed(t *testing.T, service *Service, implementer context.Con
 		t.Fatal(err)
 	}
 	for _, gate := range []Gate{GateSolutionReviewed, GateDevelopmentCompleted, GateTestPassed} {
-		item, err = service.AdvanceGate(implementer, item.ID, gate, []Evidence{{Kind: "test", Title: string(gate)}})
+		item, err = service.AdvanceGate(implementer, item.ID, item.Revision, gate, []Evidence{{Kind: "test", Title: string(gate)}})
 		if err != nil {
 			t.Fatalf("advance to %s: %v", gate, err)
 		}

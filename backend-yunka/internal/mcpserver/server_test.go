@@ -258,11 +258,11 @@ func TestMCPAndGeneratedGRPCShareCreateAndAdvanceGateExecution(t *testing.T) {
 	}
 	assertStoredItemCount(t, grpcFixture.repository, 1)
 	assertStoredItemCount(t, mcpFixture.repository, 1)
-	grpcAdvanced, err := grpcFixture.grpcClient.AdvanceGate(grpcContext(t.Context(), adminKey), &deliveryv1.AdvanceGateRequest{Id: grpcCreated.GetItem().GetId(), Gate: string(delivery.GateSolutionReviewed), Evidence: []*deliveryv1.Evidence{{Kind: "review", Title: "solution approved", Reference: "ADR-CROSS-001"}}})
+	grpcAdvanced, err := grpcFixture.grpcClient.AdvanceGate(grpcContext(t.Context(), adminKey), &deliveryv1.AdvanceGateRequest{Id: grpcCreated.GetItem().GetId(), ExpectedRevision: grpcCreated.GetItem().GetRevision(), Gate: string(delivery.GateSolutionReviewed), Evidence: []*deliveryv1.Evidence{{Kind: "review", Title: "solution approved", Reference: "ADR-CROSS-001"}}})
 	if err != nil {
 		t.Fatalf("advance gate through generated gRPC: %v", err)
 	}
-	mcpAdvancedResult := callMCP(t, mcpFixture.operations, admin, "delivery.advance_gate", map[string]any{"id": mcpCreated.Created.ID, "gate": string(delivery.GateSolutionReviewed), "evidence": []map[string]any{{"kind": "review", "title": "solution approved", "reference": "ADR-CROSS-001"}}})
+	mcpAdvancedResult := callMCP(t, mcpFixture.operations, admin, "delivery.advance_gate", map[string]any{"id": mcpCreated.Created.ID, "expectedRevision": mcpCreated.Created.Revision, "gate": string(delivery.GateSolutionReviewed), "evidence": []map[string]any{{"kind": "review", "title": "solution approved", "reference": "ADR-CROSS-001"}}})
 	if mcpAdvancedResult.IsError {
 		t.Fatalf("advance gate through MCP = %#v: %s", mcpAdvancedResult, mcpErrorText(mcpAdvancedResult))
 	}
@@ -328,11 +328,11 @@ func TestMCPAndGeneratedGRPCRejectViewerWritesWithoutSideEffects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("snapshot before denied writes: %v", err)
 	}
-	_, err = fixture.grpcClient.AdvanceGate(grpcContext(t.Context(), viewerKey), &deliveryv1.AdvanceGateRequest{Id: beforeItem.ID, Gate: string(delivery.GateSolutionReviewed), Evidence: []*deliveryv1.Evidence{{Kind: "review", Title: "denied"}}})
+	_, err = fixture.grpcClient.AdvanceGate(grpcContext(t.Context(), viewerKey), &deliveryv1.AdvanceGateRequest{Id: beforeItem.ID, ExpectedRevision: beforeItem.Revision, Gate: string(delivery.GateSolutionReviewed), Evidence: []*deliveryv1.Evidence{{Kind: "review", Title: "denied"}}})
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("viewer gRPC advance gate code = %s, want PermissionDenied; error=%v", status.Code(err), err)
 	}
-	mcpDenied := callMCP(t, fixture.operations, viewer, "delivery.advance_gate", map[string]any{"id": beforeItem.ID, "gate": string(delivery.GateSolutionReviewed), "evidence": []map[string]any{{"kind": "review", "title": "denied"}}})
+	mcpDenied := callMCP(t, fixture.operations, viewer, "delivery.advance_gate", map[string]any{"id": beforeItem.ID, "expectedRevision": beforeItem.Revision, "gate": string(delivery.GateSolutionReviewed), "evidence": []map[string]any{{"kind": "review", "title": "denied"}}})
 	if !mcpDenied.IsError {
 		t.Fatalf("viewer MCP advance gate = %#v, want tool error", mcpDenied)
 	}
@@ -403,8 +403,8 @@ func TestMCPRetainsOperationsLifecycleAndSaveViewExtension(t *testing.T) {
 		name string
 		args map[string]any
 	}{
-		{name: "delivery.update_work_item", args: map[string]any{"id": item.Created.ID, "progressPercent": 30}},
-		{name: "delivery.add_comment", args: map[string]any{"id": item.Created.ID, "body": "MCP executor-backed comment"}},
+		{name: "delivery.update_work_item", args: map[string]any{"id": item.Created.ID, "expectedRevision": item.Created.Revision, "progressPercent": 30}},
+		{name: "delivery.add_comment", args: map[string]any{"id": item.Created.ID, "expectedRevision": item.Created.Revision + 1, "body": "MCP executor-backed comment"}},
 		{name: "delivery.create_release", args: map[string]any{"projectId": project.Project.ID, "name": "R1", "version": "1.0.0", "status": "planned", "targetDate": "2026-09-10", "description": "MCP lifecycle release"}},
 		{name: "delivery.save_view", args: map[string]any{"name": "MCP lifecycle view", "filter": map[string]any{"projectId": project.Project.ID}}},
 	} {

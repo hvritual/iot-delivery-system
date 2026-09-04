@@ -230,6 +230,7 @@ func (x *WorkItemResponse) GetItem() *WorkItem {
 type CommentResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Comment       *Comment               `protobuf:"bytes,1,opt,name=comment,proto3" json:"comment,omitempty"`
+	Revision      int64                  `protobuf:"varint,2,opt,name=revision,proto3" json:"revision,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -269,6 +270,13 @@ func (x *CommentResponse) GetComment() *Comment {
 		return x.Comment
 	}
 	return nil
+}
+
+func (x *CommentResponse) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
 }
 
 type ProjectResponse struct {
@@ -1041,6 +1049,7 @@ type WorkItem struct {
 	TraceLinks      []*TraceLink           `protobuf:"bytes,30,rep,name=trace_links,json=traceLinks,proto3" json:"trace_links,omitempty"`
 	Comments        []*Comment             `protobuf:"bytes,31,rep,name=comments,proto3" json:"comments,omitempty"`
 	Activities      []*Activity            `protobuf:"bytes,32,rep,name=activities,proto3" json:"activities,omitempty"`
+	Revision        int64                  `protobuf:"varint,33,opt,name=revision,proto3" json:"revision,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -1297,6 +1306,13 @@ func (x *WorkItem) GetActivities() []*Activity {
 		return x.Activities
 	}
 	return nil
+}
+
+func (x *WorkItem) GetRevision() int64 {
+	if x != nil {
+		return x.Revision
+	}
+	return 0
 }
 
 type WorkItemDependency struct {
@@ -2004,24 +2020,25 @@ func (x *CreateItemRequest) GetTraceLinks() []*TraceLink {
 }
 
 type UpdateItemRequest struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	UpdateMask      []string               `protobuf:"bytes,2,rep,name=update_mask,json=updateMask,proto3" json:"update_mask,omitempty"`
-	Title           string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
-	Owner           string                 `protobuf:"bytes,4,opt,name=owner,proto3" json:"owner,omitempty"`
-	Priority        string                 `protobuf:"bytes,5,opt,name=priority,proto3" json:"priority,omitempty"`
-	ReleaseId       string                 `protobuf:"bytes,6,opt,name=release_id,json=releaseId,proto3" json:"release_id,omitempty"`
-	SprintId        string                 `protobuf:"bytes,7,opt,name=sprint_id,json=sprintId,proto3" json:"sprint_id,omitempty"`
-	MilestoneId     string                 `protobuf:"bytes,8,opt,name=milestone_id,json=milestoneId,proto3" json:"milestone_id,omitempty"`
-	StartDate       string                 `protobuf:"bytes,9,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"`
-	DueDate         string                 `protobuf:"bytes,10,opt,name=due_date,json=dueDate,proto3" json:"due_date,omitempty"`
-	EstimatePoints  float64                `protobuf:"fixed64,11,opt,name=estimate_points,json=estimatePoints,proto3" json:"estimate_points,omitempty"`
-	ProgressPercent int32                  `protobuf:"varint,12,opt,name=progress_percent,json=progressPercent,proto3" json:"progress_percent,omitempty"`
-	Dependencies    []*WorkItemDependency  `protobuf:"bytes,13,rep,name=dependencies,proto3" json:"dependencies,omitempty"`
-	IotBindings     []*IoTBinding          `protobuf:"bytes,14,rep,name=iot_bindings,json=iotBindings,proto3" json:"iot_bindings,omitempty"`
-	TraceLinks      []*TraceLink           `protobuf:"bytes,15,rep,name=trace_links,json=traceLinks,proto3" json:"trace_links,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	UpdateMask       []string               `protobuf:"bytes,2,rep,name=update_mask,json=updateMask,proto3" json:"update_mask,omitempty"`
+	Title            string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	Owner            string                 `protobuf:"bytes,4,opt,name=owner,proto3" json:"owner,omitempty"`
+	Priority         string                 `protobuf:"bytes,5,opt,name=priority,proto3" json:"priority,omitempty"`
+	ReleaseId        string                 `protobuf:"bytes,6,opt,name=release_id,json=releaseId,proto3" json:"release_id,omitempty"`
+	SprintId         string                 `protobuf:"bytes,7,opt,name=sprint_id,json=sprintId,proto3" json:"sprint_id,omitempty"`
+	MilestoneId      string                 `protobuf:"bytes,8,opt,name=milestone_id,json=milestoneId,proto3" json:"milestone_id,omitempty"`
+	StartDate        string                 `protobuf:"bytes,9,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"`
+	DueDate          string                 `protobuf:"bytes,10,opt,name=due_date,json=dueDate,proto3" json:"due_date,omitempty"`
+	EstimatePoints   float64                `protobuf:"fixed64,11,opt,name=estimate_points,json=estimatePoints,proto3" json:"estimate_points,omitempty"`
+	ProgressPercent  int32                  `protobuf:"varint,12,opt,name=progress_percent,json=progressPercent,proto3" json:"progress_percent,omitempty"`
+	Dependencies     []*WorkItemDependency  `protobuf:"bytes,13,rep,name=dependencies,proto3" json:"dependencies,omitempty"`
+	IotBindings      []*IoTBinding          `protobuf:"bytes,14,rep,name=iot_bindings,json=iotBindings,proto3" json:"iot_bindings,omitempty"`
+	TraceLinks       []*TraceLink           `protobuf:"bytes,15,rep,name=trace_links,json=traceLinks,proto3" json:"trace_links,omitempty"`
+	ExpectedRevision int64                  `protobuf:"varint,16,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *UpdateItemRequest) Reset() {
@@ -2159,12 +2176,20 @@ func (x *UpdateItemRequest) GetTraceLinks() []*TraceLink {
 	return nil
 }
 
+func (x *UpdateItemRequest) GetExpectedRevision() int64 {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return 0
+}
+
 type CreateItemCommentRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Body          string                 `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Body             string                 `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
+	ExpectedRevision int64                  `protobuf:"varint,3,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *CreateItemCommentRequest) Reset() {
@@ -2209,6 +2234,13 @@ func (x *CreateItemCommentRequest) GetBody() string {
 		return x.Body
 	}
 	return ""
+}
+
+func (x *CreateItemCommentRequest) GetExpectedRevision() int64 {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return 0
 }
 
 type CreateProjectRequest struct {
@@ -2524,14 +2556,15 @@ func (x *CreateMilestoneRequest) GetDescription() string {
 }
 
 type UpdateItemContextRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Plan          *string                `protobuf:"bytes,2,opt,name=plan,proto3,oneof" json:"plan,omitempty"`
-	Solution      *string                `protobuf:"bytes,3,opt,name=solution,proto3,oneof" json:"solution,omitempty"`
-	Blocker       *string                `protobuf:"bytes,4,opt,name=blocker,proto3,oneof" json:"blocker,omitempty"`
-	Decision      *Decision              `protobuf:"bytes,5,opt,name=decision,proto3,oneof" json:"decision,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Plan             *string                `protobuf:"bytes,2,opt,name=plan,proto3,oneof" json:"plan,omitempty"`
+	Solution         *string                `protobuf:"bytes,3,opt,name=solution,proto3,oneof" json:"solution,omitempty"`
+	Blocker          *string                `protobuf:"bytes,4,opt,name=blocker,proto3,oneof" json:"blocker,omitempty"`
+	Decision         *Decision              `protobuf:"bytes,5,opt,name=decision,proto3,oneof" json:"decision,omitempty"`
+	ExpectedRevision int64                  `protobuf:"varint,6,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *UpdateItemContextRequest) Reset() {
@@ -2599,13 +2632,21 @@ func (x *UpdateItemContextRequest) GetDecision() *Decision {
 	return nil
 }
 
+func (x *UpdateItemContextRequest) GetExpectedRevision() int64 {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return 0
+}
+
 type AdvanceGateRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Gate          string                 `protobuf:"bytes,2,opt,name=gate,proto3" json:"gate,omitempty"`
-	Evidence      []*Evidence            `protobuf:"bytes,3,rep,name=evidence,proto3" json:"evidence,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Gate             string                 `protobuf:"bytes,2,opt,name=gate,proto3" json:"gate,omitempty"`
+	Evidence         []*Evidence            `protobuf:"bytes,3,rep,name=evidence,proto3" json:"evidence,omitempty"`
+	ExpectedRevision int64                  `protobuf:"varint,4,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *AdvanceGateRequest) Reset() {
@@ -2659,12 +2700,20 @@ func (x *AdvanceGateRequest) GetEvidence() []*Evidence {
 	return nil
 }
 
+func (x *AdvanceGateRequest) GetExpectedRevision() int64 {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return 0
+}
+
 type CloseItemRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Retrospective string                 `protobuf:"bytes,2,opt,name=retrospective,proto3" json:"retrospective,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Retrospective    string                 `protobuf:"bytes,2,opt,name=retrospective,proto3" json:"retrospective,omitempty"`
+	ExpectedRevision int64                  `protobuf:"varint,3,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *CloseItemRequest) Reset() {
@@ -2711,6 +2760,13 @@ func (x *CloseItemRequest) GetRetrospective() string {
 	return ""
 }
 
+func (x *CloseItemRequest) GetExpectedRevision() int64 {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return 0
+}
+
 var File_iot_delivery_proto protoreflect.FileDescriptor
 
 const file_iot_delivery_proto_rawDesc = "" +
@@ -2723,9 +2779,10 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\x11ListItemsResponse\x12/\n" +
 	"\x05items\x18\x01 \x03(\v2\x19.iot.delivery.v1.WorkItemR\x05items:\x06\xd2\xf3\x18\x02\b\x02\"I\n" +
 	"\x10WorkItemResponse\x12-\n" +
-	"\x04item\x18\x01 \x01(\v2\x19.iot.delivery.v1.WorkItemR\x04item:\x06\xd2\xf3\x18\x02\b\x02\"M\n" +
+	"\x04item\x18\x01 \x01(\v2\x19.iot.delivery.v1.WorkItemR\x04item:\x06\xd2\xf3\x18\x02\b\x02\"i\n" +
 	"\x0fCommentResponse\x122\n" +
-	"\acomment\x18\x01 \x01(\v2\x18.iot.delivery.v1.CommentR\acomment:\x06\xd2\xf3\x18\x02\b\x02\"M\n" +
+	"\acomment\x18\x01 \x01(\v2\x18.iot.delivery.v1.CommentR\acomment\x12\x1a\n" +
+	"\brevision\x18\x02 \x01(\x03R\brevision:\x06\xd2\xf3\x18\x02\b\x02\"M\n" +
 	"\x0fProjectResponse\x122\n" +
 	"\aproject\x18\x01 \x01(\v2\x18.iot.delivery.v1.ProjectR\aproject:\x06\xd2\xf3\x18\x02\b\x02\"M\n" +
 	"\x0fReleaseResponse\x122\n" +
@@ -2796,7 +2853,7 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt:\x06\xd2\xf3\x18\x02\b\x03\"\xa7\t\n" +
+	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt:\x06\xd2\xf3\x18\x02\b\x03\"\xc3\t\n" +
 	"\bWorkItem\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x14\n" +
@@ -2838,7 +2895,8 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\bcomments\x18\x1f \x03(\v2\x18.iot.delivery.v1.CommentR\bcomments\x129\n" +
 	"\n" +
 	"activities\x18  \x03(\v2\x19.iot.delivery.v1.ActivityR\n" +
-	"activities:\x06\xd2\xf3\x18\x02\b\x03\"Q\n" +
+	"activities\x12\x1a\n" +
+	"\brevision\x18! \x01(\x03R\brevision:\x06\xd2\xf3\x18\x02\b\x03\"Q\n" +
 	"\x12WorkItemDependency\x12\x17\n" +
 	"\aitem_id\x18\x01 \x01(\tR\x06itemId\x12\x1a\n" +
 	"\brelation\x18\x02 \x01(\tR\brelation:\x06\xd2\xf3\x18\x02\b\x03\"\xe8\x01\n" +
@@ -2914,7 +2972,7 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\x10progress_percent\x18\x13 \x01(\x05R\x0fprogressPercent\x12>\n" +
 	"\fiot_bindings\x18\x14 \x03(\v2\x1b.iot.delivery.v1.IoTBindingR\viotBindings\x12;\n" +
 	"\vtrace_links\x18\x15 \x03(\v2\x1a.iot.delivery.v1.TraceLinkR\n" +
-	"traceLinks:\x06\xd2\xf3\x18\x02\b\x01\"\xc7\x04\n" +
+	"traceLinks:\x06\xd2\xf3\x18\x02\b\x01\"\xf4\x04\n" +
 	"\x11UpdateItemRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vupdate_mask\x18\x02 \x03(\tR\n" +
@@ -2935,10 +2993,12 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\fdependencies\x18\r \x03(\v2#.iot.delivery.v1.WorkItemDependencyR\fdependencies\x12>\n" +
 	"\fiot_bindings\x18\x0e \x03(\v2\x1b.iot.delivery.v1.IoTBindingR\viotBindings\x12;\n" +
 	"\vtrace_links\x18\x0f \x03(\v2\x1a.iot.delivery.v1.TraceLinkR\n" +
-	"traceLinks:\x06\xd2\xf3\x18\x02\b\x01\"F\n" +
+	"traceLinks\x12+\n" +
+	"\x11expected_revision\x18\x10 \x01(\x03R\x10expectedRevision:\x06\xd2\xf3\x18\x02\b\x01\"s\n" +
 	"\x18CreateItemCommentRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04body\x18\x02 \x01(\tR\x04body:\x06\xd2\xf3\x18\x02\b\x01\"\x80\x01\n" +
+	"\x04body\x18\x02 \x01(\tR\x04body\x12+\n" +
+	"\x11expected_revision\x18\x03 \x01(\x03R\x10expectedRevision:\x06\xd2\xf3\x18\x02\b\x01\"\x80\x01\n" +
 	"\x14CreateProjectRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05board\x18\x02 \x01(\tR\x05board\x12\x14\n" +
@@ -2969,25 +3029,28 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\vtarget_date\x18\x03 \x01(\tR\n" +
 	"targetDate\x12\x16\n" +
 	"\x06status\x18\x04 \x01(\tR\x06status\x12 \n" +
-	"\vdescription\x18\x05 \x01(\tR\vdescription:\x06\xd2\xf3\x18\x02\b\x01\"\xf6\x01\n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription:\x06\xd2\xf3\x18\x02\b\x01\"\xa3\x02\n" +
 	"\x18UpdateItemContextRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\x04plan\x18\x02 \x01(\tH\x00R\x04plan\x88\x01\x01\x12\x1f\n" +
 	"\bsolution\x18\x03 \x01(\tH\x01R\bsolution\x88\x01\x01\x12\x1d\n" +
 	"\ablocker\x18\x04 \x01(\tH\x02R\ablocker\x88\x01\x01\x12:\n" +
-	"\bdecision\x18\x05 \x01(\v2\x19.iot.delivery.v1.DecisionH\x03R\bdecision\x88\x01\x01:\x06\xd2\xf3\x18\x02\b\x01B\a\n" +
+	"\bdecision\x18\x05 \x01(\v2\x19.iot.delivery.v1.DecisionH\x03R\bdecision\x88\x01\x01\x12+\n" +
+	"\x11expected_revision\x18\x06 \x01(\x03R\x10expectedRevision:\x06\xd2\xf3\x18\x02\b\x01B\a\n" +
 	"\x05_planB\v\n" +
 	"\t_solutionB\n" +
 	"\n" +
 	"\b_blockerB\v\n" +
-	"\t_decision\"w\n" +
+	"\t_decision\"\xa4\x01\n" +
 	"\x12AdvanceGateRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04gate\x18\x02 \x01(\tR\x04gate\x125\n" +
-	"\bevidence\x18\x03 \x03(\v2\x19.iot.delivery.v1.EvidenceR\bevidence:\x06\xd2\xf3\x18\x02\b\x01\"P\n" +
+	"\bevidence\x18\x03 \x03(\v2\x19.iot.delivery.v1.EvidenceR\bevidence\x12+\n" +
+	"\x11expected_revision\x18\x04 \x01(\x03R\x10expectedRevision:\x06\xd2\xf3\x18\x02\b\x01\"}\n" +
 	"\x10CloseItemRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12$\n" +
-	"\rretrospective\x18\x02 \x01(\tR\rretrospective:\x06\xd2\xf3\x18\x02\b\x012\x88\x11\n" +
+	"\rretrospective\x18\x02 \x01(\tR\rretrospective\x12+\n" +
+	"\x11expected_revision\x18\x03 \x01(\x03R\x10expectedRevision:\x06\xd2\xf3\x18\x02\b\x012\x88\x11\n" +
 	"\x0fDeliveryService\x12\xae\x01\n" +
 	"\fGetDashboard\x12$.iot.delivery.v1.GetDashboardRequest\x1a%.iot.delivery.v1.GetDashboardResponse\"Q\xe2\xf3\x18M\n" +
 	"\x16delivery.dashboard.get\x12\rget_dashboard\x1a\x17delivery.dashboard.read2\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\xa0\x01\n" +

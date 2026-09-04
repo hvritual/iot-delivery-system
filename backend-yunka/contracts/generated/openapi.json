@@ -31,6 +31,11 @@
             },
             "type": "array"
           },
+          "expectedRevision": {
+            "format": "int64",
+            "type": "string",
+            "x-yunka-protobuf-json-integer": true
+          },
           "gate": {
             "type": "string"
           },
@@ -76,6 +81,11 @@
       },
       "iot_delivery_v1_CloseItemRequest": {
         "properties": {
+          "expectedRevision": {
+            "format": "int64",
+            "type": "string",
+            "x-yunka-protobuf-json-integer": true
+          },
           "id": {
             "type": "string"
           },
@@ -109,6 +119,11 @@
         "properties": {
           "comment": {
             "$ref": "#/components/schemas/iot_delivery_v1_Comment"
+          },
+          "revision": {
+            "format": "int64",
+            "type": "string",
+            "x-yunka-protobuf-json-integer": true
           }
         },
         "type": "object",
@@ -118,6 +133,11 @@
         "properties": {
           "body": {
             "type": "string"
+          },
+          "expectedRevision": {
+            "format": "int64",
+            "type": "string",
+            "x-yunka-protobuf-json-integer": true
           },
           "id": {
             "type": "string"
@@ -611,6 +631,11 @@
           "decision": {
             "$ref": "#/components/schemas/iot_delivery_v1_Decision"
           },
+          "expectedRevision": {
+            "format": "int64",
+            "type": "string",
+            "x-yunka-protobuf-json-integer": true
+          },
           "id": {
             "type": "string"
           },
@@ -638,6 +663,11 @@
           "estimatePoints": {
             "format": "double",
             "type": "number"
+          },
+          "expectedRevision": {
+            "format": "int64",
+            "type": "string",
+            "x-yunka-protobuf-json-integer": true
           },
           "id": {
             "type": "string"
@@ -783,6 +813,11 @@
           },
           "retrospective": {
             "type": "string"
+          },
+          "revision": {
+            "format": "int64",
+            "type": "string",
+            "x-yunka-protobuf-json-integer": true
           },
           "solution": {
             "type": "string"

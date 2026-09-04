@@ -723,7 +723,7 @@ func seedExample(ctx context.Context, operations *deliveryapplication.Operations
 	if err != nil {
 		return fmt.Errorf("seed sample delivery item: %w", err)
 	}
-	_, err = operations.UpdateContext(bootstrapContext, item.ID, delivery.ContextUpdate{Decision: &delivery.Decision{
+	_, err = operations.UpdateContext(bootstrapContext, item.ID, item.Revision, delivery.ContextUpdate{Decision: &delivery.Decision{
 		Title:        "将回滚演练纳入发布门禁",
 		Context:      "OTA 发布存在设备型号和网络差异。",
 		Outcome:      "发布前必须附上灰度与回滚证据。",

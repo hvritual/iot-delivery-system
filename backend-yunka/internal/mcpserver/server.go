@@ -255,20 +255,21 @@ func (server *server) createWorkItem(ctx context.Context, _ *mcp.CallToolRequest
 }
 
 type updateWorkItemArgs struct {
-	ID              string                         `json:"id"`
-	Title           *string                        `json:"title,omitempty"`
-	Owner           *string                        `json:"owner,omitempty"`
-	Priority        *delivery.Priority             `json:"priority,omitempty"`
-	ReleaseID       *string                        `json:"releaseId,omitempty"`
-	SprintID        *string                        `json:"sprintId,omitempty"`
-	MilestoneID     *string                        `json:"milestoneId,omitempty"`
-	StartDate       *string                        `json:"startDate,omitempty"`
-	DueDate         *string                        `json:"dueDate,omitempty"`
-	EstimatePoints  *float64                       `json:"estimatePoints,omitempty"`
-	ProgressPercent *int                           `json:"progressPercent,omitempty"`
-	Dependencies    *[]delivery.WorkItemDependency `json:"dependencies,omitempty"`
-	IoTBindings     *[]delivery.IoTBinding         `json:"iotBindings,omitempty"`
-	TraceLinks      *[]delivery.TraceLink          `json:"traceLinks,omitempty"`
+	ID               string                         `json:"id"`
+	ExpectedRevision int64                          `json:"expectedRevision"`
+	Title            *string                        `json:"title,omitempty"`
+	Owner            *string                        `json:"owner,omitempty"`
+	Priority         *delivery.Priority             `json:"priority,omitempty"`
+	ReleaseID        *string                        `json:"releaseId,omitempty"`
+	SprintID         *string                        `json:"sprintId,omitempty"`
+	MilestoneID      *string                        `json:"milestoneId,omitempty"`
+	StartDate        *string                        `json:"startDate,omitempty"`
+	DueDate          *string                        `json:"dueDate,omitempty"`
+	EstimatePoints   *float64                       `json:"estimatePoints,omitempty"`
+	ProgressPercent  *int                           `json:"progressPercent,omitempty"`
+	Dependencies     *[]delivery.WorkItemDependency `json:"dependencies,omitempty"`
+	IoTBindings      *[]delivery.IoTBinding         `json:"iotBindings,omitempty"`
+	TraceLinks       *[]delivery.TraceLink          `json:"traceLinks,omitempty"`
 }
 
 type workItemOutput struct {
@@ -280,7 +281,7 @@ func (server *server) updateWorkItem(ctx context.Context, _ *mcp.CallToolRequest
 	if err != nil {
 		return nil, workItemOutput{}, err
 	}
-	item, err := server.operations.UpdateWorkItem(ctx, args.ID, delivery.WorkItemUpdate{
+	item, err := server.operations.UpdateWorkItem(ctx, args.ID, args.ExpectedRevision, delivery.WorkItemUpdate{
 		Title: args.Title, Owner: args.Owner, Priority: args.Priority, ReleaseID: args.ReleaseID, SprintID: args.SprintID,
 		MilestoneID: args.MilestoneID, StartDate: args.StartDate, DueDate: args.DueDate, EstimatePoints: args.EstimatePoints,
 		ProgressPercent: args.ProgressPercent, Dependencies: args.Dependencies, IoTBindings: args.IoTBindings, TraceLinks: args.TraceLinks,
@@ -289,8 +290,9 @@ func (server *server) updateWorkItem(ctx context.Context, _ *mcp.CallToolRequest
 }
 
 type addCommentArgs struct {
-	ID   string `json:"id"`
-	Body string `json:"body"`
+	ID               string `json:"id"`
+	ExpectedRevision int64  `json:"expectedRevision"`
+	Body             string `json:"body"`
 }
 
 type commentOutput struct {
@@ -302,14 +304,15 @@ func (server *server) addComment(ctx context.Context, _ *mcp.CallToolRequest, ar
 	if err != nil {
 		return nil, commentOutput{}, err
 	}
-	comment, err := server.operations.AddComment(ctx, args.ID, delivery.CommentInput{Body: args.Body})
+	comment, err := server.operations.AddComment(ctx, args.ID, args.ExpectedRevision, delivery.CommentInput{Body: args.Body})
 	return nil, commentOutput{Comment: comment}, err
 }
 
 type advanceGateArgs struct {
-	ID       string         `json:"id"`
-	Gate     delivery.Gate  `json:"gate"`
-	Evidence []evidenceArgs `json:"evidence"`
+	ID               string         `json:"id"`
+	ExpectedRevision int64          `json:"expectedRevision"`
+	Gate             delivery.Gate  `json:"gate"`
+	Evidence         []evidenceArgs `json:"evidence"`
 }
 
 // evidenceArgs keeps MCP's optional timestamp semantics aligned with the
@@ -339,13 +342,14 @@ func (server *server) advanceGate(ctx context.Context, _ *mcp.CallToolRequest, a
 	for _, value := range args.Evidence {
 		evidence = append(evidence, value.toDeliveryEvidence())
 	}
-	item, err := server.operations.AdvanceGate(ctx, args.ID, args.Gate, evidence)
+	item, err := server.operations.AdvanceGate(ctx, args.ID, args.ExpectedRevision, args.Gate, evidence)
 	return nil, workItemOutput{Item: item}, err
 }
 
 type closeWorkItemArgs struct {
-	ID            string `json:"id"`
-	Retrospective string `json:"retrospective"`
+	ID               string `json:"id"`
+	ExpectedRevision int64  `json:"expectedRevision"`
+	Retrospective    string `json:"retrospective"`
 }
 
 func (server *server) closeWorkItem(ctx context.Context, _ *mcp.CallToolRequest, args closeWorkItemArgs) (*mcp.CallToolResult, workItemOutput, error) {
@@ -353,7 +357,7 @@ func (server *server) closeWorkItem(ctx context.Context, _ *mcp.CallToolRequest,
 	if err != nil {
 		return nil, workItemOutput{}, err
 	}
-	item, err := server.operations.Close(ctx, args.ID, args.Retrospective)
+	item, err := server.operations.Close(ctx, args.ID, args.ExpectedRevision, args.Retrospective)
 	return nil, workItemOutput{Item: item}, err
 }
 

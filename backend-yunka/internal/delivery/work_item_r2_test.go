@@ -53,7 +53,7 @@ func TestServiceEditsWorkItemWithAuditCommentIoTScopeAndTraceLinks(t *testing.T)
 		{Kind: delivery.TraceTest, Reference: "test-789", Title: "回归测试"},
 		{Kind: delivery.TraceRelease, Reference: "release-2.8.0", Title: "发布证据"},
 	}
-	updated, err := service.UpdateWorkItem(ctx, item.ID, delivery.WorkItemUpdate{
+	updated, err := service.UpdateWorkItem(ctx, item.ID, item.Revision, delivery.WorkItemUpdate{
 		StartDate:       &startDate,
 		DueDate:         &dueDate,
 		EstimatePoints:  &estimatePoints,
@@ -70,7 +70,7 @@ func TestServiceEditsWorkItemWithAuditCommentIoTScopeAndTraceLinks(t *testing.T)
 	if len(updated.IoTBindings) != len(bindings) || len(updated.TraceLinks) != len(traceLinks) {
 		t.Fatalf("updated task bindings/traces = %#v, want %d bindings and %d trace links", updated, len(bindings), len(traceLinks))
 	}
-	comment, err := service.AddComment(ctx, item.ID, delivery.CommentInput{Body: "等待首批灰度设备完成刷写。"})
+	comment, err := service.AddComment(ctx, item.ID, updated.Revision, delivery.CommentInput{Body: "等待首批灰度设备完成刷写。"})
 	if err != nil {
 		t.Fatalf("add task comment: %v", err)
 	}
