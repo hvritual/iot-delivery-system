@@ -593,6 +593,44 @@ func TestApplicationInitializesIdentityCoreSchemaInSharedSQLite(t *testing.T) {
 	}
 }
 
+func TestApplicationInitializesConfigRevisionSchemaExactlyOnce(t *testing.T) {
+	t.Setenv(localauth.APIKeyEnvironment, "config-revision-schema-test-key")
+	databasePath := filepath.Join(t.TempDir(), "config-revisions.db")
+	application, err := bootstrap.New(context.Background(), bootstrap.Config{
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       databasePath,
+		ObsidianVault:      t.TempDir(),
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
+	})
+	if err != nil {
+		t.Fatalf("bootstrap application: %v", err)
+	}
+	closeApplication(t, application)
+
+	database, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open bootstrapped SQLite database: %v", err)
+	}
+	defer database.Close()
+	if _, err := database.Exec(`PRAGMA busy_timeout = 5000`); err != nil {
+		t.Fatalf("configure config revision schema readback: %v", err)
+	}
+	for _, name := range []string{"iotd_config_revisions"} {
+		var found string
+		if err := database.QueryRow(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`, name).Scan(&found); err != nil {
+			t.Fatalf("bootstrap must create %q: %v", name, err)
+		}
+	}
+	var count int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = 'S0-04-05_config_revisions_v1'`).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("config revision migration ledger rows = %d error=%v, want 1", count, err)
+	}
+	if _, err := database.Exec(`SELECT COUNT(*) FROM iotd_config_revisions`); err != nil {
+		t.Fatalf("read config revision table: %v", err)
+	}
+}
+
 func TestApplicationIdentityCoreMigrationPreservesDeliveryDataAndEnforcesDatabaseInvariants(t *testing.T) {
 	t.Setenv(localauth.APIKeyEnvironment, "identity-core-invariants-test-key")
 	databasePath := filepath.Join(t.TempDir(), "identity-core-invariants.db")

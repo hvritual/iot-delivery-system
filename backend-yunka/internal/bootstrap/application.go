@@ -14,6 +14,7 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/bffassertion"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/bffhttp"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/configrevision"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	deliveryapplication "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryauthz"
@@ -184,6 +185,10 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	if err := identitycore.ApplyMigrations(ctx, repository.Database()); err != nil {
 		_ = repository.Close()
 		return nil, fmt.Errorf("initialize identity core schema: %w", err)
+	}
+	if err := configrevision.ApplyMigrations(ctx, repository.Database()); err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("initialize config revision schema: %w", err)
 	}
 	if err := audit.ApplyMigrations(ctx, repository.Database()); err != nil {
 		_ = repository.Close()
