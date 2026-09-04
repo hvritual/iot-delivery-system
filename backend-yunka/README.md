@@ -8,7 +8,7 @@
 - 事项编辑、评论/活动审计、搜索筛选、个人保存视图、成员周视图、基于估算点的项目进度汇总，以及项目排期健康（逾期、未排期、依赖阻塞、负责人剩余估算）。
 - IoT 交付范围绑定（设备、固件、客户、环境、灰度批次）和研发交付关联（PR、构建、测试、缺陷、发布）。外部记录仍是其原系统的主数据。
 - Obsidian 单向投影：总览、每日五板块驾驶舱、板块钻取页、规划、方案、决策、发布验证与复盘；R2 的层级/排期/依赖、IoT 范围、研发关联、评论和活动审计也会投影。由本地 Outbox 事件驱动，重复事件重投影不会重复追加内容。
-- Yunka 生成合同：`contracts/proto/iot_delivery.proto` 当前声明 12 个 operation plan、API Key 鉴权策略与读写事务策略；其中 WorkItem 创建、更新、评论、上下文/决策更新、关卡推进和关闭复盘都只经生成合同执行。`internal/assembly/` 的生成装配负责应用端口、模块目录和 gRPC transport 注册；其余 R2 扩展仍按切片逐步合同化。
+- Yunka 生成合同：`contracts/proto/iot_delivery.proto` 当前声明 13 个 operation plan、API Key/JWT/service-token 鉴权策略与读写事务策略；其中项目列表以及 WorkItem 创建、更新、评论、上下文/决策更新、关卡推进和关闭复盘都只经生成合同执行。`internal/assembly/` 的生成装配负责应用端口、模块目录和 gRPC transport 注册；其余 R2 扩展仍按切片逐步合同化。
 - Yunka `runtimehost → generated assembly → capability-aware runtime binder → kernel → core.App` 管理 HTTP/gRPC、`/health`、`/__yunka/diagnostics`、SQLite、Outbox dispatcher 与本地 broker 生命周期。消费者 binder 只在模块 typed capability 快照就绪后构造唯一业务 Service、root Executor 与 Operations，并在 `App.Start` 前完成手写 HTTP compatibility routes；生成的 gRPC 注册随后在同一装配闭环内完成。
 - HTTP `/api/*` 保持现有 React 界面兼容；stdio MCP Server 覆盖项目、事项生命周期、相似度确认、计划、成员周视图、项目进度、项目交付健康和保存视图。
 
@@ -85,9 +85,9 @@ go run ./cmd/iot-delivery-mcp
 
 | 变量 | 角色 | 可访问权限 |
 | --- | --- | --- |
-| `IOT_DELIVERY_LOCAL_VIEWER_API_KEY` | `viewer` | 驾驶舱与事项读取 |
-| `IOT_DELIVERY_LOCAL_CONTRIBUTOR_API_KEY` | `contributor` | 读取、创建和更新事项上下文 |
-| `IOT_DELIVERY_LOCAL_RELEASE_MANAGER_API_KEY` | `release-manager` | 读取、创建/更新、关卡推进和关闭复盘 |
+| `IOT_DELIVERY_LOCAL_VIEWER_API_KEY` | `viewer` | 驾驶舱、项目与事项读取 |
+| `IOT_DELIVERY_LOCAL_CONTRIBUTOR_API_KEY` | `contributor` | 项目/事项读取、创建和更新事项上下文 |
+| `IOT_DELIVERY_LOCAL_RELEASE_MANAGER_API_KEY` | `release-manager` | 项目/事项读取、创建/更新、关卡推进和关闭复盘 |
 | `IOT_DELIVERY_LOCAL_API_KEY` | `local-admin` | 全部本地 MVP 权限 |
 
 同一密钥不能分配给多个角色。业务 HTTP 请求需携带 `X-API-Key`；业务 gRPC 请求需携带 metadata `x-api-key`。`/health` 和 `/__yunka/diagnostics` 是 host-owned 运行状态端点，保持免鉴权。
@@ -151,4 +151,4 @@ make yunka-verify `
 
 The workflow resolves `YUNKA_PROTO_PATH` internally to the repository's `third_party/yunka/contracts/proto`; command-line overrides are deliberately ignored because the gitlink is the reviewed framework dependency. It remains a deliberate target-CLI `--proto-path` seam because the target project's `workflow.contract` profile has no persistent external-include field, and source inventories intentionally reject paths escaping the consumer root. Do not vendor or hand-copy `yunka/dsl/v1/options.proto` into the consumer merely to avoid that explicit dependency boundary.
 
-生成后的 `operation-plans.json`、应用端口、策略、RPC executor 和 `internal/assembly/` 都是受 Yunka 管理的派生内容；手写实现仅放在 `internal/delivery/application/`、`internal/localauth/`、`internal/localoutbox/`、`internal/localtx/`、`internal/notification/`、`internal/mcpserver/` 与 bootstrap 装配处。Project、Release、Sprint、Milestone 的创建 operation plan 已纳入生成合同；其余扩展 operation plan 仍由后续硬化项处理。
+生成后的 `operation-plans.json`、应用端口、策略、RPC executor 和 `internal/assembly/` 都是受 Yunka 管理的派生内容；手写实现仅放在 `internal/delivery/application/`、`internal/localauth/`、`internal/localoutbox/`、`internal/localtx/`、`internal/notification/`、`internal/mcpserver/` 与 bootstrap 装配处。Project 的创建/列表以及 Release、Sprint、Milestone 的创建 operation plan 已纳入生成合同；其余扩展 operation plan 仍由后续硬化项处理。

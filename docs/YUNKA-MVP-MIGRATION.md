@@ -12,7 +12,7 @@
 | MCP 任务生命周期 | 已验证 | stdio server 的内存传输测试与命令构建，覆盖项目、事项、相似度、计划、成员周视图、项目进度和项目交付健康；尚未注册到外部 MCP 客户端 |
 | HTTP 前端兼容 | 已验证 | Next App Router 的服务端 `/api/*`、`/health` 代理，R2 HTTP handler/runtime 测试、前端单元测试与生产构建；旧后端对照时会降级为五板块只读驾驶舱而非 R2 404 整页失败 |
 | Yunka HTTP/gRPC 运行时 | 已验证 | `runtimehost → kernel → core.App`、`/health`、`/__yunka/diagnostics`、生成 gRPC 服务集成测试 |
-| Yunka 合同生成 | 已验证 | `yunka generate/check --full`：DeliveryService 的 12 个 operation plan、生成 application/RPC executor 与受管派生产物 |
+| Yunka 合同生成 | 已验证 | `yunka generate/check --full`：DeliveryService 的 13 个 operation plan、生成 application/RPC executor 与受管派生产物 |
 | 旧数据/Vault 正式切换 | 未执行 | 本次不读取、迁移或覆盖 `backend/data` 与正式 Vault |
 
 ## 当前实现边界
@@ -24,7 +24,7 @@ Next App Router 桌面工作台
             ├─ HTTP compatibility adapter (/api/*)
             ├─ Yunka health + diagnostics
             ├─ generated DeliveryService gRPC adapter
-            ├─ local API-key authentication and execution security
+            ├─ environment-specific authentication and execution security
             └─ kernel/core.App lifecycle
                  └─ SQLite runtime component
                       └─ Delivery application operations
@@ -46,16 +46,17 @@ SQLite 是该 MVP 的主数据源和 Yunka 运行时组件，而不是 Yunka 平
 - Yunka 的项目档案、Protobuf 生成清单和完整检查。
 - 标准 `runtimehost` 对 HTTP/gRPC transport 的所有权。
 - `kernel.Bootstrap` 与 `core.App` 生命周期，以及 SQLite 健康/关闭组件。
-- 12 个当前 operation plan 的生成 Protobuf/gRPC 类型、策略、RPC executor 和手工适配的 `DeliveryService` 实现。
-- Yunka `operation.Executor`、声明式本地角色权限和 SQLite 本地执行事务；R2 HTTP/MCP 扩展也必须经过同一个执行器，而非直接访问仓储。
+- 13 个当前 operation plan 的生成 Protobuf/gRPC 类型、策略、RPC executor 和手工适配的 `DeliveryService` 实现；项目列表已进入 typed plan，并按持久项目授权集过滤。
+- Yunka `operation.Executor`、版本化权限字典、production SQLite human/service `GrantResolver + OperationGuard`、显式隔离的 development `localauth` 兼容层和 SQLite 本地执行事务；R2 HTTP/MCP 扩展也必须经过同一个执行器，而非直接访问仓储。
+- Gateway `authz` 的 OperationPlan/ExecutionSecurity，以及从真实 Principal 到 SQLite RoleBinding、项目范围和服务身份显式 grant 的持久授权解释；本轮不把认证后 Principal 注入测试冒充凭据验签。
 - SQLite 事务 Outbox、进程内 local broker、Obsidian 全量幂等投影，以及本地通知收件箱。通知通道以 `notification.Channel` 接口在 bootstrap 装配，默认没有外部通道；显式配置时可使用通用 Webhook、企业微信机器人和 SMTP，失败会进入已有 Outbox 的退避重试/死信路径。
 - 截止日提醒 worker：开放事项按可配置提前天数扫描，同一事项每天使用稳定事件 ID 写入 Outbox；完成项跳过，重启和重复扫描不会重复投递。
 - 本地 stdio MCP server：通过已鉴权的应用用例执行项目、事项、相似度确认、计划、成员周视图、进度、项目交付健康和保存视图。
 
 当前未采用：
 
-- 尚未生成合同的 R2 扩展操作（例如保存视图、相似度和排期读模型）。它们作为经 `Operations/Executor` 执行的显式本地扩展合同存在，不应误称为生成 gRPC 合同；当前 `operation-plans.json` 已覆盖 12 个操作。
-- Gateway 的声明式鉴权、身份/组织/租户解析与授权范围解释。
+- 尚未生成合同的 R2 扩展操作（例如保存视图、相似度和排期读模型）。它们作为经 `Operations/Executor` 执行的显式本地扩展合同存在，不应误称为生成 gRPC 合同；项目列表已从该集合迁出，当前 `operation-plans.json` 覆盖 13 个操作。
+- 业务内成员密码、不透明会话、内部短期 JWT、管理员初始化与成员管理尚未实现；它们由 YU-18 至 YU-29 独立交付。
 - Provider 驱动的 MySQL 绑定、外送事务、Kafka/NATS 等可靠事件传输。
 - 生产级的外部通知凭据治理、按成员偏好/升级规则、Webhook 接收端 SLA、SMTP TLS/邮件供应商治理。当前通道适配器和本地 Outbox 退避/死信已实现，但没有真实渠道授权或外部投递验收。
 - 生产级可观测性采集、密钥治理、环境部署、备份/恢复与 SLO。

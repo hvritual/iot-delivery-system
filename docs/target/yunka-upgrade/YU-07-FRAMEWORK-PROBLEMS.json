@@ -1,0 +1,100 @@
+{
+  "schema_version": "1.0",
+  "task_id": "YU-07",
+  "framework_version": "057ebcf88a87303eb633eb6e604d306f633dfac0",
+  "status": "open-workarounds-verified-framework-unmodified",
+  "problems": [
+    {
+      "id": "YU-07-FW-001",
+      "version": "1.0",
+      "status": "confirmed",
+      "problem": {
+        "title": "ChangeSet and audit immutable Git reads confuse nested-project paths with repository-root paths",
+        "expected": "For a documented nested Yunka project root, ChangeSet and audit should consistently resolve paths used by the project manifest, generated manifests, Git immutable reads, and Git diffs. A ChangeSet created with --root backend-yunka should be able to read its declared contract and Go-module files from the same checked-out Git base.",
+        "observed": "With the fixed framework and a nested project root backend-yunka, ChangeSet begin and audit attempt immutable reads such as git show <base>:contracts/generated/manifest.json and git show <base>:go.mod. Those are project-relative paths, but Git requires backend-yunka/contracts/generated/manifest.json and backend-yunka/go.mod. The commands fail before a valid nested-project ChangeSet/audit can be completed, while Git diff reports repository-root-prefixed paths.",
+        "evidence": [
+          {
+            "kind": "source",
+            "location": "app/cmd/change/semantic.go:91-120",
+            "detail": "ChangeSet semantic validation performs immutable Git content reads using the operation/project paths without a consistent repository-root translation."
+          },
+          {
+            "kind": "source",
+            "location": "app/cmd/change/reconcile.go:205-229",
+            "detail": "Change reconciliation compares project-path records with Git-root-derived changes, exposing the same path-domain mismatch."
+          },
+          {
+            "kind": "source",
+            "location": "app/cmd/audit/command.go:64-85; app/cmd/auditcore/git.go:31-45",
+            "detail": "Audit performs the equivalent base-tree read for module/project files and reproduces the nested-path failure."
+          },
+          {
+            "kind": "runtime",
+            "detail": "Observed command errors include missing Git tree entries for <base>:contracts/generated/manifest.json and <base>:go.mod when the actual tracked entries are under backend-yunka/."
+          }
+        ],
+        "impact": "A consumer using a supported nested project layout cannot obtain the framework's required ChangeSet/audit evidence from its true Git base. This blocks plan-first contract work even when context, generation, and normal checks are otherwise valid.",
+        "scope": "Fixed framework 057ebcf88a87303eb633eb6e604d306f633dfac0, consumers whose Yunka project root is below the Git repository root. It does not establish a failure for repository-root projects.",
+        "reproduction": [
+          "Checkout the fixed framework and a consumer whose Yunka project is backend-yunka within a Git repository.",
+          "Run a ChangeSet/audit command with --root backend-yunka and an immutable base that predates the intended contract change.",
+          "Observe Git immutable reads for contracts/generated/manifest.json or go.mod without the backend-yunka/ prefix, although Git lists those files only with that prefix."
+        ],
+        "hypothesis": "The framework models project-relative paths correctly for project metadata, but passes them directly to Git tree APIs that require repository-relative paths; reconciliation mixes those two path domains.",
+        "counter_evidence": "A tracked repository-root profile resolves all relevant files in the same Git path domain and has passed context/check/generate plus ChangeSet/dev planning in this task. That narrows the issue to nested project handling rather than the immutable base itself. Unknown: whether every audit subcommand has the same defect.",
+        "root_cause": "Confirmed path-domain mismatch between nested project-relative manifest paths and repository-root Git immutable/diff paths in the cited ChangeSet/reconciliation/audit handling.",
+        "should_have_caught": "Framework integration coverage should exercise a nested project with a real Git base through context, ChangeSet begin/check, audit, reconcile, and generated-manifest comparison; assertions should check the exact Git paths passed to immutable reads.",
+        "systemic_gap": "The framework's project-root abstraction is not propagated as an explicit repository-relative path conversion boundary for Git-backed validation and audit."
+      },
+      "workaround": "Use a tracked repository-root .yunka profile and minimal repository-root go.mod that point to backend-yunka contract, generated, module, and development locations. Keep backend-yunka as the application module/working directory; use the root profile only for Yunka workflow commands. This is a consumer public-configuration workaround, not a framework modification.",
+      "workaround_verification": [
+        "Commit 03fb576 records the tracked root profile and minimal root Go module.",
+        "With that profile, Yunka context, check, generate, ChangeSet planning, and dev planning completed in the task investigation; generated outputs were checked for byte-identical repeatability before subsequent contract work.",
+        "Final YU-07 double generation, full check, ownership, and audit completed with no generated drift or new audit finding. No framework source was edited and this workaround is not represented as a framework repair."
+      ]
+    },
+    {
+      "id": "YU-07-FW-002",
+      "version": "1.0",
+      "status": "confirmed",
+      "problem": {
+        "title": "add operation accepts --authentication service but plans it as service while generated semantics require service-token",
+        "expected": "The public add operation CLI should either normalize --authentication service to the authentication value required by generated manifests/ChangeSet validation, or reject it with a precise supported-value error. A plan advertised by the command should be executable as a conformant ChangeSet without manual generated-file edits.",
+        "observed": "add operation publicly accepts --authentication service and records service in its plan output. For the new three-authentication ListProjects contract, the corresponding generated-manifest/ChangeSet semantics require service-token. A ChangeSet that attempts api-key, jwt, and service in that create step is rejected despite the CLI plan accepting service.",
+        "evidence": [
+          {
+            "kind": "cli",
+            "detail": "The add operation command accepted --authentication service and emitted a plan containing service."
+          },
+          {
+            "kind": "changeset",
+            "detail": "The three-authentication ListProjects create ChangeSet was rejected because the generated-manifest semantic value is service-token rather than service."
+          },
+          {
+            "kind": "consumer",
+            "detail": "Two conformant ChangeSets succeeded: create the operation with api-key and jwt, then apply the existing-operation authentication allowance using service-token."
+          }
+        ],
+        "impact": "A documented-looking command invocation produces a plan that cannot be completed through the framework's own ChangeSet gate, creating avoidable friction and a risk that consumers hand-edit generated output to force the desired policy.",
+        "scope": "Fixed framework 057ebcf88a87303eb633eb6e604d306f633dfac0 when service authentication is supplied during new-operation creation. This does not show that existing-operation authentication mutation is broken.",
+        "reproduction": [
+          "Run add operation for a new protected operation with --authentication api-key --authentication jwt --authentication service and inspect the plan.",
+          "Create a ChangeSet that includes all three advertised values in the create operation step.",
+          "Observe the semantic rejection requiring/using service-token.",
+          "Instead create with api-key and jwt, then use the documented existing-operation authentication allowance with service-token; observe conformant completion."
+        ],
+        "hypothesis": "The CLI option parser and plan serializer retain the public alias service, while the ChangeSet/manifest semantic vocabulary uses service-token and lacks alias normalization at the create-operation boundary.",
+        "counter_evidence": "The second, existing-operation ChangeSet accepts service-token and the final generated contract can represent service authentication without hand editing generated files. Unknown: whether all CLI subcommands expose the same alias mismatch.",
+        "root_cause": "Confirmed vocabulary mismatch between add operation plan output (service) and create-operation ChangeSet/generated-manifest semantic validation (service-token).",
+        "should_have_caught": "Command-to-plan-to-ChangeSet integration tests should cover every documented authentication value for both new and existing operations, and assert that the planned vocabulary is directly executable.",
+        "systemic_gap": "Authentication values are not defined as one normalized public enum shared by CLI parsing, plan serialization, ChangeSet validation, and generated manifest semantics."
+      },
+      "workaround": "Use two formal ChangeSets: first create the operation with api-key and jwt; then apply the supported existing-operation authentication allowance with service-token. Do not alter any generated manifest or generated source by hand.",
+      "workaround_verification": [
+        "Both ChangeSets completed conformantly in the YU-07 contract workflow: the first establishes api-key+jwt and the second adds service-token.",
+        "The resulting canonical generation is represented by structural contract commit cc43e76 and typed execution commit edec34d.",
+        "Final YU-07 double generation and full check preserved the intended three authentication methods with zero drift. This is a consumer workflow workaround, not a framework fix."
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # Yunka 升级与业务内成员账号密码：原子任务台账
 
-> 正式源 parent：`4cd1209f41575a67ab143b83e1df6501089085b8`
+> 正式源码基线（as-of，仅用于追溯导入源树）：`4cd1209f41575a67ab143b83e1df6501089085b8`
 >
 > 目标 Yunka：`057ebcf88a87303eb633eb6e604d306f633dfac0`
 > 调度原则：一个原子任务一个云端侧边栏会话；每项预计 30–90 分钟、独立提交、独立验证。中控固定每个任务的精确 parent，不跟随移动 HEAD。
@@ -19,12 +19,12 @@
 | **YU-00F** | 1 | 独立任务 | 固定框架要求矩阵、问题候选与 evidence manifest；本任务不重复 | Yunka `057ebcf` | 由会话 `6a9a8f55-fa44-83eb-b298-bc2e410761e0` 独立交付 |
 | **YU-01** | 2 | 60–90m | 更新 gitlink 到 `057ebcf`，把消费者 `yunka.io/framework|gateway|pkg` 迁至公开模块身份；不改行为 | YU-00 + YU-00F | 编译前依赖图、`go mod tidy` 零意外扩散、仅机械 import/module delta |
 | **YU-02** | 2 | 45–75m | 对齐 `.yunka/project.json`、provider/protobuf/dev manifest 与目标 CLI；保留 app/runtime 入口 | YU-01 | `yunka context --json`、ownership/audit 基线可读；不生成业务新语义 |
-| **YU-03** | 2 | 60–90m | 用目标 generator 重建当前 12 RPC 全部派生物，禁止手改 | YU-02 | 两次 generate 后零 drift；`yunka check --full`；12 plans 等价 |
+| **YU-03** | 2 | 60–90m | 用目标 generator 重建 YU-03 当时源码基线的 12 RPC 全部派生物，禁止手改 | YU-02 | 两次 generate 后零 drift；`yunka check --full`；12 plans 等价 |
 | **YU-04** | 3 | 60–90m | 以公开 typed capability 接入 SQLite/transaction factory；必要时手写 descriptor wrapper | YU-03 | 无 service locator；root UoW 单一；rollback 集成测试 |
 | **YU-05** | 3 | 60–90m | Outbox、notification、projection 作为 App-owned typed capability/lifecycle 接入 | YU-04 | start/health/reverse shutdown；无 request state 泄漏 |
 | **YU-06** | 3 | 45–75m | 重组 generated Assembly/runtimehost/HTTP/gRPC 装配并关闭旧 module-identity 路径 | YU-04/05 | health/diagnostics/runtime closure；现有 HTTP/gRPC smoke |
 | **YU-07** | 4 | 60–90m | 为 Project 及 ListProjects 建 canonical protobuf typed contracts | YU-03 | plan-first ChangeSet；create/list plans、权限、scope、REST/MCP 映射一致 |
-| **YU-08** | 4 | 60–90m | 为 Release/Sprint/Milestone list 操作合同化并消除 4 个 planning extension plans | YU-07 | 生成可重复；规划对象 create/list 行为回归；跨项目拒绝 |
+| **YU-08** | 4 | 60–90m | 为 Release/Sprint/Milestone list 操作合同化并消除 YU-07 后剩余的 3 个 planning extension plans | YU-07 | 生成可重复；规划对象 create/list 行为回归；跨项目拒绝 |
 | **YU-09** | 5 | 60–90m | 合同化 item get/search/similarity，消除 3 个独立扩展 plan | YU-08 | exact/similar/filter 行为；project/object scope；REST/MCP 一致 |
 | **YU-10** | 5 | 60–90m | 修复 Dashboard/List 同 ID 双 plan；合同化组合 Update + UpdateContext requires_operations | YU-09 | canonical permission 不再用 alias；同一根 UoW；失败整体回滚 |
 | **YU-11** | 5 | 60–90m | 评论、上下文/ADR、关卡、关闭的 CAS/证据/职责分离跨 transport 回归 | YU-10 | 冲突分类一致；拒绝业务/Outbox 零变更；两身份职责分离 |
@@ -49,16 +49,17 @@
 | **YU-30** | 12 | 60–90m | 全量 Go/前端/生成/ownership/audit/ChangeSet 回归 | YU-01…29 | double generate、full check、Go tests/race/vet、前端 test/typecheck/build，零 drift |
 | **YU-31** | 12 | 45–75m | 真实 runtime health/diagnostics/closure 与 REST/gRPC/MCP smoke | YU-30 | 同一 SQLite 身份授权链；shutdown 完整；无僵尸资源 |
 | **YU-32** | 12 | 45–75m | 独立安全/架构审查与问题闭环 | YU-30/31 + YU-00F | 候选→复现/反证→证实；consumer debt 不归因框架；绕过不称修复 |
-| **YU-33** | 12 | 45–75m | 更新运行说明、最终 manifest、提交与遗留问题清单 | YU-32 | 文档与 executable truth 一致；提交 parent/evidence 完整；不 merge/deploy |
+| **YU-33** | 12 | 45–75m | 更新运行说明、最终 manifest、提交与遗留问题清单 | YU-32 | 文档与 executable truth 一致；提交 parent/evidence 完整；同步任务分支并合并 `main`；不部署 |
 
 ## 下一原子任务派发说明
 
-**建议下一侧边栏任务：YU-01「固定 Yunka 依赖与模块身份迁移」**。
+**建议下一侧边栏任务：YU-08「Release/Sprint/Milestone 列表合同化」**。
 
-- 固定 parent：以 YU-00 文档提交为 parent，并记录其精确 SHA。
-- 输入：YU-00 五份台账、YU-00F 的固定框架要求矩阵、Yunka `057ebcf...`。
-- 允许：`third_party/yunka` gitlink、`backend-yunka/go.mod`/`go.sum`、消费者中机械 import 路径及必要依赖元数据。
-- 禁止：业务语义、protobuf 业务合同、生成文件手改、框架源码、`backend/`、Web UI。
-- RED：固定目标提交下现有 consumer module identity 的真实编译/依赖失败；若工具缺失只记 BLOCKED。
-- GREEN：公开模块身份统一、gitlink 精确、`go mod tidy` 可重复、依赖图无意外扩张、相关 Go 测试通过。
-- 结束条件：独立提交并停下；不顺带进入 YU-02。
+- 固定 parent：使用 YU-07 交付回复中已同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
+- 输入：YU-07 的 13 个生成 OperationPlan、固定框架 `057ebcf...`、权限字典与持久 SQLite `GrantResolver + OperationGuard`。
+- 允许：canonical protobuf 源、由固定生成器产生的受管派生物、三个列表的应用适配、权限字典/增量迁移、REST/gRPC/MCP 与回归测试、YU-08 证据文档。
+- 禁止：手改生成文件、修改 Yunka 源码、`backend/`、Web UI、本地成员凭据/会话能力，以及顺带进入 YU-09。
+- RED：在无 legacy service extension 的 fixture 中，三个列表必须因缺少生成 request/response、application port、typed plan 或项目范围授权而真实失败；环境/缺工具不算 RED。
+- GREEN：三项列表全部经 canonical typed plan；生成总数从 13 增至 16；调用方项目 ID 经持久授权和租户归属校验；跨项目/跨租户三 transport 拒绝且业务/Outbox 零变更；两次生成零漂移、full check、Go/race/vet 通过。
+- 框架问题：若遇到目标框架缺陷，先最小复现与反证，只在消费者公开扩展点绕过；问题卡不得把 consumer 接入债归因框架。
+- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-09。
