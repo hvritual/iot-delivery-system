@@ -189,12 +189,22 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		_ = repository.Close()
 		return nil, fmt.Errorf("initialize audit schema: %w", err)
 	}
-	serviceCredentialManager, err := serviceauth.NewManager(repository.Database(), serviceauth.Config{AllowInsecureTransportForDevelopment: configuration.AllowInsecureServiceCredentialsForDevelopment})
+	auditStore, err := audit.NewSQLiteStore(repository.Database())
+	if err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("configure audit store: %w", err)
+	}
+	securityRecorder, err := audit.NewSecurityRecorder(auditStore)
+	if err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("configure security audit recorder: %w", err)
+	}
+	serviceCredentialManager, err := serviceauth.NewManager(repository.Database(), serviceauth.Config{AllowInsecureTransportForDevelopment: configuration.AllowInsecureServiceCredentialsForDevelopment, AuditRecorder: securityRecorder})
 	if err != nil {
 		_ = repository.Close()
 		return nil, fmt.Errorf("configure service credential manager: %w", err)
 	}
-	serviceGrantManager, err := serviceauthz.NewManager(repository.Database(), repository)
+	serviceGrantManager, err := serviceauthz.NewManager(repository.Database(), repository, serviceauthz.WithAuditRecorder(securityRecorder))
 	if err != nil {
 		_ = repository.Close()
 		return nil, fmt.Errorf("configure service grant manager: %w", err)
@@ -210,11 +220,6 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		_ = repository.Close()
 		return nil, err
 	}
-	auditStore, err := audit.NewSQLiteStore(repository.Database())
-	if err != nil {
-		_ = repository.Close()
-		return nil, fmt.Errorf("configure audit store: %w", err)
-	}
 	notificationStore, err := notification.NewSQLiteStore(repository.Database())
 	if err != nil {
 		_ = repository.Close()
@@ -228,7 +233,7 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 			return nil, err
 		}
 	}
-	httpMiddleware, err := configuredHTTPMiddleware(authenticator, identityResolver, configuration)
+	httpMiddleware, err := configuredHTTPMiddleware(authenticator, identityResolver, securityRecorder, configuration)
 	if err != nil {
 		_ = repository.Close()
 		return nil, err
@@ -259,9 +264,13 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		_ = repository.Close()
 		return nil, fmt.Errorf("configure audited delivery application: %w", err)
 	}
-	executor := operation.NewExecutorWithOptions(security, operation.ExecutorOptions{
+	executor, err := audit.NewRecordingExecutor(operation.NewExecutorWithOptions(security, operation.ExecutorOptions{
 		Transactions: localtx.NewSQLiteFactory(repository.Database()),
-	})
+	}), securityRecorder)
+	if err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("configure security audit executor: %w", err)
+	}
 	operations := deliveryapplication.NewOperations(auditedAdapter, executor, service).WithNotificationReader(notificationStore)
 	if configuration.BootstrapMode == BootstrapModeExample {
 		if err := seedExample(ctx, operations); err != nil {
@@ -451,14 +460,14 @@ func validateBFFConfiguration(configuration Config) error {
 	return nil
 }
 
-func configuredHTTPMiddleware(authenticator *localauth.Authenticator, resolver *identitybinding.Resolver, configuration Config) (func(http.Handler) http.Handler, error) {
+func configuredHTTPMiddleware(authenticator *localauth.Authenticator, resolver *identitybinding.Resolver, recorder *audit.SecurityRecorder, configuration Config) (func(http.Handler) http.Handler, error) {
 	organizationID := strings.TrimSpace(configuration.BFFOrganizationID)
 	encodedKey := strings.TrimSpace(configuration.BFFAssertionKey)
 	if organizationID == "" && encodedKey == "" {
 		if authenticator == nil {
 			return nil, errors.New("legacy local API-key authentication is not configured")
 		}
-		return bffhttp.APIKeyTraceMiddleware(authenticator), nil
+		return bffhttp.APIKeyTraceMiddleware(authenticator, recorder), nil
 	}
 	key, err := base64.RawURLEncoding.DecodeString(encodedKey)
 	if err != nil {
@@ -470,6 +479,7 @@ func configuredHTTPMiddleware(authenticator *localauth.Authenticator, resolver *
 	}
 	middleware, err := bffhttp.NewMiddleware(bffhttp.Config{
 		Authenticator:       authenticator,
+		AuditRecorder:       recorder,
 		Verifier:            verifier,
 		Resolver:            resolver,
 		OrganizationID:      organizationID,

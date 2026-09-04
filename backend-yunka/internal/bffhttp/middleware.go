@@ -4,6 +4,7 @@ package bffhttp
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -12,6 +13,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/bffassertion"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitybinding"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localauth"
@@ -27,6 +29,7 @@ const (
 
 type Config struct {
 	Authenticator       *localauth.Authenticator
+	AuditRecorder       *audit.SecurityRecorder
 	Verifier            *bffassertion.Verifier
 	Resolver            *identitybinding.Resolver
 	OrganizationID      string
@@ -35,6 +38,7 @@ type Config struct {
 
 type Middleware struct {
 	authenticator       *localauth.Authenticator
+	auditRecorder       *audit.SecurityRecorder
 	verifier            *bffassertion.Verifier
 	resolver            *identitybinding.Resolver
 	organizationID      string
@@ -50,6 +54,7 @@ func NewMiddleware(config Config) (*Middleware, error) {
 	}
 	return &Middleware{
 		authenticator:       config.Authenticator,
+		auditRecorder:       config.AuditRecorder,
 		verifier:            config.Verifier,
 		resolver:            config.Resolver,
 		organizationID:      strings.TrimSpace(config.OrganizationID),
@@ -75,6 +80,7 @@ func (middleware *Middleware) HTTPMiddleware(next http.Handler) http.Handler {
 				}
 				channelPrincipal, err := middleware.authenticator.AuthenticateAPIKey(request.Header.Get(localauth.APIKeyHeader))
 				if err != nil {
+					auditAuthenticationFailure(request.Context(), middleware.auditRecorder, traceID, "authentication.bff_channel", "authentication.invalid_credential")
 					writeError(writer, http.StatusUnauthorized, "unauthorized", traceID)
 					return
 				}
@@ -91,6 +97,7 @@ func (middleware *Middleware) HTTPMiddleware(next http.Handler) http.Handler {
 			}
 			claims, verifyErr := middleware.verifier.Verify(request, body)
 			if verifyErr != nil {
+				auditAuthenticationFailure(request.Context(), middleware.auditRecorder, traceID, "authentication.bff_assertion", "authentication.assertion_rejected")
 				writeError(writer, http.StatusUnauthorized, "unauthorized", traceID)
 				return
 			}
@@ -99,6 +106,7 @@ func (middleware *Middleware) HTTPMiddleware(next http.Handler) http.Handler {
 				Issuer: claims.Issuer, Subject: claims.Subject, Email: claims.Email, DisplayName: claims.DisplayName,
 			})
 			if resolveErr != nil {
+				auditAuthenticationFailure(request.Context(), middleware.auditRecorder, traceID, "authentication.bff_identity_binding", "authentication.identity_binding_rejected")
 				writeError(writer, http.StatusForbidden, "forbidden", traceID)
 				return
 			}
@@ -113,17 +121,25 @@ func (middleware *Middleware) HTTPMiddleware(next http.Handler) http.Handler {
 			ctx := identity.WithPrincipal(request.Context(), principal)
 			ctx = runtimecontext.WithTraceID(ctx, traceID)
 			ctx = runtimecontext.WithMetadata(ctx, runtimecontext.Metadata{Transport: "http", Protocol: "http", Method: request.Method, Route: request.URL.EscapedPath(), RequestID: traceID})
+			if middleware.auditRecorder != nil {
+				if err := middleware.auditRecorder.RecordAuthenticationAccepted(ctx, "authentication.bff_assertion"); err != nil {
+					writeError(writer, http.StatusServiceUnavailable, "service_unavailable", traceID)
+					return
+				}
+			}
 			traced := newTraceResponseWriter(writer, traceID)
 			next.ServeHTTP(traced, request.WithContext(ctx))
 			traced.commit()
 			return
 		}
 		if !middleware.allowLegacyFallback || middleware.authenticator == nil {
+			auditAuthenticationFailure(request.Context(), middleware.auditRecorder, traceID, "authentication.bff_assertion", "authentication.assertion_missing")
 			writeError(writer, http.StatusUnauthorized, "unauthorized", traceID)
 			return
 		}
 		principal, err := middleware.authenticator.AuthenticateAPIKey(request.Header.Get(localauth.APIKeyHeader))
 		if err != nil {
+			auditAuthenticationFailure(request.Context(), middleware.auditRecorder, traceID, "authentication.development_api_key", "authentication.invalid_credential")
 			writeError(writer, http.StatusUnauthorized, "unauthorized", traceID)
 			return
 		}
@@ -138,7 +154,11 @@ func (middleware *Middleware) HTTPMiddleware(next http.Handler) http.Handler {
 
 // APIKeyTraceMiddleware keeps the explicit legacy/bootstrap route available
 // while giving every response the same server-generated trace contract.
-func APIKeyTraceMiddleware(authenticator *localauth.Authenticator) func(http.Handler) http.Handler {
+func APIKeyTraceMiddleware(authenticator *localauth.Authenticator, recorders ...*audit.SecurityRecorder) func(http.Handler) http.Handler {
+	var recorder *audit.SecurityRecorder
+	if len(recorders) > 0 {
+		recorder = recorders[0]
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 			traceID := newTraceID()
@@ -148,10 +168,12 @@ func APIKeyTraceMiddleware(authenticator *localauth.Authenticator) func(http.Han
 			}
 			principal, err := authenticator.AuthenticateAPIKey(request.Header.Get(localauth.APIKeyHeader))
 			if err != nil {
+				auditAuthenticationFailure(request.Context(), recorder, traceID, "authentication.development_api_key", "authentication.invalid_credential")
 				writeError(writer, http.StatusUnauthorized, "unauthorized", traceID)
 				return
 			}
 			if hasAssertionHeaders(request.Header) {
+				auditAuthenticationFailure(request.Context(), recorder, traceID, "authentication.development_api_key", "authentication.mixed_credentials")
 				writeError(writer, http.StatusUnauthorized, "unauthorized", traceID)
 				return
 			}
@@ -163,6 +185,15 @@ func APIKeyTraceMiddleware(authenticator *localauth.Authenticator) func(http.Han
 			traced.commit()
 		})
 	}
+}
+
+func auditAuthenticationFailure(ctx context.Context, recorder *audit.SecurityRecorder, traceID, operation, reasonCode string) {
+	if recorder == nil {
+		return
+	}
+	ctx = runtimecontext.WithTraceID(ctx, traceID)
+	ctx = runtimecontext.WithMetadata(ctx, runtimecontext.Metadata{Transport: "http", Protocol: "http", RequestID: traceID})
+	_ = recorder.RecordAuthenticationFailure(ctx, operation, "http", reasonCode)
 }
 
 func hasAssertionHeaders(headers http.Header) bool {

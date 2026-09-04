@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitycore"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
@@ -47,6 +48,134 @@ func TestIssueAndAuthenticateCreatesServicePrincipalWithoutPersistingCredential(
 	}
 	if len(storedHash) != 32 || strings.Contains(string(storedHash), issued.Credential) {
 		t.Fatal("persistent service credential must be a SHA-256 digest, not the issued credential")
+	}
+}
+
+func TestCredentialRevocationCommitsWithItsAuditEntry(t *testing.T) {
+	database := migratedDatabase(t)
+	if err := audit.ApplyMigrations(t.Context(), database); err != nil {
+		t.Fatalf("apply audit migrations: %v", err)
+	}
+	createServiceAccount(t, database, "org-a", "service-a")
+	store, err := audit.NewSQLiteStore(database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder, err := audit.NewSecurityRecorder(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, time.September, 4, 8, 0, 0, 0, time.UTC)
+	manager, err := NewManager(database, Config{
+		Now:           func() time.Time { return now },
+		NewID:         func() (string, error) { return "credential-revoke-a", nil },
+		NewSecret:     func() ([]byte, error) { return []byte("test-service-secret-alpha-000000000000"), nil },
+		AuditRecorder: recorder,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	issued, err := manager.Issue(t.Context(), "service-a", now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("issue credential: %v", err)
+	}
+	ctx := identity.WithPrincipal(t.Context(), identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, TenantID: "org-a"})
+	ctx = runtimecontext.WithTraceID(ctx, "credential-revoke-trace")
+	ctx = runtimecontext.WithMetadata(ctx, runtimecontext.Metadata{Attributes: map[string]string{"correlation_id": "credential-correlation-a", "authorization": "secret"}})
+	if err := manager.Revoke(ctx, issued.CredentialID); err != nil {
+		t.Fatalf("revoke credential: %v", err)
+	}
+	if _, err := manager.Authenticate(t.Context(), issued.Credential); !errors.Is(err, ErrUnauthorized) {
+		t.Fatalf("revoked credential authentication error = %v, want ErrUnauthorized", err)
+	}
+	var revokedAt sql.NullString
+	if err := database.QueryRow(`SELECT revoked_at FROM service_account_credentials WHERE id = ?`, issued.CredentialID).Scan(&revokedAt); err != nil || !revokedAt.Valid {
+		t.Fatalf("credential revocation = %q error=%v, want committed revocation", revokedAt.String, err)
+	}
+	var category, targetType, targetID, result, correlationID, metadata string
+	if err := database.QueryRow(`SELECT event_category, target_type, target_id, result, correlation_id, metadata FROM iotd_audit_entries`).Scan(&category, &targetType, &targetID, &result, &correlationID, &metadata); err != nil {
+		t.Fatalf("read credential revocation audit: %v", err)
+	}
+	if category != "configuration" || targetType != "service.credential" || targetID != issued.CredentialID || result != "success" {
+		t.Fatalf("credential revocation audit = category=%q target=%q/%q result=%q", category, targetType, targetID, result)
+	}
+	if correlationID != "credential-correlation-a" || strings.Contains(metadata, "secret") {
+		t.Fatalf("credential revocation correlation/metadata = %q/%s", correlationID, metadata)
+	}
+}
+
+func TestCredentialRevocationRollsBackWhenAuditAppendFails(t *testing.T) {
+	database := migratedDatabase(t)
+	if err := audit.ApplyMigrations(t.Context(), database); err != nil {
+		t.Fatal(err)
+	}
+	createServiceAccount(t, database, "org-a", "service-a")
+	store, err := audit.NewSQLiteStore(database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder, err := audit.NewSecurityRecorder(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, time.September, 4, 8, 0, 0, 0, time.UTC)
+	manager, err := NewManager(database, Config{Now: func() time.Time { return now }, NewID: func() (string, error) { return "credential-fault-a", nil }, NewSecret: func() ([]byte, error) { return []byte("test-service-secret-alpha-000000000000"), nil }, AuditRecorder: recorder})
+	if err != nil {
+		t.Fatal(err)
+	}
+	issued, err := manager.Issue(t.Context(), "service-a", now.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`CREATE TRIGGER fail_credential_audit BEFORE INSERT ON iotd_audit_entries BEGIN SELECT RAISE(ABORT, 'audit fault'); END`); err != nil {
+		t.Fatal(err)
+	}
+	ctx := identity.WithPrincipal(t.Context(), identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, TenantID: "org-a"})
+	if err := manager.Revoke(ctx, issued.CredentialID); err == nil {
+		t.Fatal("revoke succeeded despite audit insertion fault")
+	}
+	if _, err := manager.Authenticate(t.Context(), issued.Credential); err != nil {
+		t.Fatalf("credential was revoked despite audit fault: %v", err)
+	}
+	var revokedAt sql.NullString
+	if err := database.QueryRow(`SELECT revoked_at FROM service_account_credentials WHERE id = ?`, issued.CredentialID).Scan(&revokedAt); err != nil || revokedAt.Valid {
+		t.Fatalf("revocation state = %q error=%v, want active", revokedAt.String, err)
+	}
+	var count int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_audit_entries`).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("audit rows = %d error=%v, want 0", count, err)
+	}
+}
+
+func TestCredentialRevocationRejectsDifferentTargetOrganization(t *testing.T) {
+	database := migratedDatabase(t)
+	if err := audit.ApplyMigrations(t.Context(), database); err != nil {
+		t.Fatal(err)
+	}
+	createServiceAccount(t, database, "org-a", "service-a")
+	store, err := audit.NewSQLiteStore(database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder, err := audit.NewSecurityRecorder(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	manager, err := NewManager(database, Config{Now: func() time.Time { return now }, NewID: func() (string, error) { return "credential-cross-org", nil }, NewSecret: func() ([]byte, error) { return []byte("test-service-secret-alpha-000000000000"), nil }, AuditRecorder: recorder})
+	if err != nil {
+		t.Fatal(err)
+	}
+	issued, err := manager.Issue(t.Context(), "service-a", now.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := identity.WithPrincipal(t.Context(), identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, TenantID: "org-b"})
+	if err := manager.Revoke(ctx, issued.CredentialID); err == nil {
+		t.Fatal("cross-organization revocation succeeded")
+	}
+	if _, err := manager.Authenticate(t.Context(), issued.Credential); err != nil {
+		t.Fatalf("cross-organization revocation changed credential: %v", err)
 	}
 }
 
@@ -178,6 +307,169 @@ func TestGRPCServiceCredentialAdapterFailsClosedForDuplicateCredentialMetadata(t
 	if status.Code(err) != codes.Unauthenticated || status.Convert(err).Message() != "unauthenticated" {
 		t.Fatalf("duplicate service credential error = %v, want generic unauthenticated", err)
 	}
+}
+
+func TestGRPCServiceCredentialMissingWithoutFallbackPersistsAnonymousFailure(t *testing.T) {
+	database := migratedDatabase(t)
+	if err := audit.ApplyMigrations(t.Context(), database); err != nil {
+		t.Fatal(err)
+	}
+	store, err := audit.NewSQLiteStore(database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder, err := audit.NewSecurityRecorder(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager, err := NewManager(database, Config{AuditRecorder: recorder})
+	if err != nil {
+		t.Fatal(err)
+	}
+	interceptor := manager.GRPCUnaryServerInterceptor(nil)
+	called := false
+	_, err = interceptor(t.Context(), "request", &grpc.UnaryServerInfo{}, func(context.Context, any) (any, error) { called = true; return nil, nil })
+	if status.Code(err) != codes.Unauthenticated || called {
+		t.Fatalf("missing service token = error=%v called=%t, want unauthenticated/no handler", err, called)
+	}
+	var actorType, result, reason string
+	if err := database.QueryRow(`SELECT actor_type, result, reason_code FROM iotd_audit_entries`).Scan(&actorType, &result, &reason); err != nil {
+		t.Fatal(err)
+	}
+	if actorType != "anonymous" || result != "failure" || reason != "authentication.missing_credential" {
+		t.Fatalf("missing credential audit = %q/%q/%q", actorType, result, reason)
+	}
+}
+
+func TestGRPCAPIFallbackUnauthenticatedPersistsOneAnonymousFailure(t *testing.T) {
+	database := migratedDatabase(t)
+	if err := audit.ApplyMigrations(t.Context(), database); err != nil {
+		t.Fatal(err)
+	}
+	store, err := audit.NewSQLiteStore(database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder, err := audit.NewSecurityRecorder(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager, err := NewManager(database, Config{AuditRecorder: recorder})
+	if err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	fallback := func(context.Context, any, *grpc.UnaryServerInfo, grpc.UnaryHandler) (any, error) {
+		return nil, status.Error(codes.Unauthenticated, "unauthenticated")
+	}
+	_, err = manager.GRPCUnaryServerInterceptor(fallback)(t.Context(), "request", &grpc.UnaryServerInfo{}, func(context.Context, any) (any, error) { called = true; return nil, nil })
+	if status.Code(err) != codes.Unauthenticated || status.Convert(err).Message() != "unauthenticated" || called {
+		t.Fatalf("fallback unauthenticated = error=%v called=%t", err, called)
+	}
+	var count int
+	var actorType, operation, reasonCode string
+	if err := database.QueryRow(`SELECT COUNT(*), COALESCE(MAX(actor_type), ''), COALESCE(MAX(operation), ''), COALESCE(MAX(reason_code), '') FROM iotd_audit_entries`).Scan(&count, &actorType, &operation, &reasonCode); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 || actorType != "anonymous" || operation != "authentication.development_api_key" || reasonCode != "authentication.invalid_credential" {
+		t.Fatalf("fallback audit = count=%d actor=%q operation=%q reason=%q", count, actorType, operation, reasonCode)
+	}
+}
+
+func TestGRPCAPIFallbackRecordsOnlyUnauthenticatedFailures(t *testing.T) {
+	database := migratedDatabase(t)
+	if err := audit.ApplyMigrations(t.Context(), database); err != nil {
+		t.Fatal(err)
+	}
+	store, err := audit.NewSQLiteStore(database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder, err := audit.NewSecurityRecorder(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager, err := NewManager(database, Config{AuditRecorder: recorder})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fallback := range []grpc.UnaryServerInterceptor{
+		func(context.Context, any, *grpc.UnaryServerInfo, grpc.UnaryHandler) (any, error) {
+			return nil, status.Error(codes.Internal, "internal")
+		},
+		func(context.Context, any, *grpc.UnaryServerInfo, grpc.UnaryHandler) (any, error) { return "ok", nil },
+	} {
+		if _, err := manager.GRPCUnaryServerInterceptor(fallback)(t.Context(), "request", &grpc.UnaryServerInfo{}, func(context.Context, any) (any, error) { return nil, nil }); status.Code(err) == codes.Unauthenticated {
+			t.Fatalf("unexpected unauthenticated fallback result: %v", err)
+		}
+	}
+	var count int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_audit_entries`).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("non-auth/success fallback audit count = %d error=%v, want 0", count, err)
+	}
+}
+
+func TestGRPCAPIFallbackDoesNotAuditUnauthenticatedHandlerFailure(t *testing.T) {
+	database := migratedDatabase(t)
+	if err := audit.ApplyMigrations(t.Context(), database); err != nil {
+		t.Fatal(err)
+	}
+	store, err := audit.NewSQLiteStore(database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder, err := audit.NewSecurityRecorder(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager, err := NewManager(database, Config{AuditRecorder: recorder})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handlerCalled := false
+	fallback := func(ctx context.Context, request any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		return handler(ctx, request)
+	}
+	_, err = manager.GRPCUnaryServerInterceptor(fallback)(t.Context(), "request", &grpc.UnaryServerInfo{}, func(context.Context, any) (any, error) {
+		handlerCalled = true
+		return nil, status.Error(codes.Unauthenticated, "unauthenticated")
+	})
+	if status.Code(err) != codes.Unauthenticated || !handlerCalled {
+		t.Fatalf("handler unauthenticated = error=%v called=%t", err, handlerCalled)
+	}
+	var count int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_audit_entries`).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("handler unauthenticated audit count = %d error=%v, want 0", count, err)
+	}
+}
+
+func TestGRPCAPIFallbackAuditFailureKeepsUnauthenticated(t *testing.T) {
+	database := migratedDatabase(t)
+	recorder, err := audit.NewSecurityRecorder(unavailableAuditStore{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager, err := NewManager(database, Config{AuditRecorder: recorder})
+	if err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	fallback := func(context.Context, any, *grpc.UnaryServerInfo, grpc.UnaryHandler) (any, error) {
+		return nil, status.Error(codes.Unauthenticated, "unauthenticated")
+	}
+	_, err = manager.GRPCUnaryServerInterceptor(fallback)(t.Context(), "request", &grpc.UnaryServerInfo{}, func(context.Context, any) (any, error) { called = true; return nil, nil })
+	if status.Code(err) != codes.Unauthenticated || status.Convert(err).Message() != "unauthenticated" || called {
+		t.Fatalf("fallback audit fault = error=%v called=%t", err, called)
+	}
+}
+
+type unavailableAuditStore struct{}
+
+func (unavailableAuditStore) Append(context.Context, audit.Entry) (audit.Entry, error) {
+	return audit.Entry{}, errors.New("audit unavailable")
+}
+func (unavailableAuditStore) ByID(context.Context, string) (audit.Entry, error) {
+	return audit.Entry{}, audit.ErrNotFound
 }
 
 func TestVerifyRejectsInsecureTransportByDefault(t *testing.T) {

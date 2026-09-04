@@ -943,6 +943,156 @@ func TestApplicationProtectsBusinessHTTPAndGeneratedGRPCWithLocalAPIKey(t *testi
 	}
 }
 
+func TestApplicationPersistsDevelopmentAPIKeyAuthenticationFailure(t *testing.T) {
+	t.Setenv(localauth.APIKeyEnvironment, "audit-authentication-test-key")
+	databasePath := filepath.Join(t.TempDir(), "audit-authentication.db")
+	application, err := bootstrap.New(t.Context(), bootstrap.Config{
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       databasePath,
+		ObsidianVault:      t.TempDir(),
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
+	})
+	if err != nil {
+		t.Fatalf("bootstrap application: %v", err)
+	}
+	t.Cleanup(func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := application.Close(shutdownCtx); err != nil {
+			t.Errorf("shutdown application: %v", err)
+		}
+	})
+
+	response := get(t, "http://"+application.HTTPAddress()+"/api/dashboard")
+	if response.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated dashboard status = %d, want %d", response.StatusCode, http.StatusUnauthorized)
+	}
+
+	database, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open audit database: %v", err)
+	}
+	defer database.Close()
+	var eventCategory, actorType, actorID, operation, decision, result, reasonCode, metadata string
+	err = database.QueryRow(`SELECT event_category, actor_type, COALESCE(actor_id, ''), operation, authorization_decision, result, reason_code, metadata
+FROM iotd_audit_entries`).Scan(&eventCategory, &actorType, &actorID, &operation, &decision, &result, &reasonCode, &metadata)
+	if err != nil {
+		t.Fatalf("read development API-key authentication audit: %v", err)
+	}
+	if eventCategory != "authentication" || actorType != "anonymous" || actorID != "" || operation != "authentication.development_api_key" || decision != "not_evaluated" || result != "failure" || reasonCode != "authentication.invalid_credential" || metadata != `{"transport":"http","phase":"authentication","failure_class":"credential"}` {
+		t.Fatalf("development API-key authentication audit = category=%q actor=%q/%q operation=%q decision=%q result=%q reason=%q metadata=%q", eventCategory, actorType, actorID, operation, decision, result, reasonCode, metadata)
+	}
+}
+
+func TestApplicationPersistsAuthorizationDenialWithoutBusinessSideEffects(t *testing.T) {
+	t.Setenv(localauth.APIKeyEnvironment, "audit-denial-admin-key")
+	t.Setenv(localauth.ViewerAPIKeyEnvironment, "audit-denial-viewer-key")
+	databasePath := filepath.Join(t.TempDir(), "audit-authorization-denial.db")
+	application, err := bootstrap.New(t.Context(), bootstrap.Config{
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       databasePath,
+		ObsidianVault:      t.TempDir(),
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
+	})
+	if err != nil {
+		t.Fatalf("bootstrap application: %v", err)
+	}
+	t.Cleanup(func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := application.Close(shutdownCtx); err != nil {
+			t.Errorf("shutdown application: %v", err)
+		}
+	})
+
+	request, err := http.NewRequest(http.MethodPost, "http://"+application.HTTPAddress()+"/api/items", strings.NewReader(`{"title":"denied","board":"研发交付效能","owner":"viewer"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(localauth.APIKeyHeader, "audit-denial-viewer-key")
+	response, err := (&http.Client{Timeout: 5 * time.Second}).Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusForbidden {
+		t.Fatalf("viewer write status = %d, want %d", response.StatusCode, http.StatusForbidden)
+	}
+
+	database, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open audit database: %v", err)
+	}
+	defer database.Close()
+	var auditCount, itemCount, outboxCount int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_audit_entries WHERE event_category = 'authorization'`).Scan(&auditCount); err != nil {
+		t.Fatalf("count authorization audit entries: %v", err)
+	}
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_delivery_items`).Scan(&itemCount); err != nil {
+		t.Fatalf("count delivery items: %v", err)
+	}
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_outbox`).Scan(&outboxCount); err != nil {
+		t.Fatalf("count outbox rows: %v", err)
+	}
+	if auditCount != 1 || itemCount != 0 || outboxCount != 0 {
+		t.Fatalf("authorization denial side effects = audit=%d items=%d outbox=%d, want 1/0/0", auditCount, itemCount, outboxCount)
+	}
+}
+
+func TestApplicationPersistsServiceTokenAuthenticationFailure(t *testing.T) {
+	t.Setenv(localauth.APIKeyEnvironment, "audit-service-token-fallback-key")
+	databasePath := filepath.Join(t.TempDir(), "audit-service-token.db")
+	application, err := bootstrap.New(t.Context(), bootstrap.Config{
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       databasePath,
+		ObsidianVault:      t.TempDir(),
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
+		AllowInsecureServiceCredentialsForDevelopment: true,
+	})
+	if err != nil {
+		t.Fatalf("bootstrap application: %v", err)
+	}
+	t.Cleanup(func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := application.Close(shutdownCtx); err != nil {
+			t.Errorf("shutdown application: %v", err)
+		}
+	})
+
+	dialCtx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	connection, err := grpc.DialContext(dialCtx, application.GRPCAddress(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	if err != nil {
+		t.Fatalf("dial gRPC endpoint: %v", err)
+	}
+	defer connection.Close()
+	client := deliveryv1.NewDeliveryServiceClient(connection)
+	callCtx := metadata.AppendToOutgoingContext(t.Context(), yunkagrpc.ServiceAuthorizationMetadata, "Bearer svc.invalid.not-a-real-secret")
+	if _, err := client.GetDashboard(callCtx, &deliveryv1.GetDashboardRequest{}); status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("invalid service token error = %v, want Unauthenticated", err)
+	}
+
+	database, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open audit database: %v", err)
+	}
+	defer database.Close()
+	var eventCategory, actorType, actorID, operation, decision, result, reasonCode, metadataValue string
+	err = database.QueryRow(`SELECT event_category, actor_type, COALESCE(actor_id, ''), operation, authorization_decision, result, reason_code, metadata
+FROM iotd_audit_entries`).Scan(&eventCategory, &actorType, &actorID, &operation, &decision, &result, &reasonCode, &metadataValue)
+	if err != nil {
+		t.Fatalf("read service-token authentication audit: %v", err)
+	}
+	if eventCategory != "authentication" || actorType != "anonymous" || actorID != "" || operation != "authentication.service_token" || decision != "not_evaluated" || result != "failure" || reasonCode != "authentication.invalid_credential" || strings.Contains(metadataValue, "svc.") {
+		t.Fatalf("service-token authentication audit = category=%q actor=%q/%q operation=%q decision=%q result=%q reason=%q metadata=%q", eventCategory, actorType, actorID, operation, decision, result, reasonCode, metadataValue)
+	}
+}
+
 func TestApplicationCreatesProjectThroughAuthorizedRuntime(t *testing.T) {
 	t.Setenv(localauth.APIKeyEnvironment, "project-runtime-test-key")
 	application, err := bootstrap.New(context.Background(), bootstrap.Config{

@@ -5,9 +5,11 @@ import (
 	"strings"
 
 	stdgrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	grpccredentials "google.golang.org/grpc/credentials"
 	grpcmetadata "google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 	"yunka.io/framework/core/identity"
 	coremiddleware "yunka.io/framework/core/middleware"
 	yunkagrpc "yunka.io/gateway/rpc/transport/grpc"
@@ -21,17 +23,31 @@ func (manager *Manager) Verify(ctx context.Context) (identity.Principal, error) 
 		return identity.Principal{}, yunkagrpc.ErrServiceCredentialInvalid
 	}
 	if !manager.allowInsecureTransportForDevelopment && !transportProvidesPrivacyAndIntegrity(ctx) {
+		manager.recordAuthenticationFailure(ctx, "authentication.insecure_transport")
 		return identity.Principal{}, yunkagrpc.ErrServiceCredentialInsecureTransport
 	}
 	token, err := serviceAuthorizationToken(ctx)
 	if err != nil {
+		manager.recordAuthenticationFailure(ctx, "authentication.invalid_credential")
 		return identity.Principal{}, err
 	}
 	principal, err := manager.authenticate(ctx, token)
 	if err != nil {
+		manager.recordAuthenticationFailure(ctx, "authentication.invalid_credential")
 		return identity.Principal{}, yunkagrpc.ErrServiceCredentialInvalid
 	}
 	return principal, nil
+}
+
+func (manager *Manager) recordAuthenticationFailure(ctx context.Context, reasonCode string) {
+	manager.recordAuthenticationFailureFor(ctx, "authentication.service_token", reasonCode)
+}
+
+func (manager *Manager) recordAuthenticationFailureFor(ctx context.Context, operation, reasonCode string) {
+	if manager == nil || manager.auditRecorder == nil {
+		return
+	}
+	_ = manager.auditRecorder.RecordAuthenticationFailure(ctx, operation, "grpc", reasonCode)
 }
 
 // GRPCUnaryServerInterceptor selects the established legacy API-key path only
@@ -45,9 +61,18 @@ func (manager *Manager) GRPCUnaryServerInterceptor(fallback stdgrpc.UnaryServerI
 		incoming, _ := grpcmetadata.FromIncomingContext(ctx)
 		if len(incoming.Get(yunkagrpc.ServiceAuthorizationMetadata)) == 0 {
 			if fallback == nil {
-				return nil, yunkagrpc.ErrServiceCredentialMissing
+				manager.recordAuthenticationFailure(ctx, "authentication.missing_credential")
+				return nil, status.Error(codes.Unauthenticated, "unauthenticated")
 			}
-			return fallback(ctx, request, info, handler)
+			handlerInvoked := false
+			response, fallbackErr := fallback(ctx, request, info, func(handlerContext context.Context, handlerRequest any) (any, error) {
+				handlerInvoked = true
+				return handler(handlerContext, handlerRequest)
+			})
+			if !handlerInvoked && status.Code(fallbackErr) == codes.Unauthenticated {
+				manager.recordAuthenticationFailureFor(ctx, "authentication.development_api_key", "authentication.invalid_credential")
+			}
+			return response, fallbackErr
 		}
 		return service(ctx, request, info, handler)
 	}

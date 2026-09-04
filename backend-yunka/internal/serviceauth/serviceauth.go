@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
 	"yunka.io/framework/core/identity"
 	yunkagrpc "yunka.io/gateway/rpc/transport/grpc"
 )
@@ -40,6 +41,7 @@ type Config struct {
 	NewID                                func() (string, error)
 	NewSecret                            func() ([]byte, error)
 	AllowInsecureTransportForDevelopment bool
+	AuditRecorder                        *audit.SecurityRecorder
 }
 
 type Manager struct {
@@ -48,6 +50,7 @@ type Manager struct {
 	newID                                func() (string, error)
 	newSecret                            func() ([]byte, error)
 	allowInsecureTransportForDevelopment bool
+	auditRecorder                        *audit.SecurityRecorder
 }
 
 type IssuedCredential struct {
@@ -70,7 +73,7 @@ func NewManager(database *sql.DB, config Config) (*Manager, error) {
 	if config.NewSecret == nil {
 		config.NewSecret = randomSecret
 	}
-	return &Manager{database: database, now: config.Now, newID: config.NewID, newSecret: config.NewSecret, allowInsecureTransportForDevelopment: config.AllowInsecureTransportForDevelopment}, nil
+	return &Manager{database: database, now: config.Now, newID: config.NewID, newSecret: config.NewSecret, allowInsecureTransportForDevelopment: config.AllowInsecureTransportForDevelopment, auditRecorder: config.AuditRecorder}, nil
 }
 
 // Issue returns a plaintext credential exactly once. Only its digest is
@@ -153,6 +156,9 @@ func (manager *Manager) Revoke(ctx context.Context, credentialID string) error {
 	if manager == nil || manager.database == nil || !validCredentialID(credentialID) {
 		return ErrInvalidManagementRequest
 	}
+	if manager.auditRecorder != nil {
+		return manager.revokeWithAudit(ctx, credentialID)
+	}
 	result, err := manager.database.ExecContext(ctx, `UPDATE service_account_credentials SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL`, formatTime(manager.now()), credentialID)
 	if err != nil {
 		return fmt.Errorf("revoke service credential: %w", err)
@@ -171,6 +177,37 @@ func (manager *Manager) Revoke(ctx context.Context, credentialID string) error {
 	}
 	if err != nil {
 		return fmt.Errorf("read service credential for revocation: %w", err)
+	}
+	return nil
+}
+
+func (manager *Manager) revokeWithAudit(ctx context.Context, credentialID string) error {
+	transaction, err := manager.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin service credential revocation: %w", err)
+	}
+	defer transaction.Rollback()
+	var targetCredentialID, targetServiceAccountID, targetOrganizationID string
+	if err := transaction.QueryRowContext(ctx, `
+SELECT credentials.id, credentials.service_account_id, accounts.organization_id
+FROM service_account_credentials credentials
+JOIN service_accounts accounts ON accounts.id = credentials.service_account_id
+WHERE credentials.id = ?`, credentialID).Scan(&targetCredentialID, &targetServiceAccountID, &targetOrganizationID); errors.Is(err, sql.ErrNoRows) {
+		return ErrCredentialNotFound
+	} else if err != nil {
+		return fmt.Errorf("read service credential for revocation: %w", err)
+	}
+	if !cleanIdentifier(targetCredentialID) || !cleanIdentifier(targetServiceAccountID) || !cleanIdentifier(targetOrganizationID) {
+		return ErrUnauthorized
+	}
+	if _, err := transaction.ExecContext(ctx, `UPDATE service_account_credentials SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL`, formatTime(manager.now()), credentialID); err != nil {
+		return fmt.Errorf("revoke service credential: %w", err)
+	}
+	if err := manager.auditRecorder.RecordRevocationInTransaction(ctx, transaction, "configuration.service_credential.revoke", "service.credential", targetCredentialID, targetOrganizationID); err != nil {
+		return err
+	}
+	if err := transaction.Commit(); err != nil {
+		return fmt.Errorf("commit service credential revocation: %w", err)
 	}
 	return nil
 }

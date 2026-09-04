@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -18,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/bffassertion"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/bffhttp"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
@@ -56,6 +58,123 @@ func TestBFFHTTPBindsDifferentExternalUsersToStableActorsAndTrace(t *testing.T) 
 		if !snapshot.Principal.Authenticated || snapshot.Principal.AuthMethod != identity.AuthMethodJWT || snapshot.Principal.UserID == "" || snapshot.TraceID != "00000000000000000000000000000001" || snapshot.RequestID != snapshot.TraceID {
 			t.Fatalf("executor context = %#v, want bound JWT principal and assertion trace", snapshot)
 		}
+	}
+}
+
+func TestBFFHTTPPersistsAcceptedAssertionWithoutAssertionContents(t *testing.T) {
+	fixture := newFixture(t)
+	response := fixture.serve(fixture.signedRequestTo(t, http.MethodGet, "/api/items", "subject-audit", "nonce-audit-accepted", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("accepted BFF assertion status = %d body=%s", response.Code, response.Body.String())
+	}
+	var eventCategory, actorType, actorID, operation, result, metadata string
+	if err := fixture.database.QueryRow(`SELECT event_category, actor_type, COALESCE(actor_id, ''), operation, result, metadata
+FROM iotd_audit_entries`).Scan(&eventCategory, &actorType, &actorID, &operation, &result, &metadata); err != nil {
+		t.Fatalf("read BFF assertion acceptance audit: %v", err)
+	}
+	if eventCategory != "authentication" || actorType != "human" || actorID == "" || operation != "authentication.bff_assertion" || result != "success" || strings.Contains(strings.ToLower(metadata), "assertion") || strings.Contains(strings.ToLower(metadata), "nonce") {
+		t.Fatalf("BFF assertion acceptance audit = category=%q actor=%q/%q operation=%q result=%q metadata=%q", eventCategory, actorType, actorID, operation, result, metadata)
+	}
+}
+
+func TestBFFAcceptedAssertionFailsClosedWhenAuditUnavailable(t *testing.T) {
+	fixture := newFixture(t)
+	recorder, err := audit.NewSecurityRecorder(failingAuditStore{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	middleware, err := bffhttp.NewMiddleware(bffhttp.Config{Authenticator: fixture.authenticator, AuditRecorder: recorder, Verifier: fixture.verifier, Resolver: fixture.resolver, OrganizationID: "org-1", AllowLegacyFallback: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	handler := middleware.HTTPMiddleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called = true }))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, fixture.signedRequestTo(t, http.MethodGet, "/api/items", "audit-fault-user", "audit-fault-nonce", nil))
+	if response.Code != http.StatusServiceUnavailable || called {
+		t.Fatalf("accepted assertion audit fault = status=%d called=%t, want 503/no upstream", response.Code, called)
+	}
+}
+
+func TestDevelopmentAPIKeyFailureKeepsUnauthorizedWhenAuditUnavailable(t *testing.T) {
+	fixture := newFixture(t)
+	recorder, err := audit.NewSecurityRecorder(failingAuditStore{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	handler := bffhttp.APIKeyTraceMiddleware(fixture.authenticator, recorder)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called = true }))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/items", nil))
+	if response.Code != http.StatusUnauthorized || called {
+		t.Fatalf("API key audit fault = status=%d called=%t, want 401/no upstream", response.Code, called)
+	}
+}
+
+func TestBFFLegacyFallbackInvalidAPIKeyPersistsOneAnonymousFailure(t *testing.T) {
+	fixture := newFixture(t)
+	store, err := audit.NewSQLiteStore(fixture.database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder, err := audit.NewSecurityRecorder(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	middleware, err := bffhttp.NewMiddleware(bffhttp.Config{Authenticator: fixture.authenticator, AuditRecorder: recorder, Verifier: fixture.verifier, Resolver: fixture.resolver, OrganizationID: "org-1", AllowLegacyFallback: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	handler := middleware.HTTPMiddleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called = true }))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/items", nil))
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("legacy fallback status = %d, want 401", response.Code)
+	}
+	if called {
+		t.Fatal("legacy fallback failure invoked downstream")
+	}
+	var count int
+	var actorType, operation, reasonCode string
+	if err := fixture.database.QueryRow(`SELECT COUNT(*) FROM iotd_audit_entries WHERE operation = 'authentication.development_api_key'`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("legacy fallback audit count = %d, want 1", count)
+	}
+	if err := fixture.database.QueryRow(`SELECT actor_type, operation, reason_code FROM iotd_audit_entries WHERE operation = 'authentication.development_api_key'`).Scan(&actorType, &operation, &reasonCode); err != nil {
+		t.Fatal(err)
+	}
+	if actorType != "anonymous" || operation != "authentication.development_api_key" || reasonCode != "authentication.invalid_credential" {
+		t.Fatalf("legacy fallback audit = %q/%q/%q", actorType, operation, reasonCode)
+	}
+}
+
+type failingAuditStore struct{}
+
+func (failingAuditStore) Append(context.Context, audit.Entry) (audit.Entry, error) {
+	return audit.Entry{}, errors.New("audit unavailable")
+}
+func (failingAuditStore) ByID(context.Context, string) (audit.Entry, error) {
+	return audit.Entry{}, audit.ErrNotFound
+}
+
+func TestBFFHTTPPersistsRejectedAssertionAsAnonymous(t *testing.T) {
+	fixture := newFixture(t)
+	request := fixture.signedRequestTo(t, http.MethodGet, "/api/items", "subject-audit", "nonce-audit-rejected", nil)
+	request.Header.Set(bffassertion.SignatureHeader, "invalid")
+	response := fixture.serve(request)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("rejected BFF assertion status = %d body=%s", response.Code, response.Body.String())
+	}
+	var eventCategory, actorType, actorID, operation, decision, result, reasonCode, metadata string
+	if err := fixture.database.QueryRow(`SELECT event_category, actor_type, COALESCE(actor_id, ''), operation, authorization_decision, result, reason_code, metadata
+FROM iotd_audit_entries`).Scan(&eventCategory, &actorType, &actorID, &operation, &decision, &result, &reasonCode, &metadata); err != nil {
+		t.Fatalf("read BFF assertion rejection audit: %v", err)
+	}
+	if eventCategory != "authentication" || actorType != "anonymous" || actorID != "" || operation != "authentication.bff_assertion" || decision != "not_evaluated" || result != "failure" || reasonCode != "authentication.assertion_rejected" || strings.Contains(strings.ToLower(metadata), "signature") {
+		t.Fatalf("BFF assertion rejection audit = category=%q actor=%q/%q operation=%q decision=%q result=%q reason=%q metadata=%q", eventCategory, actorType, actorID, operation, decision, result, reasonCode, metadata)
 	}
 }
 
@@ -189,6 +308,62 @@ func TestBFFHTTPRetainsVerifiedTraceWhenBindingFails(t *testing.T) {
 	}
 }
 
+func TestBFFDisabledIdentityBindingPersistsAnonymousAuthenticationFailure(t *testing.T) {
+	fixture := newFixture(t)
+	if err := fixture.resolver.DisableOrganization(t.Context(), "org-1"); err != nil {
+		t.Fatal(err)
+	}
+	store, err := audit.NewSQLiteStore(fixture.database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder, err := audit.NewSecurityRecorder(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	middleware, err := bffhttp.NewMiddleware(bffhttp.Config{Authenticator: fixture.authenticator, AuditRecorder: recorder, Verifier: fixture.verifier, Resolver: fixture.resolver, OrganizationID: "org-1", AllowLegacyFallback: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	handler := middleware.HTTPMiddleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called = true }))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, fixture.signedRequestTo(t, http.MethodGet, "/api/projects", "disabled-user", "disabled-identity-nonce", nil))
+	if response.Code != http.StatusForbidden || called {
+		t.Fatalf("disabled identity binding = status=%d called=%t, want 403/no downstream", response.Code, called)
+	}
+	var count int
+	var actorType, result, reasonCode, metadata string
+	if err := fixture.database.QueryRow(`SELECT COUNT(*), COALESCE(MAX(actor_type), ''), COALESCE(MAX(result), ''), COALESCE(MAX(reason_code), ''), COALESCE(MAX(metadata), '') FROM iotd_audit_entries`).Scan(&count, &actorType, &result, &reasonCode, &metadata); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 || actorType != "anonymous" || result != "failure" || reasonCode != "authentication.identity_binding_rejected" || strings.Contains(metadata, "disabled-user") {
+		t.Fatalf("identity binding audit = count=%d actor=%q result=%q reason=%q metadata=%q", count, actorType, result, reasonCode, metadata)
+	}
+}
+
+func TestBFFDisabledIdentityBindingKeepsForbiddenWhenAuditUnavailable(t *testing.T) {
+	fixture := newFixture(t)
+	if err := fixture.resolver.DisableOrganization(t.Context(), "org-1"); err != nil {
+		t.Fatal(err)
+	}
+	recorder, err := audit.NewSecurityRecorder(failingAuditStore{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	middleware, err := bffhttp.NewMiddleware(bffhttp.Config{Authenticator: fixture.authenticator, AuditRecorder: recorder, Verifier: fixture.verifier, Resolver: fixture.resolver, OrganizationID: "org-1", AllowLegacyFallback: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	handler := middleware.HTTPMiddleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called = true }))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, fixture.signedRequestTo(t, http.MethodGet, "/api/projects", "disabled-fault-user", "disabled-fault-nonce", nil))
+	if response.Code != http.StatusForbidden || called {
+		t.Fatalf("disabled identity audit fault = status=%d called=%t, want 403/no downstream", response.Code, called)
+	}
+}
+
 func TestBFFHTTPBFFOnlyModeRequiresAssertionAndDoesNotAssignLegacyRoles(t *testing.T) {
 	fixture := newFixture(t)
 	middleware, err := bffhttp.NewMiddleware(bffhttp.Config{
@@ -269,6 +444,36 @@ func TestLegacyAPIKeyTraceMiddlewareRejectsPartialAssertion(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusUnauthorized || invoked {
 		t.Fatalf("partial assertion status=%d invoked=%t, want 401 and no invocation", response.Code, invoked)
+	}
+}
+
+func TestLegacyAPIKeyTraceMiddlewarePersistsMixedCredentialFailure(t *testing.T) {
+	fixture := newFixture(t)
+	store, err := audit.NewSQLiteStore(fixture.database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder, err := audit.NewSecurityRecorder(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	handler := bffhttp.APIKeyTraceMiddleware(fixture.authenticator, recorder)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called = true }))
+	request := httptest.NewRequest(http.MethodGet, "/api/items", nil)
+	request.Header.Set(localauth.APIKeyHeader, "bff-channel-key")
+	request.Header.Set(bffassertion.AssertionHeader, "sensitive-assertion-content")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized || called {
+		t.Fatalf("mixed credentials = status=%d called=%t, want 401/no downstream", response.Code, called)
+	}
+	var count int
+	var actorType, reasonCode, metadata string
+	if err := fixture.database.QueryRow(`SELECT COUNT(*), COALESCE(MAX(actor_type), ''), COALESCE(MAX(reason_code), ''), COALESCE(MAX(metadata), '') FROM iotd_audit_entries`).Scan(&count, &actorType, &reasonCode, &metadata); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 || actorType != "anonymous" || reasonCode != "authentication.mixed_credentials" || strings.Contains(metadata, "sensitive-assertion-content") {
+		t.Fatalf("mixed credentials audit = count=%d actor=%q reason=%q metadata=%q", count, actorType, reasonCode, metadata)
 	}
 }
 
@@ -353,6 +558,17 @@ func newFixture(t *testing.T) fixture {
 	if err := identitycore.ApplyMigrations(context.Background(), repository.Database()); err != nil {
 		t.Fatal(err)
 	}
+	if err := audit.ApplyMigrations(context.Background(), repository.Database()); err != nil {
+		t.Fatal(err)
+	}
+	auditStore, err := audit.NewSQLiteStore(repository.Database())
+	if err != nil {
+		t.Fatal(err)
+	}
+	auditRecorder, err := audit.NewSecurityRecorder(auditStore)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := repository.Database().Exec(`INSERT INTO organizations (id, slug, name, status) VALUES ('org-1', 'org-1', 'Test Organization', 'active')`); err != nil {
 		t.Fatal(err)
 	}
@@ -384,7 +600,7 @@ func newFixture(t *testing.T) fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	middleware, err := bffhttp.NewMiddleware(bffhttp.Config{Authenticator: authenticator, Verifier: verifier, Resolver: resolver, OrganizationID: "org-1", AllowLegacyFallback: true})
+	middleware, err := bffhttp.NewMiddleware(bffhttp.Config{Authenticator: authenticator, AuditRecorder: auditRecorder, Verifier: verifier, Resolver: resolver, OrganizationID: "org-1", AllowLegacyFallback: true})
 	if err != nil {
 		t.Fatal(err)
 	}

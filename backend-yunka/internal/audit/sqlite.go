@@ -93,6 +93,40 @@ NULLIF(?, ''), NULLIF(?, ''), ?, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''),
 	return entry, nil
 }
 
+// AppendInTransaction appends through the caller's SQLite transaction. It is
+// used only when a security-state transition must fail closed with its audit.
+func (store *SQLiteStore) AppendInTransaction(ctx context.Context, transaction *sql.Tx, entry Entry) (Entry, error) {
+	if store == nil || store.clock == nil || transaction == nil {
+		return Entry{}, errors.New("audit SQLite transaction store is not configured")
+	}
+	if err := entry.validate(); err != nil {
+		return Entry{}, err
+	}
+	entry.RecordedAt = store.clock().UTC()
+	if entry.RecordedAt.IsZero() {
+		return Entry{}, errors.New("audit clock returned zero time")
+	}
+	result, err := transaction.ExecContext(ctx, `INSERT INTO iotd_audit_entries (
+id, schema_version, event_category, organization_id, project_id, actor_type, actor_id, operation,
+authorization_decision, scope_type, scope_id, target_type, target_id, result, reason_code,
+trace_id, request_id, correlation_id, diff_summary, metadata, occurred_at, recorded_at
+) VALUES (?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, NULLIF(?, ''), ?, ?, ?, NULLIF(?, ''),
+NULLIF(?, ''), NULLIF(?, ''), ?, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?)`,
+		entry.ID, entry.SchemaVersion, entry.EventCategory, entry.OrganizationID, entry.ProjectID, entry.ActorType, entry.ActorID, entry.Operation,
+		entry.AuthorizationDecision, entry.ScopeType, entry.ScopeID, entry.TargetType, entry.TargetID, entry.Result, entry.ReasonCode,
+		entry.TraceID, entry.RequestID, entry.CorrelationID, entry.DiffSummary, entry.Metadata,
+		formatUTCTime(entry.OccurredAt), formatUTCTime(entry.RecordedAt))
+	if err != nil {
+		return Entry{}, fmt.Errorf("append audit entry: %w", err)
+	}
+	sequence, err := result.LastInsertId()
+	if err != nil {
+		return Entry{}, fmt.Errorf("read appended audit sequence: %w", err)
+	}
+	entry.Sequence = sequence
+	return entry, nil
+}
+
 func (store *SQLiteStore) ByID(ctx context.Context, id string) (Entry, error) {
 	if err := validateIdentifier("audit id", id, false); err != nil {
 		return Entry{}, err

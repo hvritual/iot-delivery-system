@@ -89,6 +89,10 @@ func newExecutionFixture(t *testing.T) *executionFixture {
 	if err != nil {
 		t.Fatalf("open SQLite audit store: %v", err)
 	}
+	auditRecorder, err := audit.NewSecurityRecorder(auditStore)
+	if err != nil {
+		t.Fatalf("open security audit recorder: %v", err)
+	}
 	outbox, err := localoutbox.NewSQLiteStore(repository.Database())
 	if err != nil {
 		t.Fatalf("open SQLite outbox: %v", err)
@@ -111,11 +115,14 @@ func newExecutionFixture(t *testing.T) *executionFixture {
 	if err != nil {
 		t.Fatalf("assemble audited application: %v", err)
 	}
-	executor := operation.NewExecutorWithOptions(
+	executor, err := audit.NewRecordingExecutor(operation.NewExecutorWithOptions(
 		security,
 		operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())},
 		observer,
-	)
+	), auditRecorder)
+	if err != nil {
+		t.Fatalf("assemble recording executor: %v", err)
+	}
 	operations := deliveryapplication.NewOperations(audited, executor, service)
 	listener := bufconn.Listen(1024 * 1024)
 	grpcServer := grpc.NewServer(grpc.ChainUnaryInterceptor(
@@ -336,6 +343,10 @@ func TestMCPAndGeneratedGRPCRejectViewerWritesWithoutSideEffects(t *testing.T) {
 	afterOutbox, err := fixture.outbox.Snapshot(t.Context())
 	if err != nil || afterOutbox != beforeOutbox {
 		t.Fatalf("denied writes changed outbox = %#v, %v; want %#v", afterOutbox, err, beforeOutbox)
+	}
+	var authorizationAuditCount int
+	if err := fixture.repository.Database().QueryRowContext(t.Context(), `SELECT COUNT(*) FROM iotd_audit_entries WHERE event_category = 'authorization' AND result = 'denied'`).Scan(&authorizationAuditCount); err != nil || authorizationAuditCount != 2 {
+		t.Fatalf("gRPC and MCP authorization audits = %d error=%v, want 2", authorizationAuditCount, err)
 	}
 	_, err = fixture.grpcClient.CreateItem(t.Context(), &deliveryv1.CreateItemRequest{Title: "unauthenticated", Board: string(delivery.BoardResearchDelivery), Owner: "viewer"})
 	if status.Code(err) != codes.Unauthenticated {

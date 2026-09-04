@@ -9,10 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitycore"
 	_ "modernc.org/sqlite"
 	"yunka.io/framework/core/identity"
+	"yunka.io/framework/core/runtimecontext"
 	"yunka.io/gateway/authz"
 )
 
@@ -57,6 +59,127 @@ func TestServiceGrantsDefaultDenyExactScopeAndImmediateRevocation(t *testing.T) 
 		t.Fatalf("revoke service grant: %v", err)
 	}
 	assertGrants(t, resolve(t, resolver, request), nil)
+}
+
+func TestGrantRevocationCommitsWithItsAuditEntry(t *testing.T) {
+	database := migratedDatabase(t)
+	if err := audit.ApplyMigrations(t.Context(), database); err != nil {
+		t.Fatalf("apply audit migrations: %v", err)
+	}
+	projects := delivery.NewMemoryRepository()
+	seedOrganization(t, database, "org-a")
+	seedServiceAccount(t, database, "service-a", "org-a")
+	seedProject(t, projects, "project-a", "org-a")
+	store, err := audit.NewSQLiteStore(database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder, err := audit.NewSecurityRecorder(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager, err := NewManager(database, projects, WithAuditRecorder(recorder))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.Grant(t.Context(), GrantInput{ID: "grant-revoke-a", ServiceAccountID: "service-a", OperationID: "delivery.items.create", Permission: "delivery.work-items.create", ProjectID: "project-a"}); err != nil {
+		t.Fatalf("grant service operation: %v", err)
+	}
+	ctx := identity.WithPrincipal(t.Context(), identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, TenantID: "org-a"})
+	ctx = runtimecontext.WithTraceID(ctx, "grant-revoke-trace")
+	if err := manager.Revoke(ctx, "grant-revoke-a"); err != nil {
+		t.Fatalf("revoke service grant: %v", err)
+	}
+	var status string
+	if err := database.QueryRow(`SELECT status FROM service_operation_grants WHERE id = 'grant-revoke-a'`).Scan(&status); err != nil || status != "revoked" {
+		t.Fatalf("grant revocation status = %q error=%v, want revoked", status, err)
+	}
+	var category, targetType, targetID, result string
+	if err := database.QueryRow(`SELECT event_category, target_type, target_id, result FROM iotd_audit_entries`).Scan(&category, &targetType, &targetID, &result); err != nil {
+		t.Fatalf("read grant revocation audit: %v", err)
+	}
+	if category != "configuration" || targetType != "service.grant" || targetID != "grant-revoke-a" || result != "success" {
+		t.Fatalf("grant revocation audit = category=%q target=%q/%q result=%q", category, targetType, targetID, result)
+	}
+}
+
+func TestGrantRevocationRollsBackWhenAuditAppendFails(t *testing.T) {
+	database := migratedDatabase(t)
+	if err := audit.ApplyMigrations(t.Context(), database); err != nil {
+		t.Fatal(err)
+	}
+	projects := delivery.NewMemoryRepository()
+	seedOrganization(t, database, "org-a")
+	seedServiceAccount(t, database, "service-a", "org-a")
+	seedProject(t, projects, "project-a", "org-a")
+	store, err := audit.NewSQLiteStore(database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder, err := audit.NewSecurityRecorder(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager, err := NewManager(database, projects, WithAuditRecorder(recorder))
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := GrantInput{ID: "grant-audit-fault", ServiceAccountID: "service-a", OperationID: "delivery.items.create", Permission: "delivery.work-items.create", ProjectID: "project-a"}
+	if err := manager.Grant(t.Context(), input); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`CREATE TRIGGER fail_grant_audit BEFORE INSERT ON iotd_audit_entries BEGIN SELECT RAISE(ABORT, 'audit fault'); END`); err != nil {
+		t.Fatal(err)
+	}
+	ctx := identity.WithPrincipal(t.Context(), identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, TenantID: "org-a"})
+	if err := manager.Revoke(ctx, input.ID); err == nil {
+		t.Fatal("revoke succeeded despite audit insertion fault")
+	}
+	resolver, err := NewGrantResolver(database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertGrants(t, resolve(t, resolver, grantRequest(servicePrincipal("org-a", "service-a"), input.OperationID, input.Permission)), []authz.Grant{{Permission: authz.PermissionKey(input.Permission), RoleID: "service-account:service-a", Scope: "project:project-a"}})
+	var count int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_audit_entries`).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("audit rows = %d error=%v, want 0", count, err)
+	}
+}
+
+func TestGrantRevocationRejectsDifferentTargetOrganization(t *testing.T) {
+	database := migratedDatabase(t)
+	if err := audit.ApplyMigrations(t.Context(), database); err != nil {
+		t.Fatal(err)
+	}
+	projects := delivery.NewMemoryRepository()
+	seedOrganization(t, database, "org-a")
+	seedServiceAccount(t, database, "service-a", "org-a")
+	seedProject(t, projects, "project-a", "org-a")
+	store, err := audit.NewSQLiteStore(database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder, err := audit.NewSecurityRecorder(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager, err := NewManager(database, projects, WithAuditRecorder(recorder))
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := GrantInput{ID: "grant-cross-org", ServiceAccountID: "service-a", OperationID: "delivery.items.create", Permission: "delivery.work-items.create", ProjectID: "project-a"}
+	if err := manager.Grant(t.Context(), input); err != nil {
+		t.Fatal(err)
+	}
+	ctx := identity.WithPrincipal(t.Context(), identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, TenantID: "org-b"})
+	if err := manager.Revoke(ctx, input.ID); err == nil {
+		t.Fatal("cross-organization grant revocation succeeded")
+	}
+	resolver, err := NewGrantResolver(database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertGrants(t, resolve(t, resolver, grantRequest(servicePrincipal("org-a", "service-a"), input.OperationID, input.Permission)), []authz.Grant{{Permission: authz.PermissionKey(input.Permission), RoleID: "service-account:service-a", Scope: "project:project-a"}})
 }
 
 func TestServiceGrantsRejectOrganizationOperationsAndRemainProjectSpecific(t *testing.T) {

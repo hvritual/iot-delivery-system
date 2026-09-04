@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"yunka.io/framework/core/identity"
 	"yunka.io/gateway/authz"
@@ -40,23 +41,45 @@ type GrantInput struct {
 }
 
 type Manager struct {
-	database *sql.DB
-	projects projectLookup
-	now      func() time.Time
+	database      *sql.DB
+	projects      projectLookup
+	now           func() time.Time
+	auditRecorder *audit.SecurityRecorder
+}
+
+type ManagerOption func(*Manager) error
+
+func WithAuditRecorder(recorder *audit.SecurityRecorder) ManagerOption {
+	return func(manager *Manager) error {
+		if recorder == nil {
+			return errors.New("service grant audit recorder is required")
+		}
+		manager.auditRecorder = recorder
+		return nil
+	}
 }
 
 type Resolver struct{ database *sql.DB }
 
 var _ authz.GrantResolver = (*Resolver)(nil)
 
-func NewManager(database *sql.DB, projects projectLookup) (*Manager, error) {
+func NewManager(database *sql.DB, projects projectLookup, options ...ManagerOption) (*Manager, error) {
 	if database == nil {
 		return nil, ErrDatabaseRequired
 	}
 	if projects == nil {
 		return nil, ErrProjectLookupRequired
 	}
-	return &Manager{database: database, projects: projects, now: func() time.Time { return time.Now().UTC() }}, nil
+	manager := &Manager{database: database, projects: projects, now: func() time.Time { return time.Now().UTC() }}
+	for _, option := range options {
+		if option == nil {
+			return nil, errors.New("service grant manager option is required")
+		}
+		if err := option(manager); err != nil {
+			return nil, err
+		}
+	}
+	return manager, nil
 }
 
 func NewGrantResolver(database *sql.DB) (*Resolver, error) {
@@ -107,6 +130,9 @@ func (manager *Manager) Revoke(ctx context.Context, grantID string) error {
 	if manager == nil || manager.database == nil || manager.now == nil || !canonicalID(grantID) {
 		return ErrInvalidGrantRequest
 	}
+	if manager.auditRecorder != nil {
+		return manager.revokeWithAudit(ctx, grantID)
+	}
 	result, err := manager.database.ExecContext(ctx, `UPDATE service_operation_grants SET status = 'revoked', revoked_at = ?, updated_at = ? WHERE id = ? AND status = 'active'`, formatTime(manager.now()), formatTime(manager.now()), grantID)
 	if err != nil {
 		return fmt.Errorf("revoke service grant: %w", err)
@@ -125,6 +151,35 @@ func (manager *Manager) Revoke(ctx context.Context, grantID string) error {
 	}
 	if err != nil {
 		return fmt.Errorf("read service grant for revocation: %w", err)
+	}
+	return nil
+}
+
+func (manager *Manager) revokeWithAudit(ctx context.Context, grantID string) error {
+	transaction, err := manager.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin service grant revocation: %w", err)
+	}
+	defer transaction.Rollback()
+	var targetGrantID, targetOrganizationID, targetServiceAccountID, targetProjectID, targetOperationID string
+	if err := transaction.QueryRowContext(ctx, `
+SELECT id, organization_id, service_account_id, project_id, operation_id
+FROM service_operation_grants WHERE id = ?`, grantID).Scan(&targetGrantID, &targetOrganizationID, &targetServiceAccountID, &targetProjectID, &targetOperationID); errors.Is(err, sql.ErrNoRows) {
+		return ErrGrantNotFound
+	} else if err != nil {
+		return fmt.Errorf("read service grant for revocation: %w", err)
+	}
+	if !canonicalID(targetGrantID) || !canonicalID(targetOrganizationID) || !canonicalID(targetServiceAccountID) || !canonicalID(targetProjectID) || !canonicalID(targetOperationID) {
+		return ErrInvalidGrantRequest
+	}
+	if _, err := transaction.ExecContext(ctx, `UPDATE service_operation_grants SET status = 'revoked', revoked_at = ?, updated_at = ? WHERE id = ? AND status = 'active'`, formatTime(manager.now()), formatTime(manager.now()), grantID); err != nil {
+		return fmt.Errorf("revoke service grant: %w", err)
+	}
+	if err := manager.auditRecorder.RecordRevocationInTransaction(ctx, transaction, "configuration.service_grant.revoke", "service.grant", targetGrantID, targetOrganizationID); err != nil {
+		return err
+	}
+	if err := transaction.Commit(); err != nil {
+		return fmt.Errorf("commit service grant revocation: %w", err)
 	}
 	return nil
 }
