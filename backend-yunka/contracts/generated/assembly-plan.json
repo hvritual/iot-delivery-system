@@ -6,6 +6,18 @@
       "id": "delivery/management",
       "domain": "delivery",
       "name": "management",
+      "capabilities": [
+        {
+          "name": "sqlite.transaction-factory",
+          "package": "github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx",
+          "type": "Factory",
+          "evidence": {
+            "ownership": "reused",
+            "source": "manifest.json",
+            "ref": "applications/delivery/management/capabilities/sqlite.transaction-factory"
+          }
+        }
+      ],
       "evidence": {
         "ownership": "reused",
         "source": "manifest.json",

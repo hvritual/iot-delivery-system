@@ -1691,7 +1691,14 @@
       "fullName": "iot.delivery.v1.DeliveryService",
       "domain": "delivery",
       "application": {
-        "name": "management"
+        "name": "management",
+        "capabilities": [
+          {
+            "name": "sqlite.transaction-factory",
+            "package": "github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx",
+            "type": "Factory"
+          }
+        ]
       },
       "methods": [
         {

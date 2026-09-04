@@ -8,6 +8,7 @@ import (
 	fmt "fmt"
 	deliveryapplication "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
 	deliveryrpc "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/transport/rpc"
+	localtx "github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
 	"github.com/hvritual/yunka.io/framework/core"
 	modulecatalog "github.com/hvritual/yunka.io/framework/core/modulecatalog"
 	kernel "github.com/hvritual/yunka.io/framework/kernel"
@@ -16,9 +17,10 @@ import (
 	grpc "google.golang.org/grpc"
 )
 
-const AssemblyPlanDigest = "52fe75305fb70ed9d34fadcb56aaabf79bfc8bcba1f77b5070a31735a9f1882d"
+const AssemblyPlanDigest = "e9bd010c812025bed25b4428df814eee70b157b82fdfa22dccf0d4bac308100f"
 
 type DeliveryManagementDependencies struct {
+	SqliteTransactionFactory localtx.Factory
 }
 
 type ApplicationFactories interface {
@@ -30,12 +32,20 @@ type Applications struct {
 }
 
 func BuildApplications(factories ApplicationFactories, executor operation.Executor) (Applications, error) {
+	return BuildApplicationsWithCapabilities(factories, executor, modulecatalog.EmptyCapabilitySet())
+}
+
+func BuildApplicationsWithCapabilities(factories ApplicationFactories, executor operation.Executor, capabilities modulecatalog.CapabilitySet) (Applications, error) {
 	if factories == nil {
 		return Applications{}, errors.New("yunka assembly: application factories are required")
 	}
 	var applications Applications
 	var err error
-	applications.DeliveryManagement, err = factories.BuildDeliveryManagement(DeliveryManagementDependencies{})
+	deliveryManagementSqliteTransactionFactoryCapability, err := modulecatalog.ResolveCapability(capabilities, modulecatalog.MustCapabilityKey[localtx.Factory]("sqlite.transaction-factory", "github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx", "Factory"))
+	if err != nil {
+		return Applications{}, fmt.Errorf("yunka assembly: build delivery/management capability sqlite.transaction-factory: %w", err)
+	}
+	applications.DeliveryManagement, err = factories.BuildDeliveryManagement(DeliveryManagementDependencies{SqliteTransactionFactory: deliveryManagementSqliteTransactionFactoryCapability})
 	if err != nil {
 		return Applications{}, fmt.Errorf("yunka assembly: build application delivery/management: %w", err)
 	}
@@ -132,7 +142,7 @@ func Bootstrap(ctx context.Context, options BootstrapOptions) (kernel.BootstrapR
 		BuildWithCapabilities: func(capabilities modulecatalog.CapabilitySet) (Applications, error) {
 			if options.BindRuntime == nil && options.BindRuntimeWithCapabilities == nil {
 				runtime = RuntimeBindings{Factories: options.Factories, Executor: options.Executor}
-				return BuildApplications(options.Factories, options.Executor)
+				return BuildApplicationsWithCapabilities(options.Factories, options.Executor, capabilities)
 			}
 			if options.Platform == nil {
 				return Applications{}, fmt.Errorf("yunka assembly: Platform is required for runtime binding")
@@ -145,7 +155,7 @@ func Bootstrap(ctx context.Context, options BootstrapOptions) (kernel.BootstrapR
 			if err != nil {
 				return Applications{}, fmt.Errorf("yunka assembly: bind runtime after Platform preparation: %w", err)
 			}
-			return BuildApplications(runtime.Factories, runtime.Executor)
+			return BuildApplicationsWithCapabilities(runtime.Factories, runtime.Executor, capabilities)
 		},
 		Register: func(applications Applications) error {
 			if options.BindRuntime == nil && options.BindRuntimeWithCapabilities == nil {

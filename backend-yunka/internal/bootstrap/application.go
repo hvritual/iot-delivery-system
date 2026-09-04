@@ -32,15 +32,16 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/principalauthz"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/serviceauth"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/serviceauthz"
-	"google.golang.org/grpc"
 	"github.com/hvritual/yunka.io/framework/core"
 	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/framework/core/modulecatalog"
 	"github.com/hvritual/yunka.io/framework/event"
 	frameworkoutbox "github.com/hvritual/yunka.io/framework/event/outbox"
 	"github.com/hvritual/yunka.io/framework/kernel"
 	"github.com/hvritual/yunka.io/framework/operation"
 	"github.com/hvritual/yunka.io/framework/runtimehost"
 	"github.com/hvritual/yunka.io/gateway/authz"
+	"google.golang.org/grpc"
 )
 
 type BootstrapMode string
@@ -272,8 +273,14 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		_ = repository.Close()
 		return nil, fmt.Errorf("configure audited delivery application: %w", err)
 	}
+	transactionFactory := localtx.NewSQLiteFactory(repository.Database())
+	transactionCapability, err := localtx.CapabilityDescriptor(transactionFactory)
+	if err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("configure SQLite transaction capability: %w", err)
+	}
 	executor, err := audit.NewRecordingExecutor(operation.NewExecutorWithOptions(security, operation.ExecutorOptions{
-		Transactions: localtx.NewSQLiteFactory(repository.Database()),
+		Transactions: transactionFactory,
 	}), securityRecorder)
 	if err != nil {
 		_ = repository.Close()
@@ -377,8 +384,9 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 				return kernel.BootstrapResult[generatedassembly.Applications]{}, errors.New("delivery application is not configured")
 			}
 			result, bootstrapErr := generatedassembly.Bootstrap(bootstrapCtx, generatedassembly.BootstrapOptions{
-				Factories: applicationFactories{deliveryManagement: application.adapter},
-				Executor:  application.executor,
+				AdditionalModules: []modulecatalog.Descriptor{transactionCapability},
+				Factories:         applicationFactories{deliveryManagement: application.adapter},
+				Executor:          application.executor,
 				Transports: generatedassembly.TransportBindings{
 					RPC: runtime.RPC,
 				},
@@ -525,7 +533,10 @@ type applicationFactories struct {
 	deliveryManagement deliveryapplication.DeliveryService
 }
 
-func (factories applicationFactories) BuildDeliveryManagement(generatedassembly.DeliveryManagementDependencies) (deliveryapplication.DeliveryService, error) {
+func (factories applicationFactories) BuildDeliveryManagement(dependencies generatedassembly.DeliveryManagementDependencies) (deliveryapplication.DeliveryService, error) {
+	if dependencies.SqliteTransactionFactory == nil {
+		return nil, errors.New("SQLite transaction factory capability is not configured")
+	}
 	if factories.deliveryManagement == nil {
 		return nil, errors.New("delivery management application adapter is not configured")
 	}

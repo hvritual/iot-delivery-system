@@ -12,7 +12,14 @@ option (yunka.dsl.v1.domain) = { name: "delivery" version: "v1" };
 // MVP. HTTP remains the compatibility adapter; generated gRPC types establish
 // an explicit evolution boundary for future integrations.
 service DeliveryService {
-  option (yunka.dsl.v1.application) = { name: "management" };
+  option (yunka.dsl.v1.application) = {
+    name: "management"
+    capabilities: {
+      name: "sqlite.transaction-factory"
+      go_package: "github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
+      go_type: "Factory"
+    }
+  };
 
   rpc GetDashboard(GetDashboardRequest) returns (GetDashboardResponse) {
     option (yunka.dsl.v1.operation) = {
