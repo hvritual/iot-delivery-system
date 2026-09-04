@@ -23,11 +23,20 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryauthz"
 	"yunka.io/framework/core/identity"
 	"yunka.io/framework/core/runtimecontext"
+	"yunka.io/framework/event"
+	"yunka.io/framework/event/outbox"
+	"yunka.io/framework/execution"
 	"yunka.io/framework/operation"
 	"yunka.io/pkg/operationplan"
 )
 
 const correlationIDAttribute = "correlation_id"
+
+const (
+	configRevisionEventTopic      = "delivery.configuration"
+	configRevisionChangedEvent    = "delivery.configuration-revision.changed"
+	configRevisionRolledBackEvent = "delivery.configuration-revision.rolled-back"
+)
 
 type Difference struct {
 	Path   string
@@ -42,9 +51,20 @@ type RollbackResult struct {
 type Operations struct {
 	store    configrevision.Store
 	audit    audit.Store
+	outbox   outbox.TransactionalStore
 	executor operation.Executor
 	newID    func() (string, error)
 	clock    func() time.Time
+}
+
+func WithOutbox(store outbox.TransactionalStore) Option {
+	return func(operations *Operations) error {
+		if store == nil {
+			return errors.New("config revision Outbox store is required")
+		}
+		operations.outbox = store
+		return nil
+	}
 }
 
 type Option func(*Operations) error
@@ -81,6 +101,9 @@ func New(store configrevision.Store, auditStore audit.Store, executor operation.
 		if err := option(operations); err != nil {
 			return nil, err
 		}
+	}
+	if operations.outbox == nil {
+		return nil, errors.New("config revision operations require an Outbox store")
 	}
 	return operations, nil
 }
@@ -127,6 +150,9 @@ func (operations *Operations) Change(ctx context.Context, input configrevision.C
 			differences = rootAddedDiff()
 		}
 		if err := operations.appendAudit(callContext, actor, organizationID, "config.revisions.change", input.Kind, input.ConfigKey, revision.Revision, 0, differences); err != nil {
+			return nil, err
+		}
+		if err := operations.stageOutbox(callContext, configRevisionChangedEvent, revision, 0); err != nil {
 			return nil, err
 		}
 		return revision, nil
@@ -215,6 +241,9 @@ func (operations *Operations) Rollback(ctx context.Context, input configrevision
 		if err := operations.appendAudit(callContext, actor, organizationID, "config.revisions.rollback", input.Kind, input.ConfigKey, revision.Revision, input.SourceRevision, differences); err != nil {
 			return nil, err
 		}
+		if err := operations.stageOutbox(callContext, configRevisionRolledBackEvent, revision, input.SourceRevision); err != nil {
+			return nil, err
+		}
 		return RollbackResult{Revision: revision, SourceRevision: input.SourceRevision}, nil
 	})
 	if err != nil {
@@ -228,7 +257,7 @@ func (operations *Operations) Rollback(ctx context.Context, input configrevision
 }
 
 func (operations *Operations) ready() error {
-	if operations == nil || operations.store == nil || operations.audit == nil || operations.executor == nil || operations.newID == nil || operations.clock == nil {
+	if operations == nil || operations.store == nil || operations.audit == nil || operations.outbox == nil || operations.executor == nil || operations.newID == nil || operations.clock == nil {
 		return errors.New("config revision operations are not configured")
 	}
 	return nil
@@ -329,6 +358,38 @@ func (operations *Operations) appendAudit(ctx context.Context, actor actor, orga
 	_, err = operations.audit.Append(ctx, audit.Entry{ID: id, SchemaVersion: audit.SchemaVersion, EventCategory: audit.EventCategoryConfiguration, OrganizationID: organizationID, ActorType: actor.kind, ActorID: actor.id, Operation: operationID, AuthorizationDecision: audit.DecisionAllowed, ScopeType: audit.ScopeOrganization, ScopeID: organizationID, TargetType: "config.revision", TargetID: configKey, Result: audit.ResultSuccess, ReasonCode: reasonCode, TraceID: runtimecontext.TraceIDFrom(ctx), RequestID: metadata.RequestID, CorrelationID: metadata.Attributes[correlationIDAttribute], DiffSummary: summary, Metadata: string(encoded), OccurredAt: occurredAt})
 	if err != nil {
 		return fmt.Errorf("record successful config revision audit: %w", err)
+	}
+	return nil
+}
+
+func (operations *Operations) stageOutbox(ctx context.Context, eventType string, revision configrevision.ConfigRevision, rollbackSourceRevision int64) error {
+	transaction, err := execution.TransactionHandleFrom(ctx)
+	if err != nil {
+		return fmt.Errorf("get configuration transaction handle: %w", err)
+	}
+	payload := struct {
+		OrganizationID         string              `json:"organizationId"`
+		Kind                   configrevision.Kind `json:"kind"`
+		ConfigKey              string              `json:"configKey"`
+		Revision               int64               `json:"revision"`
+		RollbackSourceRevision int64               `json:"rollbackSourceRevision,omitzero"`
+	}{
+		OrganizationID:         revision.OrganizationID,
+		Kind:                   revision.Kind,
+		ConfigKey:              revision.ConfigKey,
+		Revision:               revision.Revision,
+		RollbackSourceRevision: rollbackSourceRevision,
+	}
+	envelope, err := event.NewJSON(configRevisionEventTopic, eventType, "iot-delivery-system/local", payload)
+	if err != nil {
+		return fmt.Errorf("create configuration Outbox event: %w", err)
+	}
+	envelope.Subject = revision.ID
+	if envelope, err = envelope.Normalize(); err != nil {
+		return fmt.Errorf("normalize configuration Outbox event: %w", err)
+	}
+	if err := operations.outbox.EnqueueTx(ctx, transaction, envelope); err != nil {
+		return fmt.Errorf("stage configuration Outbox event: %w", err)
 	}
 	return nil
 }

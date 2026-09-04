@@ -24,6 +24,7 @@ import (
 	_ "modernc.org/sqlite"
 	"yunka.io/framework/core/identity"
 	"yunka.io/framework/core/runtimecontext"
+	"yunka.io/framework/event"
 	"yunka.io/framework/operation"
 	"yunka.io/gateway/authz"
 )
@@ -56,6 +57,154 @@ func TestOperationsChangeCompareAndRollbackUseTrustedScopeAuditAndImmutableChain
 	var metadata, reasonCode string
 	if err := fixture.database.QueryRow(`SELECT metadata, reason_code FROM iotd_audit_entries WHERE operation = 'config.revisions.rollback'`).Scan(&metadata, &reasonCode); err != nil || metadata != `{"kind":"membership","revision":3,"rollback_source_revision":1,"transport":"test"}` || reasonCode != "configuration.rollback.applied" {
 		t.Fatalf("rollback audit metadata=%q reason=%q error=%v", metadata, reasonCode, err)
+	}
+}
+
+func TestOperationsStageOutboxOnlyForCommittedConfigurationMutations(t *testing.T) {
+	fixture := newFixture(t)
+	ctx := fixture.context(t)
+	const sensitivePayloadSentinel = "S0-04-09-sensitive-configuration-payload"
+	if got := fixture.outboxCount(t); got != 0 {
+		t.Fatalf("initial Outbox count=%d, want 0", got)
+	}
+	first, err := fixture.operations.Change(ctx, configrevision.ChangeInput{
+		Kind:      configrevision.KindMembership,
+		ConfigKey: "members/outbox",
+		Payload:   `{"opaque":"` + sensitivePayloadSentinel + `"}`,
+	})
+	if err != nil {
+		t.Fatalf("create configuration revision: %v", err)
+	}
+	if got := fixture.outboxCount(t); got != 1 {
+		t.Fatalf("configuration create Outbox count=%d, want 1", got)
+	}
+	rolledBack, err := fixture.operations.Rollback(ctx, configrevision.RollbackInput{
+		Kind:                   configrevision.KindMembership,
+		ConfigKey:              "members/outbox",
+		ExpectedParentRevision: first.Revision,
+		SourceRevision:         first.Revision,
+	})
+	if err != nil {
+		t.Fatalf("rollback configuration revision: %v", err)
+	}
+	if got := fixture.outboxCount(t); got != 2 {
+		t.Fatalf("configuration rollback Outbox count=%d, want 2", got)
+	}
+	rows, err := fixture.database.Query(`SELECT envelope_json FROM iotd_outbox`)
+	if err != nil {
+		t.Fatalf("read configuration Outbox envelopes: %v", err)
+	}
+	defer rows.Close()
+	seen := map[string]event.Envelope{}
+	for rows.Next() {
+		var encoded string
+		if err := rows.Scan(&encoded); err != nil {
+			t.Fatalf("scan configuration Outbox envelope: %v", err)
+		}
+		if strings.Contains(encoded, sensitivePayloadSentinel) {
+			t.Fatalf("configuration Outbox leaked sensitive payload sentinel: %q", encoded)
+		}
+		var envelope event.Envelope
+		if err := json.Unmarshal([]byte(encoded), &envelope); err != nil {
+			t.Fatalf("decode configuration Outbox envelope: %v", err)
+		}
+		if _, duplicate := seen[envelope.Type]; duplicate {
+			t.Fatalf("duplicate configuration Outbox type %q", envelope.Type)
+		}
+		seen[envelope.Type] = envelope
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate configuration Outbox envelopes: %v", err)
+	}
+	for eventType, want := range map[string]struct {
+		subject        string
+		revision       int64
+		rollbackSource int64
+	}{
+		configRevisionChangedEvent:    {subject: first.ID, revision: first.Revision},
+		configRevisionRolledBackEvent: {subject: rolledBack.Revision.ID, revision: rolledBack.Revision.Revision, rollbackSource: first.Revision},
+	} {
+		envelope, found := seen[eventType]
+		if !found || envelope.Topic != configRevisionEventTopic || envelope.Subject != want.subject {
+			t.Fatalf("Outbox envelope %q = %#v", eventType, envelope)
+		}
+		var payload struct {
+			OrganizationID         string              `json:"organizationId"`
+			Kind                   configrevision.Kind `json:"kind"`
+			ConfigKey              string              `json:"configKey"`
+			Revision               int64               `json:"revision"`
+			RollbackSourceRevision int64               `json:"rollbackSourceRevision"`
+		}
+		if err := json.Unmarshal(envelope.Payload, &payload); err != nil || payload.OrganizationID != "org-a" || payload.Kind != configrevision.KindMembership || payload.ConfigKey != "members/outbox" || payload.Revision != want.revision || payload.RollbackSourceRevision != want.rollbackSource {
+			t.Fatalf("Outbox envelope %q payload=%#v error=%v", eventType, payload, err)
+		}
+	}
+	if len(seen) != 2 {
+		t.Fatalf("configuration Outbox envelope count=%d, want 2", len(seen))
+	}
+}
+
+func TestOperationsOutboxFailureRollsBackConfigurationRevisionAndAudit(t *testing.T) {
+	for _, scenario := range []struct {
+		name    string
+		prepare func(*testing.T, *fixture)
+		run     func(*testing.T, *fixture, *Operations)
+		assert  func(*testing.T, *fixture)
+	}{
+		{
+			name:    "change",
+			prepare: func(*testing.T, *fixture) {},
+			run: func(t *testing.T, fixture *fixture, operations *Operations) {
+				t.Helper()
+				if _, err := operations.Change(fixture.context(t), configrevision.ChangeInput{Kind: configrevision.KindMembership, ConfigKey: "members/outbox-failure", Payload: `{"enabled":true}`}); err == nil {
+					t.Fatal("Outbox failure unexpectedly committed configuration change")
+				}
+			},
+		},
+		{
+			name: "rollback",
+			prepare: func(t *testing.T, fixture *fixture) {
+				t.Helper()
+				first, err := fixture.operations.Change(fixture.context(t), configrevision.ChangeInput{Kind: configrevision.KindMembership, ConfigKey: "members/outbox-failure", Payload: `{"enabled":true}`})
+				if err != nil {
+					t.Fatalf("seed first configuration revision: %v", err)
+				}
+				second, err := fixture.operations.Change(fixture.context(t), configrevision.ChangeInput{Kind: configrevision.KindMembership, ConfigKey: "members/outbox-failure", ExpectedParentRevision: first.Revision, Payload: `{"enabled":false}`})
+				if err != nil || second.Revision != 2 {
+					t.Fatalf("seed second configuration revision=%#v error=%v", second, err)
+				}
+			},
+			run: func(t *testing.T, fixture *fixture, operations *Operations) {
+				t.Helper()
+				if _, err := operations.Rollback(fixture.context(t), configrevision.RollbackInput{Kind: configrevision.KindMembership, ConfigKey: "members/outbox-failure", ExpectedParentRevision: 2, SourceRevision: 1}); err == nil {
+					t.Fatal("Outbox failure unexpectedly committed configuration rollback")
+				}
+			},
+			assert: func(t *testing.T, fixture *fixture) {
+				t.Helper()
+				history, err := fixture.store.History(t.Context(), "org-a", configrevision.KindMembership, "members/outbox-failure", 3)
+				if err != nil || len(history) != 2 || history[0].Revision != 1 || history[1].Revision != 2 {
+					t.Fatalf("rollback Outbox failure changed immutable history=%#v error=%v", history, err)
+				}
+			},
+		},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			fixture := newFixture(t)
+			operations, err := New(fixture.store, fixture.operations.audit, fixture.executor, WithOutbox(failingOutboxStore{}), WithIDGenerator(fixture.nextID), WithClock(fixture.clock))
+			if err != nil {
+				t.Fatalf("construct operations with failing Outbox: %v", err)
+			}
+			scenario.prepare(t, fixture)
+			beforeRevisions, beforeAudits, beforeOutbox := fixture.revisionCount(t), fixture.auditCount(t), fixture.outboxCount(t)
+			scenario.run(t, fixture, operations)
+			if fixture.revisionCount(t) != beforeRevisions || fixture.auditCount(t) != beforeAudits || fixture.outboxCount(t) != beforeOutbox {
+				t.Fatal("Outbox failure left a partial configuration, success audit, or Outbox write")
+			}
+			if scenario.assert != nil {
+				scenario.assert(t, fixture)
+			}
+		})
 	}
 }
 
@@ -212,7 +361,7 @@ func TestOperationsPreserveNonNotFoundParentReadErrors(t *testing.T) {
 	}
 	for name, parentErr := range map[string]error{"context canceled": context.Canceled, "stored corruption": errors.New("stored config chain corruption")} {
 		t.Run(name, func(t *testing.T) {
-			operations, err := New(parentReadErrorStore{Store: fixture.store, revision: 2, err: parentErr}, fixture.operations.audit, fixture.executor, WithIDGenerator(fixture.nextID), WithClock(fixture.clock))
+			operations, err := New(parentReadErrorStore{Store: fixture.store, revision: 2, err: parentErr}, fixture.operations.audit, fixture.executor, WithOutbox(fixture.operations.outbox), WithIDGenerator(fixture.nextID), WithClock(fixture.clock))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -243,7 +392,7 @@ func TestOperationsRejectsConflictAndAuditFailureWithoutRevisionOrAuditSideEffec
 	if fixture.revisionCount(t) != beforeRevisions || fixture.auditCount(t) != beforeAudits {
 		t.Fatal("CAS conflict changed revisions or audits")
 	}
-	failing, err := New(fixture.store, failingAuditStore{}, fixture.executor, WithIDGenerator(fixture.nextID), WithClock(fixture.clock))
+	failing, err := New(fixture.store, failingAuditStore{}, fixture.executor, WithOutbox(fixture.operations.outbox), WithIDGenerator(fixture.nextID), WithClock(fixture.clock))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -369,7 +518,7 @@ func TestOperationsRollbackAuditFailureLeavesNoRevisionAuditOrOutboxSideEffects(
 		t.Fatalf("second change=%#v error=%v", second, err)
 	}
 	beforeRevisions, beforeAudits, beforeOutbox := fixture.revisionCount(t), fixture.auditCount(t), fixture.outboxCount(t)
-	failing, err := New(fixture.store, failingAuditStore{}, fixture.executor, WithIDGenerator(fixture.nextID), WithClock(fixture.clock))
+	failing, err := New(fixture.store, failingAuditStore{}, fixture.executor, WithOutbox(fixture.operations.outbox), WithIDGenerator(fixture.nextID), WithClock(fixture.clock))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -400,6 +549,9 @@ func TestOperationsFailClosedForInvalidConstructionAndPrincipals(t *testing.T) {
 	}
 	if _, err := New(fixture.store, fixture.operations.audit, fixture.executor, WithClock(nil)); err == nil {
 		t.Fatal("nil clock accepted")
+	}
+	if _, err := New(fixture.store, fixture.operations.audit, fixture.executor, WithIDGenerator(fixture.nextID), WithClock(fixture.clock)); err == nil {
+		t.Fatal("missing Outbox accepted")
 	}
 	var zero *Operations
 	if _, err := zero.Change(t.Context(), configrevision.ChangeInput{}); err == nil {
@@ -448,7 +600,8 @@ func newFixture(t *testing.T) *fixture {
 	if err := audit.ApplyMigrations(t.Context(), database); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := localoutbox.NewSQLiteStore(database); err != nil {
+	outboxStore, err := localoutbox.NewSQLiteStore(database)
+	if err != nil {
 		t.Fatal(err)
 	}
 	for _, statement := range []string{
@@ -496,7 +649,7 @@ func newFixture(t *testing.T) *fixture {
 	executor := operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(database)})
 	n := 0
 	nextID := func() (string, error) { n++; return "config-audit-" + string(rune('a'+n)), nil }
-	operations, err := New(store, auditStore, executor, WithIDGenerator(nextID), WithClock(clock))
+	operations, err := New(store, auditStore, executor, WithOutbox(outboxStore), WithIDGenerator(nextID), WithClock(clock))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -550,6 +703,12 @@ func (failingAuditStore) Append(context.Context, audit.Entry) (audit.Entry, erro
 }
 func (failingAuditStore) ByID(context.Context, string) (audit.Entry, error) {
 	return audit.Entry{}, audit.ErrNotFound
+}
+
+type failingOutboxStore struct{}
+
+func (failingOutboxStore) EnqueueTx(context.Context, any, event.Envelope) error {
+	return errors.New("Outbox unavailable")
 }
 
 type parentReadErrorStore struct {

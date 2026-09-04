@@ -284,7 +284,7 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		_ = repository.Close()
 		return nil, fmt.Errorf("configure config revision store: %w", err)
 	}
-	configOps, err := configapplication.New(configStore, auditStore, executor)
+	configOps, err := configapplication.New(configStore, auditStore, executor, configapplication.WithOutbox(outboxStore))
 	if err != nil {
 		_ = repository.Close()
 		return nil, fmt.Errorf("configure config revision operations: %w", err)
