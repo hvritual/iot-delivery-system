@@ -1,0 +1,84 @@
+{
+  "schema_version": "1.0",
+  "manifest_id": "YU-00-cloud-run-evidence",
+  "verified_at_utc": "2026-09-04T09:38:52Z",
+  "source_commit": "4cd1209f41575a67ab143b83e1df6501089085b8",
+  "source_tree": "0b2cf8a056c6db33bf22e94dba0ab21e5bfa8fb0",
+  "task_branch": "codex/yu-00-consumer-baseline-ledger",
+  "environment": {
+    "os": "cloud Linux",
+    "node": "v24.19.0",
+    "npm": "11.9.0",
+    "go": null,
+    "go_status": "not installed in cloud image"
+  },
+  "runs": [
+    {
+      "id": "source-identity",
+      "working_directory": ".",
+      "commands": ["git rev-parse HEAD", "git rev-parse HEAD^{tree}", "git ls-tree HEAD third_party/yunka"],
+      "status": "pass",
+      "evidence": ["HEAD=4cd1209f41575a67ab143b83e1df6501089085b8", "tree=0b2cf8a056c6db33bf22e94dba0ab21e5bfa8fb0", "gitlink=9a51562aa7bcef42f6861bd91abd30aae13ed6ef"]
+    },
+    {
+      "id": "submodule-materialization",
+      "working_directory": ".",
+      "command": "git submodule update --init --recursive",
+      "status": "pass",
+      "evidence": "third_party/yunka checked out at exact gitlink 9a51562aa7bcef42f6861bd91abd30aae13ed6ef"
+    },
+    {
+      "id": "go-baseline",
+      "working_directory": "backend-yunka",
+      "command": "go test -count=1 ./...",
+      "status": "not_run",
+      "classification": "environment_missing_tool",
+      "evidence": "/bin/bash: go: command not found",
+      "behavior_red": false,
+      "behavior_pass": false
+    },
+    {
+      "id": "frontend-install",
+      "working_directory": "web",
+      "command": "npm ci",
+      "status": "pass",
+      "evidence": "added 463 packages; package-lock unchanged"
+    },
+    {
+      "id": "frontend-tests",
+      "working_directory": "web",
+      "command": "npm test",
+      "status": "pass",
+      "evidence": "16 test files passed; 45 tests passed; duration 2.72s"
+    },
+    {
+      "id": "frontend-typecheck",
+      "working_directory": "web",
+      "command": "npm run typecheck",
+      "status": "pass",
+      "evidence": "tsc --noEmit completed with exit code 0"
+    },
+    {
+      "id": "frontend-production-build",
+      "working_directory": "web",
+      "command": "npm run build",
+      "status": "pass",
+      "evidence": "Next.js 16.2.5 compiled successfully; static / and eight listed app routes produced",
+      "routes": ["/", "/_not-found", "/api/[...path]", "/auth/callback", "/auth/login", "/auth/logout", "/auth/session", "/health"]
+    }
+  ],
+  "not_executed": [
+    {"command":"go test -race ./...","reason":"Go toolchain unavailable; not a behavior RED"},
+    {"command":"go vet ./...","reason":"Go toolchain unavailable"},
+    {"command":"yunka generate/check/audit/change","reason":"YU-00 is documentation-only and target dependency has not been applied"},
+    {"command":"runtime and browser E2E","reason":"YU-00 prohibits business/runtime mutation and startup side effects"}
+  ],
+  "ignored_outputs": ["web/node_modules/", "web/.next/", "web/tsconfig.tsbuildinfo"],
+  "external_side_effects": {
+    "notifications_sent": false,
+    "deployment_performed": false,
+    "main_merged": false,
+    "public_push_performed": false,
+    "framework_modified": false
+  }
+}

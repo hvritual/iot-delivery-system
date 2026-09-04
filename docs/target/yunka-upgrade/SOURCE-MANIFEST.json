@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0",
+  "manifest_id": "YU-00-consumer-source-baseline",
+  "verified_at_utc": "2026-09-04T09:38:52Z",
+  "repository": {
+    "url": "https://github.com/hvritual/iot-delivery-system.git",
+    "source_branch": "main",
+    "source_commit": "4cd1209f41575a67ab143b83e1df6501089085b8",
+    "source_parent": "971b67f43ca8b14a81c96a41277325c2da9613e6",
+    "source_tree": "0b2cf8a056c6db33bf22e94dba0ab21e5bfa8fb0",
+    "source_commit_subject": "feat(stage0): add end-to-end hard gate evidence",
+    "snapshot_import_commit": "959cbc4745a2aaff0889529ae014610569ae08dc",
+    "snapshot_import_is_formal_parent": false,
+    "task_branch": "codex/yu-00-consumer-baseline-ledger"
+  },
+  "framework": {
+    "submodule_path": "third_party/yunka",
+    "url": "https://github.com/hvritual/yunka.io.git",
+    "source_gitlink": "9a51562aa7bcef42f6861bd91abd30aae13ed6ef",
+    "upgrade_target": "057ebcf88a87303eb633eb6e604d306f633dfac0",
+    "framework_source_mutation_allowed": false,
+    "requirements_owner_task": "YU-00F"
+  },
+  "scope": {
+    "target_implementation": "backend-yunka",
+    "related_frontend": "web",
+    "legacy_comparison_only": "backend",
+    "allowed_write_prefixes": [
+      "docs/target/yunka-upgrade/"
+    ],
+    "forbidden_mutations": [
+      "backend-yunka/",
+      "web/",
+      "backend/",
+      "third_party/yunka/",
+      "generated files",
+      "docs/baseline/"
+    ]
+  },
+  "key_evidence": [
+    {"path":"backend-yunka/go.mod","sha256":"1d990f64e4a88016cb350ed685bc105cb89a0929024cbc8b67a070ffc76f3c4d","lines":"1-57","role":"consumer module identity and Yunka replaces"},
+    {"path":"backend-yunka/contracts/proto/iot_delivery.proto","sha256":"861140d7cc61805b1f465cd05cbaf8a0988600a0d58e19abff46c74bde96cbb5","lines":"1-173","role":"12 canonical generated Delivery RPC declarations"},
+    {"path":"backend-yunka/contracts/generated/operation-plans.json","sha256":"ef1bfc7fed448ffe5ae381cfd19b73dd00da14fdcb6ff854a1f96cebee6608a6","lines":"1-353","role":"committed 12 generated OperationPlans"},
+    {"path":"backend-yunka/contracts/authorization/permission-dictionary.v1.json","sha256":"800a1bb0fee89521bc846be2e74f8469619f66d89ccbd4ca2c1b48d7977e1ca2","lines":"1-88","role":"permissions, scopes, roles, operations and legacy aliases"},
+    {"path":"backend-yunka/internal/delivery/application/operations.go","sha256":"6d71db86db0d7703e29969284ea2c69bf403cefe7467e1f144afc07b75687bef","lines":"1-675","role":"generated-plan adapters, 13 extension IDs and shared extensionPlan"},
+    {"path":"backend-yunka/internal/delivery/model.go","sha256":"ec37a6b173078531d0f5eab3f228763459dafaa7a9121d31fb5577f695982387","lines":"1-432","role":"delivery aggregate, planning, IoT, evidence and projection models"},
+    {"path":"backend-yunka/internal/delivery/service.go","sha256":"5778c262bc66344a0c49f847f232a14b223c408313a50ef601be473b5f6130b1","lines":"1-1725","role":"complete delivery business behavior"},
+    {"path":"backend-yunka/internal/delivery/outbox_stager.go","sha256":"5ea92bc9f2e27615f97b7fbdb3648ac3592bb10eeb1281b3d98dee419349313b","lines":"1-50","role":"transactional delivery Outbox staging"},
+    {"path":"backend-yunka/internal/delivery/due_reminder.go","sha256":"95e55fb23a929540bc9e8387cdd8ef423ec6af98bde79bc56506655a5755ae13","lines":"1-217","role":"deadline reminder lifecycle and idempotency"},
+    {"path":"backend-yunka/internal/bootstrap/application.go","sha256":"7784f9f68a1e62cbdc1e10d0c3d0769d703a33d74006ad9daefece57832f2a3d","lines":"1-737","role":"runtime, SQLite, authz, Outbox, projection and lifecycle assembly"},
+    {"path":"backend-yunka/internal/bffhttp/middleware.go","sha256":"ec91ed358500d0e6f1a49979f4c142e2379e77f776747f3c2ab752617efab066","lines":"1-312","role":"OIDC/BFF assertion to Principal adapter and legacy channel role copy"},
+    {"path":"backend-yunka/internal/localauth/auth.go","sha256":"0be031ab814ae1a416e65589d34c144233e552e3e9a53c33a4156f7d01b33b55","lines":"1-254","role":"development API-key identities and static role permission table"},
+    {"path":"backend-yunka/internal/humanauthz/resolver.go","sha256":"1f790251a204a45bdbbc1200130993058e0c7dbd050cfcbe36fac9a6772b4321","lines":"1-192","role":"durable JWT human GrantResolver"},
+    {"path":"backend-yunka/internal/principalauthz/resolver.go","sha256":"6e86fc46976018e7f8f4f50c93a89b5615f21df5e3f0d541a821a5045d62e5b7","lines":"1-42","role":"human JWT and service-token resolver selection"},
+    {"path":"backend-yunka/internal/deliveryauthz/guard.go","sha256":"dce4a83c6b98dc9ff93795e2856da2939501783b7bcbf641573aa81ebd0afd74","lines":"1-540","role":"durable project/object OperationGuard"},
+    {"path":"backend-yunka/internal/audit/executor.go","sha256":"4645c518ac5db2c5fae42051601a0d496fc5b87f781b1b8e19329e6601f4cbb4","lines":"1-49","role":"authorization denial and application rollback audit decorator"},
+    {"path":"backend-yunka/internal/configapplication/operations.go","sha256":"1b7efb560c087dc737ca80652a8d9de303749d7e39fc3682b771c9972e32d231","lines":"1-501","role":"three internal handwritten config revision plans"},
+    {"path":"backend-yunka/internal/identitycore/migration.go","sha256":"1b247673807713b672f39195155093ad107a2c621e3ca81b1da42efe5d8048d9","lines":"1-389","role":"identity, authorization and service credential schema"},
+    {"path":"backend-yunka/internal/httpapi/handler.go","sha256":"8bbafc8e942c58a1880feff270feb88553d5e12ce5d3a0c900591624ca2edc92","lines":"1-346","role":"HTTP compatibility routes"},
+    {"path":"backend-yunka/internal/mcpserver/server.go","sha256":"acd4773c6da561294b91980917336bc5f450c41de2a5853975154b46aa1f4c4c","lines":"1-505","role":"17 MCP tools and error normalization"},
+    {"path":"web/src/api.js","sha256":"c7d2051455df933d08d676f66474c4c028a24f1d2363733ee139186364f0052d","lines":"1-138","role":"browser API client without CSRF header"},
+    {"path":"web/lib/server/session.ts","sha256":"cbb4d428493db38701d6402c3a8cb95b10041870be4bedc0b08d642bcc9d7e4b","lines":"1-148","role":"in-memory OIDC-shaped server session"},
+    {"path":"web/lib/server/session-guard.ts","sha256":"9b2349cf4d855687b7624f18029895169e0184c958f10e31ec9e74b972dd897e","lines":"1-32","role":"Origin and CSRF enforcement"},
+    {"path":"web/lib/server/runtime-forwarder.ts","sha256":"d2f45d4954c470bcd0f7ff2206ba91a28fdd5a39f7d43348c3e93b98d8020017","lines":"1-14","role":"BFF login path requires shared local API key"},
+    {"path":"web/app/api/[...path]/route.ts","sha256":"d2e2ccb2b93f6b7a4bbca9618c38fde8b07d38b7977f510aa16c051d1227ea31","lines":"1-79","role":"session guard and OIDC-origin coupling"},
+    {"path":"web/package-lock.json","sha256":"34874241bb10c4bfba217677fedfaec3997f4ce6d2b0c06c27caa285e6d9f55b","lines":"1-7816","role":"reproducible frontend dependency input"}
+  ],
+  "counts": {
+    "tracked_backend_yunka_and_web_files": 225,
+    "generated_delivery_rpc_operation_plans": 12,
+    "distinct_delivery_extension_operation_ids": 13,
+    "generated_ids_with_handwritten_replacement_plan_path": 2,
+    "internal_config_revision_handwritten_plans": 3,
+    "mcp_tools": 17,
+    "frontend_test_files_passed": 16,
+    "frontend_tests_passed": 45
+  },
+  "explicit_non_facts": [
+    "The snapshot import commit is not the formal source parent.",
+    "Historical docs/baseline runtime results are not cloud verification for this task.",
+    "The uncommitted local web/next-env.d.ts change is not part of this source tree or migration output.",
+    "Static source evidence is not a claim that every path has been runtime-qualified on the target framework.",
+    "Consumer integration debt is not automatically a Yunka framework defect."
+  ]
+}
