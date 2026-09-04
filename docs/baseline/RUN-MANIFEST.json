@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0",
+  "as_of": "2026-09-03",
+  "safe_validation_commands": [
+    {
+      "working_directory": "backend-yunka",
+      "command": "go test -count=1 ./...",
+      "expected_scope": "existing Go tests; no service startup or external notification configuration"
+    },
+    {
+      "working_directory": "backend",
+      "command": "go test -count=1 ./...",
+      "expected_scope": "legacy behavior tests only; no migration or production Vault action"
+    },
+    {
+      "working_directory": "web",
+      "command": "npm test; npm run typecheck; npm run build",
+      "expected_scope": "existing local dependencies and frontend verification; build output remains ignored"
+    }
+  ],
+  "runtime_entries": [
+    {
+      "path": "backend-yunka/cmd/yunka-bootstrap",
+      "role": "target local HTTP/gRPC runtime",
+      "default_database": "backend-yunka/data/iot-delivery-yunka.db",
+      "default_vault": "backend-yunka/runtime-vault",
+      "requires": "IOT_DELIVERY_LOCAL_API_KEY supplied only through runtime environment",
+      "s0_action": "not started"
+    },
+    {
+      "path": "backend-yunka/cmd/iot-delivery-mcp",
+      "role": "target local stdio MCP runtime",
+      "database_constraint": "must not concurrently use the same SQLite file as yunka-bootstrap",
+      "s0_action": "not started"
+    },
+    {
+      "path": "backend/cmd/server",
+      "role": "legacy comparison runtime",
+      "default_database": "backend/data/iot-delivery.db",
+      "default_vault": "F:/knowledge",
+      "s0_action": "not started; excluded from mutation authority"
+    },
+    {
+      "path": "web/package.json",
+      "role": "local Next desktop workbench",
+      "default_address": "127.0.0.1:5173",
+      "s0_action": "not started"
+    }
+  ],
+  "explicitly_excluded_paths": [
+    "backend/data/",
+    "backend-yunka/data/",
+    "backend-yunka/runtime-vault/",
+    "backend-yunka/.yunka/cache/",
+    "backend-yunka/.tools/",
+    "web/node_modules/",
+    "web/.next/",
+    "web/dist/",
+    "web/tsconfig.tsbuildinfo"
+  ]
+}

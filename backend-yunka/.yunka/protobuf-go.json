@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    "contracts/delivery/v1/iot_delivery.pb.go",
+    "contracts/delivery/v1/iot_delivery_grpc.pb.go"
+  ]
+}

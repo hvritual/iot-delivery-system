@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "1.0.0",
+  "dictionaryId": "iot-delivery.permission-dictionary",
+  "defaultDecision": "deny",
+  "scopeModel": {
+    "types": [
+      {"id": "organization", "format": "organization:{organization_id}"},
+      {"id": "project", "format": "project:{project_id}", "parent": "organization"},
+      {"id": "object", "format": "object:{resource_type}:{object_id}", "parent": "project"}
+    ],
+    "inheritance": "A binding may be evaluated only from organization to an owned project to an owned object; it never inherits upward or across organizations.",
+    "denyWhen": ["scope is absent", "scope type is unknown", "resource ownership is unknown", "cross-organization access", "operation is unregistered", "permission is unregistered"]
+  },
+  "resources": [
+    {"id": "delivery.dashboard", "allowedScopes": ["organization"]},
+    {"id": "delivery.work-items", "allowedScopes": ["project", "object"]},
+    {"id": "delivery.projects", "allowedScopes": ["organization"]},
+    {"id": "delivery.releases", "allowedScopes": ["project"]},
+    {"id": "delivery.sprints", "allowedScopes": ["project"]},
+    {"id": "delivery.milestones", "allowedScopes": ["project"]},
+    {"id": "identity.teams", "allowedScopes": ["organization", "project"]},
+    {"id": "identity.memberships", "allowedScopes": ["project"]},
+    {"id": "identity.roles", "allowedScopes": ["organization"]},
+    {"id": "identity.role-bindings", "allowedScopes": ["project"]},
+    {"id": "audit.events", "allowedScopes": ["organization", "project", "object"]},
+    {"id": "config.revisions", "allowedScopes": ["organization"]}
+  ],
+  "permissions": [
+    {"id": "delivery.dashboard.read", "resource": "delivery.dashboard", "action": "read", "allowedScopes": ["organization"], "status": "active"},
+    {"id": "delivery.work-items.read", "resource": "delivery.work-items", "action": "read", "allowedScopes": ["project", "object"], "status": "active"},
+    {"id": "delivery.work-items.create", "resource": "delivery.work-items", "action": "create", "allowedScopes": ["project"], "status": "active"},
+    {"id": "delivery.work-items.update", "resource": "delivery.work-items", "action": "update", "allowedScopes": ["object"], "status": "active"},
+    {"id": "delivery.work-items.comment.create", "resource": "delivery.work-items", "action": "comment.create", "allowedScopes": ["object"], "status": "active"},
+    {"id": "delivery.work-items.context.update", "resource": "delivery.work-items", "action": "context.update", "allowedScopes": ["object"], "status": "active"},
+    {"id": "delivery.work-items.gate.advance", "resource": "delivery.work-items", "action": "gate.advance", "allowedScopes": ["object"], "status": "active"},
+    {"id": "delivery.work-items.close", "resource": "delivery.work-items", "action": "close", "allowedScopes": ["object"], "status": "active"},
+    {"id": "delivery.projects.create", "resource": "delivery.projects", "action": "create", "allowedScopes": ["organization"], "status": "active"},
+    {"id": "delivery.releases.create", "resource": "delivery.releases", "action": "create", "allowedScopes": ["project"], "status": "active"},
+    {"id": "delivery.sprints.create", "resource": "delivery.sprints", "action": "create", "allowedScopes": ["project"], "status": "active"},
+    {"id": "delivery.milestones.create", "resource": "delivery.milestones", "action": "create", "allowedScopes": ["project"], "status": "active"},
+    {"id": "identity.teams.manage", "resource": "identity.teams", "action": "manage", "allowedScopes": ["organization", "project"], "status": "reserved"},
+    {"id": "identity.memberships.manage", "resource": "identity.memberships", "action": "manage", "allowedScopes": ["project"], "status": "reserved"},
+    {"id": "identity.roles.manage", "resource": "identity.roles", "action": "manage", "allowedScopes": ["organization"], "status": "reserved"},
+    {"id": "identity.role-bindings.manage", "resource": "identity.role-bindings", "action": "manage", "allowedScopes": ["project"], "status": "reserved"},
+    {"id": "audit.events.read", "resource": "audit.events", "action": "read", "allowedScopes": ["organization", "project", "object"], "status": "reserved"},
+    {"id": "config.revisions.write", "resource": "config.revisions", "action": "write", "allowedScopes": ["organization"], "status": "active"},
+    {"id": "config.revisions.read", "resource": "config.revisions", "action": "read", "allowedScopes": ["organization"], "status": "active"},
+    {"id": "config.revisions.rollback", "resource": "config.revisions", "action": "rollback", "allowedScopes": ["organization"], "status": "active"}
+  ],
+  "operations": [
+    {"id": "delivery.dashboard.get", "resource": "delivery.dashboard", "permission": "delivery.dashboard.read", "requiredScope": "organization", "risk": "low", "writes": false, "transports": {"grpc": "/iot.delivery.v1.DeliveryService/GetDashboard", "rest": [{"method": "GET", "path": "/api/dashboard"}], "mcp": []}},
+    {"id": "delivery.items.list", "resource": "delivery.work-items", "permission": "delivery.work-items.read", "requiredScope": "project", "risk": "low", "writes": false, "transports": {"grpc": "/iot.delivery.v1.DeliveryService/ListItems", "rest": [{"method": "GET", "path": "/api/items"}], "mcp": ["delivery.list_work_items"]}},
+    {"id": "delivery.items.create", "resource": "delivery.work-items", "permission": "delivery.work-items.create", "requiredScope": "project", "risk": "medium", "writes": true, "transports": {"grpc": "/iot.delivery.v1.DeliveryService/CreateItem", "rest": [{"method": "POST", "path": "/api/items"}], "mcp": ["delivery.create_work_item"]}},
+    {"id": "delivery.items.update", "resource": "delivery.work-items", "permission": "delivery.work-items.update", "requiredScope": "object", "risk": "medium", "writes": true, "transports": {"grpc": "/iot.delivery.v1.DeliveryService/UpdateItem", "rest": [{"method": "PATCH", "path": "/api/items/{item_id}"}], "mcp": ["delivery.update_work_item"]}},
+    {"id": "delivery.items.comment.create", "resource": "delivery.work-items", "permission": "delivery.work-items.comment.create", "requiredScope": "object", "risk": "low", "writes": true, "transports": {"grpc": "/iot.delivery.v1.DeliveryService/CreateItemComment", "rest": [{"method": "POST", "path": "/api/items/{item_id}/comments"}], "mcp": ["delivery.add_comment"]}},
+    {"id": "delivery.items.update-context", "resource": "delivery.work-items", "permission": "delivery.work-items.context.update", "requiredScope": "object", "risk": "medium", "writes": true, "transports": {"grpc": "/iot.delivery.v1.DeliveryService/UpdateItemContext", "rest": [{"method": "PATCH", "path": "/api/items/{item_id}"}], "mcp": []}},
+    {"id": "delivery.items.advance-gate", "resource": "delivery.work-items", "permission": "delivery.work-items.gate.advance", "requiredScope": "object", "risk": "high", "writes": true, "transports": {"grpc": "/iot.delivery.v1.DeliveryService/AdvanceGate", "rest": [{"method": "POST", "path": "/api/items/{item_id}/gates/{gate}"}], "mcp": ["delivery.advance_gate"]}},
+    {"id": "delivery.items.close", "resource": "delivery.work-items", "permission": "delivery.work-items.close", "requiredScope": "object", "risk": "high", "writes": true, "transports": {"grpc": "/iot.delivery.v1.DeliveryService/CloseItem", "rest": [{"method": "POST", "path": "/api/items/{item_id}/close"}], "mcp": ["delivery.close_work_item"]}},
+    {"id": "delivery.projects.create", "resource": "delivery.projects", "permission": "delivery.projects.create", "requiredScope": "organization", "risk": "high", "writes": true, "transports": {"grpc": "/iot.delivery.v1.DeliveryService/CreateProject", "rest": [{"method": "POST", "path": "/api/projects"}], "mcp": ["delivery.create_project"]}},
+    {"id": "delivery.releases.create", "resource": "delivery.releases", "permission": "delivery.releases.create", "requiredScope": "project", "risk": "high", "writes": true, "transports": {"grpc": "/iot.delivery.v1.DeliveryService/CreateRelease", "rest": [{"method": "POST", "path": "/api/releases"}], "mcp": ["delivery.create_release"]}},
+    {"id": "delivery.sprints.create", "resource": "delivery.sprints", "permission": "delivery.sprints.create", "requiredScope": "project", "risk": "medium", "writes": true, "transports": {"grpc": "/iot.delivery.v1.DeliveryService/CreateSprint", "rest": [{"method": "POST", "path": "/api/sprints"}], "mcp": ["delivery.create_sprint"]}},
+    {"id": "delivery.milestones.create", "resource": "delivery.milestones", "permission": "delivery.milestones.create", "requiredScope": "project", "risk": "medium", "writes": true, "transports": {"grpc": "/iot.delivery.v1.DeliveryService/CreateMilestone", "rest": [{"method": "POST", "path": "/api/milestones"}], "mcp": ["delivery.create_milestone"]}},
+    {"id": "config.revisions.change", "resource": "config.revisions", "permission": "config.revisions.write", "requiredScope": "organization", "risk": "high", "writes": true, "transports": {"grpc": "", "rest": [], "mcp": []}},
+    {"id": "config.revisions.compare", "resource": "config.revisions", "permission": "config.revisions.read", "requiredScope": "organization", "risk": "low", "writes": false, "transports": {"grpc": "", "rest": [], "mcp": []}},
+    {"id": "config.revisions.rollback", "resource": "config.revisions", "permission": "config.revisions.rollback", "requiredScope": "organization", "risk": "high", "writes": true, "transports": {"grpc": "", "rest": [], "mcp": []}}
+  ],
+  "roles": [
+    {"id": "system-administrator", "bindingScope": "organization", "grants": [{"permission": "delivery.dashboard.read", "allowedScopes": ["organization"]}, {"permission": "delivery.work-items.read", "allowedScopes": ["project", "object"]}, {"permission": "delivery.work-items.create", "allowedScopes": ["project"]}, {"permission": "delivery.work-items.update", "allowedScopes": ["object"]}, {"permission": "delivery.work-items.comment.create", "allowedScopes": ["object"]}, {"permission": "delivery.work-items.context.update", "allowedScopes": ["object"]}, {"permission": "delivery.work-items.gate.advance", "allowedScopes": ["object"]}, {"permission": "delivery.work-items.close", "allowedScopes": ["object"]}, {"permission": "delivery.projects.create", "allowedScopes": ["organization"]}, {"permission": "delivery.releases.create", "allowedScopes": ["project"]}, {"permission": "delivery.sprints.create", "allowedScopes": ["project"]}, {"permission": "delivery.milestones.create", "allowedScopes": ["project"]}, {"permission": "identity.teams.manage", "allowedScopes": ["organization", "project"]}, {"permission": "identity.memberships.manage", "allowedScopes": ["project"]}, {"permission": "identity.roles.manage", "allowedScopes": ["organization"]}, {"permission": "identity.role-bindings.manage", "allowedScopes": ["project"]}, {"permission": "audit.events.read", "allowedScopes": ["organization", "project", "object"]}, {"permission": "config.revisions.write", "allowedScopes": ["organization"]}, {"permission": "config.revisions.read", "allowedScopes": ["organization"]}, {"permission": "config.revisions.rollback", "allowedScopes": ["organization"]}]},
+    {"id": "project-administrator", "bindingScope": "project", "grants": [{"permission": "delivery.work-items.read", "allowedScopes": ["project", "object"]}, {"permission": "delivery.work-items.create", "allowedScopes": ["project"]}, {"permission": "delivery.work-items.update", "allowedScopes": ["object"]}, {"permission": "delivery.work-items.comment.create", "allowedScopes": ["object"]}, {"permission": "delivery.work-items.context.update", "allowedScopes": ["object"]}, {"permission": "delivery.work-items.gate.advance", "allowedScopes": ["object"]}, {"permission": "delivery.work-items.close", "allowedScopes": ["object"]}, {"permission": "delivery.releases.create", "allowedScopes": ["project"]}, {"permission": "delivery.sprints.create", "allowedScopes": ["project"]}, {"permission": "delivery.milestones.create", "allowedScopes": ["project"]}, {"permission": "identity.memberships.manage", "allowedScopes": ["project"]}, {"permission": "identity.role-bindings.manage", "allowedScopes": ["project"]}]},
+    {"id": "release-approver", "bindingScope": "project", "grants": [{"permission": "delivery.work-items.read", "allowedScopes": ["project", "object"]}, {"permission": "delivery.work-items.gate.advance", "allowedScopes": ["object"]}, {"permission": "delivery.work-items.close", "allowedScopes": ["object"]}]},
+    {"id": "contributor", "bindingScope": "project", "grants": [{"permission": "delivery.work-items.read", "allowedScopes": ["project", "object"]}, {"permission": "delivery.work-items.create", "allowedScopes": ["project"]}, {"permission": "delivery.work-items.update", "allowedScopes": ["object"]}, {"permission": "delivery.work-items.comment.create", "allowedScopes": ["object"]}, {"permission": "delivery.work-items.context.update", "allowedScopes": ["object"]}]},
+    {"id": "viewer", "bindingScope": "project", "grants": [{"permission": "delivery.work-items.read", "allowedScopes": ["project", "object"]}]},
+    {"id": "auditor", "bindingScope": "organization", "grants": [{"permission": "delivery.dashboard.read", "allowedScopes": ["organization"]}, {"permission": "delivery.work-items.read", "allowedScopes": ["project", "object"]}, {"permission": "audit.events.read", "allowedScopes": ["organization", "project", "object"]}]}
+  ],
+  "constraints": [{"id": "no-self-production-verification", "enforcementStatus": "enforced-s0-03-07", "appliesTo": ["delivery.work-items.gate.advance", "delivery.work-items.close"], "rule": "An implementer must not production-verify or close their own change."}],
+  "serviceIdentities": {"defaultGrants": [], "requiredScope": "project", "rule": "A service identity is not a human role and must receive an explicit minimum per-operation, per-project grant in a later task."},
+  "developmentCompatibility": {
+    "status": "development-only-not-a-production-role-binding",
+    "rule": "Local profiles are development-only compatibility data, not production RoleBinding records or grants.",
+    "localRoleProfiles": [
+      {"localRole": "local-admin", "permissions": ["delivery.dashboard.read", "delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.projects.create", "delivery.releases.create", "delivery.sprints.create", "delivery.milestones.create", "delivery.items.read", "delivery.items.write"]},
+      {"localRole": "viewer", "permissions": ["delivery.dashboard.read", "delivery.work-items.read", "delivery.items.read"]},
+      {"localRole": "contributor", "permissions": ["delivery.dashboard.read", "delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.items.read", "delivery.items.write"]},
+      {"localRole": "release-manager", "permissions": ["delivery.dashboard.read", "delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.items.read", "delivery.items.write"]}
+    ],
+    "legacyExtensionPermissionAliases": [{"legacyPermission": "delivery.items.read", "replacement": "delivery.work-items.read", "reason": "existing ungenerated read extensions"}, {"legacyPermission": "delivery.items.write", "replacement": "delivery.work-items.update", "reason": "existing ungenerated saved-view extension"}]
+  }
+}

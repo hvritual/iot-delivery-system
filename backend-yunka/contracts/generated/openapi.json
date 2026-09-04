@@ -1,0 +1,958 @@
+{
+  "components": {
+    "schemas": {
+      "iot_delivery_v1_Activity": {
+        "properties": {
+          "actor": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.Activity"
+      },
+      "iot_delivery_v1_AdvanceGateRequest": {
+        "properties": {
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_Evidence"
+            },
+            "type": "array"
+          },
+          "expectedRevision": {
+            "format": "int64",
+            "type": "string",
+            "x-yunka-protobuf-json-integer": true
+          },
+          "gate": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.AdvanceGateRequest"
+      },
+      "iot_delivery_v1_BoardSummary": {
+        "properties": {
+          "active": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "blocked": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "board": {
+            "type": "string"
+          },
+          "closed": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "released": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "verifying": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.BoardSummary"
+      },
+      "iot_delivery_v1_CloseItemRequest": {
+        "properties": {
+          "expectedRevision": {
+            "format": "int64",
+            "type": "string",
+            "x-yunka-protobuf-json-integer": true
+          },
+          "id": {
+            "type": "string"
+          },
+          "retrospective": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.CloseItemRequest"
+      },
+      "iot_delivery_v1_Comment": {
+        "properties": {
+          "author": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.Comment"
+      },
+      "iot_delivery_v1_CommentResponse": {
+        "properties": {
+          "comment": {
+            "$ref": "#/components/schemas/iot_delivery_v1_Comment"
+          },
+          "revision": {
+            "format": "int64",
+            "type": "string",
+            "x-yunka-protobuf-json-integer": true
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.CommentResponse"
+      },
+      "iot_delivery_v1_CreateItemCommentRequest": {
+        "properties": {
+          "body": {
+            "type": "string"
+          },
+          "expectedRevision": {
+            "format": "int64",
+            "type": "string",
+            "x-yunka-protobuf-json-integer": true
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.CreateItemCommentRequest"
+      },
+      "iot_delivery_v1_CreateItemRequest": {
+        "properties": {
+          "board": {
+            "type": "string"
+          },
+          "dependencies": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_WorkItemDependency"
+            },
+            "type": "array"
+          },
+          "dueDate": {
+            "type": "string"
+          },
+          "estimatePoints": {
+            "format": "double",
+            "type": "number"
+          },
+          "iotBindings": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_IoTBinding"
+            },
+            "type": "array"
+          },
+          "isSample": {
+            "type": "boolean"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "milestoneId": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "parentId": {
+            "type": "string"
+          },
+          "plan": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string"
+          },
+          "progressPercent": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "releaseId": {
+            "type": "string"
+          },
+          "solution": {
+            "type": "string"
+          },
+          "sprintId": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "traceLinks": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_TraceLink"
+            },
+            "type": "array"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.CreateItemRequest"
+      },
+      "iot_delivery_v1_CreateMilestoneRequest": {
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "targetDate": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.CreateMilestoneRequest"
+      },
+      "iot_delivery_v1_CreateProjectRequest": {
+        "properties": {
+          "board": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.CreateProjectRequest"
+      },
+      "iot_delivery_v1_CreateReleaseRequest": {
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "targetDate": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.CreateReleaseRequest"
+      },
+      "iot_delivery_v1_CreateSprintRequest": {
+        "properties": {
+          "endDate": {
+            "type": "string"
+          },
+          "goal": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.CreateSprintRequest"
+      },
+      "iot_delivery_v1_Dashboard": {
+        "properties": {
+          "boards": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_BoardSummary"
+            },
+            "type": "array"
+          },
+          "generatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_WorkItem"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.Dashboard"
+      },
+      "iot_delivery_v1_Decision": {
+        "properties": {
+          "consequences": {
+            "type": "string"
+          },
+          "context": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.Decision"
+      },
+      "iot_delivery_v1_Evidence": {
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.Evidence"
+      },
+      "iot_delivery_v1_GetDashboardRequest": {
+        "properties": {},
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.GetDashboardRequest"
+      },
+      "iot_delivery_v1_GetDashboardResponse": {
+        "properties": {
+          "dashboard": {
+            "$ref": "#/components/schemas/iot_delivery_v1_Dashboard"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.GetDashboardResponse"
+      },
+      "iot_delivery_v1_IoTBinding": {
+        "properties": {
+          "attributes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "reference": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.IoTBinding"
+      },
+      "iot_delivery_v1_ListItemsRequest": {
+        "properties": {},
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.ListItemsRequest"
+      },
+      "iot_delivery_v1_ListItemsResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_WorkItem"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.ListItemsResponse"
+      },
+      "iot_delivery_v1_Milestone": {
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "targetDate": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.Milestone"
+      },
+      "iot_delivery_v1_MilestoneResponse": {
+        "properties": {
+          "milestone": {
+            "$ref": "#/components/schemas/iot_delivery_v1_Milestone"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.MilestoneResponse"
+      },
+      "iot_delivery_v1_Project": {
+        "properties": {
+          "board": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.Project"
+      },
+      "iot_delivery_v1_ProjectResponse": {
+        "properties": {
+          "project": {
+            "$ref": "#/components/schemas/iot_delivery_v1_Project"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.ProjectResponse"
+      },
+      "iot_delivery_v1_Release": {
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "targetDate": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.Release"
+      },
+      "iot_delivery_v1_ReleaseResponse": {
+        "properties": {
+          "release": {
+            "$ref": "#/components/schemas/iot_delivery_v1_Release"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.ReleaseResponse"
+      },
+      "iot_delivery_v1_Sprint": {
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endDate": {
+            "type": "string"
+          },
+          "goal": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.Sprint"
+      },
+      "iot_delivery_v1_SprintResponse": {
+        "properties": {
+          "sprint": {
+            "$ref": "#/components/schemas/iot_delivery_v1_Sprint"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.SprintResponse"
+      },
+      "iot_delivery_v1_TraceLink": {
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.TraceLink"
+      },
+      "iot_delivery_v1_UpdateItemContextRequest": {
+        "properties": {
+          "blocker": {
+            "type": "string"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/iot_delivery_v1_Decision"
+          },
+          "expectedRevision": {
+            "format": "int64",
+            "type": "string",
+            "x-yunka-protobuf-json-integer": true
+          },
+          "id": {
+            "type": "string"
+          },
+          "plan": {
+            "type": "string"
+          },
+          "solution": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.UpdateItemContextRequest"
+      },
+      "iot_delivery_v1_UpdateItemRequest": {
+        "properties": {
+          "dependencies": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_WorkItemDependency"
+            },
+            "type": "array"
+          },
+          "dueDate": {
+            "type": "string"
+          },
+          "estimatePoints": {
+            "format": "double",
+            "type": "number"
+          },
+          "expectedRevision": {
+            "format": "int64",
+            "type": "string",
+            "x-yunka-protobuf-json-integer": true
+          },
+          "id": {
+            "type": "string"
+          },
+          "iotBindings": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_IoTBinding"
+            },
+            "type": "array"
+          },
+          "milestoneId": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string"
+          },
+          "progressPercent": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "releaseId": {
+            "type": "string"
+          },
+          "sprintId": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "traceLinks": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_TraceLink"
+            },
+            "type": "array"
+          },
+          "updateMask": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.UpdateItemRequest"
+      },
+      "iot_delivery_v1_WorkItem": {
+        "properties": {
+          "activities": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_Activity"
+            },
+            "type": "array"
+          },
+          "blocker": {
+            "type": "string"
+          },
+          "board": {
+            "type": "string"
+          },
+          "comments": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_Comment"
+            },
+            "type": "array"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "decisions": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_Decision"
+            },
+            "type": "array"
+          },
+          "dependencies": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_WorkItemDependency"
+            },
+            "type": "array"
+          },
+          "dueDate": {
+            "type": "string"
+          },
+          "estimatePoints": {
+            "format": "double",
+            "type": "number"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_Evidence"
+            },
+            "type": "array"
+          },
+          "gate": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "iotBindings": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_IoTBinding"
+            },
+            "type": "array"
+          },
+          "isSample": {
+            "type": "boolean"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "milestoneId": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "parentId": {
+            "type": "string"
+          },
+          "plan": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string"
+          },
+          "progressPercent": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "releaseId": {
+            "type": "string"
+          },
+          "retrospective": {
+            "type": "string"
+          },
+          "revision": {
+            "format": "int64",
+            "type": "string",
+            "x-yunka-protobuf-json-integer": true
+          },
+          "solution": {
+            "type": "string"
+          },
+          "sprintId": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "traceLinks": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_TraceLink"
+            },
+            "type": "array"
+          },
+          "type": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.WorkItem"
+      },
+      "iot_delivery_v1_WorkItemDependency": {
+        "properties": {
+          "itemId": {
+            "type": "string"
+          },
+          "relation": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.WorkItemDependency"
+      },
+      "iot_delivery_v1_WorkItemResponse": {
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/iot_delivery_v1_WorkItem"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.WorkItemResponse"
+      }
+    }
+  },
+  "info": {
+    "title": "yunka API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {},
+  "x-yunka-contract-version": 3,
+  "x-yunka-rpc-methods": [
+    {
+      "operationId": "iot.delivery.v1.DeliveryService.AdvanceGate",
+      "request": "iot.delivery.v1.AdvanceGateRequest",
+      "response": "iot.delivery.v1.WorkItemResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/AdvanceGate"
+    },
+    {
+      "operationId": "iot.delivery.v1.DeliveryService.CloseItem",
+      "request": "iot.delivery.v1.CloseItemRequest",
+      "response": "iot.delivery.v1.WorkItemResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/CloseItem"
+    },
+    {
+      "operationId": "iot.delivery.v1.DeliveryService.CreateItem",
+      "request": "iot.delivery.v1.CreateItemRequest",
+      "response": "iot.delivery.v1.WorkItemResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/CreateItem"
+    },
+    {
+      "operationId": "iot.delivery.v1.DeliveryService.CreateItemComment",
+      "request": "iot.delivery.v1.CreateItemCommentRequest",
+      "response": "iot.delivery.v1.CommentResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/CreateItemComment"
+    },
+    {
+      "operationId": "iot.delivery.v1.DeliveryService.CreateMilestone",
+      "request": "iot.delivery.v1.CreateMilestoneRequest",
+      "response": "iot.delivery.v1.MilestoneResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/CreateMilestone"
+    },
+    {
+      "operationId": "iot.delivery.v1.DeliveryService.CreateProject",
+      "request": "iot.delivery.v1.CreateProjectRequest",
+      "response": "iot.delivery.v1.ProjectResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/CreateProject"
+    },
+    {
+      "operationId": "iot.delivery.v1.DeliveryService.CreateRelease",
+      "request": "iot.delivery.v1.CreateReleaseRequest",
+      "response": "iot.delivery.v1.ReleaseResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/CreateRelease"
+    },
+    {
+      "operationId": "iot.delivery.v1.DeliveryService.CreateSprint",
+      "request": "iot.delivery.v1.CreateSprintRequest",
+      "response": "iot.delivery.v1.SprintResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/CreateSprint"
+    },
+    {
+      "operationId": "iot.delivery.v1.DeliveryService.GetDashboard",
+      "request": "iot.delivery.v1.GetDashboardRequest",
+      "response": "iot.delivery.v1.GetDashboardResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/GetDashboard"
+    },
+    {
+      "operationId": "iot.delivery.v1.DeliveryService.ListItems",
+      "request": "iot.delivery.v1.ListItemsRequest",
+      "response": "iot.delivery.v1.ListItemsResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/ListItems"
+    },
+    {
+      "operationId": "iot.delivery.v1.DeliveryService.UpdateItem",
+      "request": "iot.delivery.v1.UpdateItemRequest",
+      "response": "iot.delivery.v1.WorkItemResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/UpdateItem"
+    },
+    {
+      "operationId": "iot.delivery.v1.DeliveryService.UpdateItemContext",
+      "request": "iot.delivery.v1.UpdateItemContextRequest",
+      "response": "iot.delivery.v1.WorkItemResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/UpdateItemContext"
+    }
+  ]
+}

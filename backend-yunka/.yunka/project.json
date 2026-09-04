@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "database": {
+    "tablePrefix": "iotd"
+  },
+  "workflow": {
+    "contract": {
+      "protoRoot": "contracts/proto",
+      "generated": "contracts/generated"
+    },
+    "modules": {
+      "root": "modules"
+    },
+    "generatedGo": {
+      "root": "internal"
+    },
+    "dev": {
+      "manifest": ".yunka/dev.json"
+    }
+  }
+}
