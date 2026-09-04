@@ -203,6 +203,7 @@ service DeliveryService {
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
       authentication: AUTHENTICATION_JWT
+      authentication: AUTHENTICATION_SERVICE
       composition: COMPOSITION_LOCAL
       execution: { transaction: TRANSACTION_READ_ONLY idempotency: IDEMPOTENCY_NONE }
     };

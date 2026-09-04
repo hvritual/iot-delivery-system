@@ -48,3 +48,11 @@ func projectsToProto(projects []delivery.Project) []*deliveryv1.Project {
 	}
 	return result
 }
+
+func projectsFromProto(projects []*deliveryv1.Project) []delivery.Project {
+	result := make([]delivery.Project, 0, len(projects))
+	for _, project := range projects {
+		result = append(result, projectFromProto(project))
+	}
+	return result
+}

@@ -303,7 +303,8 @@
         "tenantRequired": true,
         "authentication": [
           "api-key",
-          "jwt"
+          "jwt",
+          "service-token"
         ],
         "permissions": [
           "delivery.projects.read"

@@ -204,20 +204,17 @@ func (operations *Operations) CreateProject(ctx context.Context, input delivery.
 }
 
 func (operations *Operations) ListProjects(ctx context.Context) ([]delivery.Project, error) {
-	if err := operations.extensionReady(); err != nil {
+	if err := operations.ready(); err != nil {
 		return nil, err
 	}
-	value, err := operations.executor.Execute(ctx, extensionPlan("delivery.projects.list", "list_projects", "delivery.items.read", "read_only"), nil, func(callContext context.Context) (any, error) {
-		return operations.service.ListProjects(callContext)
-	})
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanListProjects(), &deliveryv1.ListProjectsRequest{}, operations.application.ListProjects)
 	if err != nil {
 		return nil, err
 	}
-	projects, ok := value.([]delivery.Project)
-	if !ok {
-		return nil, errors.New("delivery project list operation returned an unexpected result")
+	if response == nil {
+		return nil, nil
 	}
-	return projects, nil
+	return projectsFromProto(response.GetProjects()), nil
 }
 
 func (operations *Operations) FindSimilar(ctx context.Context, query delivery.SimilarityQuery) ([]delivery.SimilarityCandidate, error) {

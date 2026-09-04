@@ -3135,7 +3135,7 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\x11expected_revision\x18\x03 \x01(\x03R\x10expectedRevision:\x06\xd2\xf3\x18\x02\b\x01\"\x1d\n" +
 	"\x13ListProjectsRequest:\x06\xd2\xf3\x18\x02\b\x01\"T\n" +
 	"\x14ListProjectsResponse\x124\n" +
-	"\bprojects\x18\x01 \x03(\v2\x18.iot.delivery.v1.ProjectR\bprojects:\x06\xd2\xf3\x18\x02\b\x022\x83\x16\n" +
+	"\bprojects\x18\x01 \x03(\v2\x18.iot.delivery.v1.ProjectR\bprojects:\x06\xd2\xf3\x18\x02\b\x022\x84\x16\n" +
 	"\x0fDeliveryService\x12\xae\x01\n" +
 	"\fGetDashboard\x12$.iot.delivery.v1.GetDashboardRequest\x1a%.iot.delivery.v1.GetDashboardResponse\"Q\xe2\xf3\x18M\n" +
 	"\x16delivery.dashboard.get\x12\rget_dashboard\x1a\x17delivery.dashboard.read2\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\xa0\x01\n" +
@@ -3164,9 +3164,9 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\fCreateSprint\x12$.iot.delivery.v1.CreateSprintRequest\x1a\x1f.iot.delivery.v1.SprintResponse\"R\xe2\xf3\x18N\n" +
 	"\x17delivery.sprints.create\x12\rcreate_sprint\x1a\x17delivery.sprints.create2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xbb\x01\n" +
 	"\x0fCreateMilestone\x12'.iot.delivery.v1.CreateMilestoneRequest\x1a\".iot.delivery.v1.MilestoneResponse\"[\xe2\xf3\x18W\n" +
-	"\x1adelivery.milestones.create\x12\x10create_milestone\x1a\x1adelivery.milestones.create2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xae\x01\n" +
-	"\fListProjects\x12$.iot.delivery.v1.ListProjectsRequest\x1a%.iot.delivery.v1.ListProjectsResponse\"Q\xe2\xf3\x18M\n" +
-	"\x16delivery.projects.list\x12\rlist_projects\x1a\x16delivery.projects.read(\x012\x02\x02\x01H\x01R\x04\b\x02\x10\x01\x1a\xd7\x03\xda\xf3\x18\xd2\x03\n" +
+	"\x1adelivery.milestones.create\x12\x10create_milestone\x1a\x1adelivery.milestones.create2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xaf\x01\n" +
+	"\fListProjects\x12$.iot.delivery.v1.ListProjectsRequest\x1a%.iot.delivery.v1.ListProjectsResponse\"R\xe2\xf3\x18N\n" +
+	"\x16delivery.projects.list\x12\rlist_projects\x1a\x16delivery.projects.read(\x012\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x1a\xd7\x03\xda\xf3\x18\xd2\x03\n" +
 	"\n" +
 	"management\"m\n" +
 	"\x1asqlite.transaction-factory\x12Fgithub.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx\x1a\aFactory\"i\n" +
