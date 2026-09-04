@@ -199,9 +199,15 @@ func TestConfigOperationPlansAreDefensiveAndStrict(t *testing.T) {
 func TestOperationsPreserveNonNotFoundParentReadErrors(t *testing.T) {
 	fixture := newFixture(t)
 	ctx := fixture.context(t)
-	for revision, payload := range map[int64]string{1: `{"value":1}`, 2: `{"value":2}`} {
-		if _, err := fixture.operations.Change(ctx, configrevision.ChangeInput{Kind: configrevision.KindMembership, ConfigKey: "read-error", ExpectedParentRevision: revision - 1, Payload: payload}); err != nil {
-			t.Fatalf("seed revision %d: %v", revision, err)
+	for _, seed := range []struct {
+		revision int64
+		payload  string
+	}{
+		{revision: 1, payload: `{"value":1}`},
+		{revision: 2, payload: `{"value":2}`},
+	} {
+		if _, err := fixture.operations.Change(ctx, configrevision.ChangeInput{Kind: configrevision.KindMembership, ConfigKey: "read-error", ExpectedParentRevision: seed.revision - 1, Payload: seed.payload}); err != nil {
+			t.Fatalf("seed revision %d: %v", seed.revision, err)
 		}
 	}
 	for name, parentErr := range map[string]error{"context canceled": context.Canceled, "stored corruption": errors.New("stored config chain corruption")} {
