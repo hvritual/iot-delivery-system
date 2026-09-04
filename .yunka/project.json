@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "database": {
+    "tablePrefix": "iotd"
+  },
+  "workflow": {
+    "contract": {
+      "protoRoot": "backend-yunka/contracts/proto",
+      "generated": "backend-yunka/contracts/generated"
+    },
+    "modules": {
+      "root": "backend-yunka/modules"
+    },
+    "generatedGo": {
+      "root": "backend-yunka/internal",
+      "import": "github.com/hvritual/iot-delivery-system/backend-yunka/internal"
+    },
+    "dev": {
+      "manifest": ".yunka/dev.json"
+    }
+  }
+}

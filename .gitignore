@@ -4,6 +4,7 @@ backend-yunka/.tools/
 backend-yunka/data/
 backend-yunka/runtime-vault/
 backend-yunka/.yunka/cache/
+.yunka/cache/
 *.db
 *.db-shm
 *.db-wal

@@ -1,12 +1,15 @@
 # Canonical Yunka project workflow. The framework source and protobuf include
 # are fixed by the repository gitlink; callers may override tool locations,
 # but never the reviewed framework identity. PROJECT_ROOT is absolute because
-# the CLI invocation runs through the Yunka app module.
-override PROJECT_ROOT := $(abspath $(CURDIR))
-override REPOSITORY_ROOT := $(abspath $(PROJECT_ROOT)/..)
+# the CLI invocation runs through the Yunka app module. The durable root
+# profile keeps Git-backed ChangeSet paths repository-relative while pointing
+# generation at this backend module.
+override BACKEND_ROOT := $(abspath $(CURDIR))
+override REPOSITORY_ROOT := $(abspath $(BACKEND_ROOT)/..)
+override PROJECT_ROOT := $(REPOSITORY_ROOT)
 override YUNKA_REVISION := 057ebcf88a87303eb633eb6e604d306f633dfac0
 GO ?= go
-TOOLS_DIR ?= .tools
+TOOLS_DIR ?= $(BACKEND_ROOT)/.tools
 PROTOC ?= $(TOOLS_DIR)/protoc-21.12/bin/protoc
 PROTOC_GEN_GO ?= $(TOOLS_DIR)/bin/protoc-gen-go
 PROTOC_GEN_GO_GRPC ?= $(TOOLS_DIR)/bin/protoc-gen-go-grpc
