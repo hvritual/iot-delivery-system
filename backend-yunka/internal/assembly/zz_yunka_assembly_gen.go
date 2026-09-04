@@ -8,6 +8,7 @@ import (
 	fmt "fmt"
 	deliveryapplication "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
 	deliveryrpc "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/transport/rpc"
+	deliveryruntime "github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime"
 	localtx "github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
 	"github.com/hvritual/yunka.io/framework/core"
 	modulecatalog "github.com/hvritual/yunka.io/framework/core/modulecatalog"
@@ -17,9 +18,12 @@ import (
 	grpc "google.golang.org/grpc"
 )
 
-const AssemblyPlanDigest = "e9bd010c812025bed25b4428df814eee70b157b82fdfa22dccf0d4bac308100f"
+const AssemblyPlanDigest = "0fd0b90d4eb81e3dce1ddc29eff75965c27b6faf75a5d8157284440a861b8ca1"
 
 type DeliveryManagementDependencies struct {
+	DeliveryNotifications    deliveryruntime.Notifications
+	DeliveryOutbox           deliveryruntime.Outbox
+	DeliveryProjection       deliveryruntime.Projection
 	SqliteTransactionFactory localtx.Factory
 }
 
@@ -41,11 +45,23 @@ func BuildApplicationsWithCapabilities(factories ApplicationFactories, executor 
 	}
 	var applications Applications
 	var err error
+	deliveryManagementDeliveryNotificationsCapability, err := modulecatalog.ResolveCapability(capabilities, modulecatalog.MustCapabilityKey[deliveryruntime.Notifications]("delivery.notifications", "github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime", "Notifications"))
+	if err != nil {
+		return Applications{}, fmt.Errorf("yunka assembly: build delivery/management capability delivery.notifications: %w", err)
+	}
+	deliveryManagementDeliveryOutboxCapability, err := modulecatalog.ResolveCapability(capabilities, modulecatalog.MustCapabilityKey[deliveryruntime.Outbox]("delivery.outbox", "github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime", "Outbox"))
+	if err != nil {
+		return Applications{}, fmt.Errorf("yunka assembly: build delivery/management capability delivery.outbox: %w", err)
+	}
+	deliveryManagementDeliveryProjectionCapability, err := modulecatalog.ResolveCapability(capabilities, modulecatalog.MustCapabilityKey[deliveryruntime.Projection]("delivery.projection", "github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime", "Projection"))
+	if err != nil {
+		return Applications{}, fmt.Errorf("yunka assembly: build delivery/management capability delivery.projection: %w", err)
+	}
 	deliveryManagementSqliteTransactionFactoryCapability, err := modulecatalog.ResolveCapability(capabilities, modulecatalog.MustCapabilityKey[localtx.Factory]("sqlite.transaction-factory", "github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx", "Factory"))
 	if err != nil {
 		return Applications{}, fmt.Errorf("yunka assembly: build delivery/management capability sqlite.transaction-factory: %w", err)
 	}
-	applications.DeliveryManagement, err = factories.BuildDeliveryManagement(DeliveryManagementDependencies{SqliteTransactionFactory: deliveryManagementSqliteTransactionFactoryCapability})
+	applications.DeliveryManagement, err = factories.BuildDeliveryManagement(DeliveryManagementDependencies{DeliveryNotifications: deliveryManagementDeliveryNotificationsCapability, DeliveryOutbox: deliveryManagementDeliveryOutboxCapability, DeliveryProjection: deliveryManagementDeliveryProjectionCapability, SqliteTransactionFactory: deliveryManagementSqliteTransactionFactoryCapability})
 	if err != nil {
 		return Applications{}, fmt.Errorf("yunka assembly: build application delivery/management: %w", err)
 	}

@@ -3050,7 +3050,7 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\x10CloseItemRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12$\n" +
 	"\rretrospective\x18\x02 \x01(\tR\rretrospective\x12+\n" +
-	"\x11expected_revision\x18\x03 \x01(\x03R\x10expectedRevision:\x06\xd2\xf3\x18\x02\b\x012\xf7\x11\n" +
+	"\x11expected_revision\x18\x03 \x01(\x03R\x10expectedRevision:\x06\xd2\xf3\x18\x02\b\x012\xd0\x14\n" +
 	"\x0fDeliveryService\x12\xae\x01\n" +
 	"\fGetDashboard\x12$.iot.delivery.v1.GetDashboardRequest\x1a%.iot.delivery.v1.GetDashboardResponse\"Q\xe2\xf3\x18M\n" +
 	"\x16delivery.dashboard.get\x12\rget_dashboard\x1a\x17delivery.dashboard.read2\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\xa0\x01\n" +
@@ -3079,10 +3079,14 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\fCreateSprint\x12$.iot.delivery.v1.CreateSprintRequest\x1a\x1f.iot.delivery.v1.SprintResponse\"R\xe2\xf3\x18N\n" +
 	"\x17delivery.sprints.create\x12\rcreate_sprint\x1a\x17delivery.sprints.create2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xbb\x01\n" +
 	"\x0fCreateMilestone\x12'.iot.delivery.v1.CreateMilestoneRequest\x1a\".iot.delivery.v1.MilestoneResponse\"[\xe2\xf3\x18W\n" +
-	"\x1adelivery.milestones.create\x12\x10create_milestone\x1a\x1adelivery.milestones.create2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x1a\x7f\xda\xf3\x18{\n" +
+	"\x1adelivery.milestones.create\x12\x10create_milestone\x1a\x1adelivery.milestones.create2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x1a\xd7\x03\xda\xf3\x18\xd2\x03\n" +
 	"\n" +
 	"management\"m\n" +
-	"\x1asqlite.transaction-factory\x12Fgithub.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx\x1a\aFactoryBj\xca\xf3\x18\x0e\n" +
+	"\x1asqlite.transaction-factory\x12Fgithub.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx\x1a\aFactory\"i\n" +
+	"\x0fdelivery.outbox\x12Ngithub.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime\x1a\x06Outbox\"w\n" +
+	"\x16delivery.notifications\x12Ngithub.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime\x1a\rNotifications\"q\n" +
+	"\x13delivery.projection\x12Ngithub.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime\x1a\n" +
+	"ProjectionBj\xca\xf3\x18\x0e\n" +
 	"\bdelivery\x12\x02v1ZVgithub.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1b\x06proto3"
 
 var (

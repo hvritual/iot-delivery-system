@@ -1694,6 +1694,21 @@
         "name": "management",
         "capabilities": [
           {
+            "name": "delivery.notifications",
+            "package": "github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime",
+            "type": "Notifications"
+          },
+          {
+            "name": "delivery.outbox",
+            "package": "github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime",
+            "type": "Outbox"
+          },
+          {
+            "name": "delivery.projection",
+            "package": "github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime",
+            "type": "Projection"
+          },
+          {
             "name": "sqlite.transaction-factory",
             "package": "github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx",
             "type": "Factory"

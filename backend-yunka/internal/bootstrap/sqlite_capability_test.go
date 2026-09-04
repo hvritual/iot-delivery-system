@@ -10,7 +10,7 @@ import (
 	"github.com/hvritual/yunka.io/framework/core/modulecatalog"
 )
 
-func TestGeneratedAssemblyRejectsMissingSQLiteTransactionCapability(t *testing.T) {
+func TestGeneratedAssemblyRejectsMissingRequiredCapability(t *testing.T) {
 	adapter := deliveryapplication.NewAdapter(delivery.NewService(delivery.NewMemoryRepository(), nil))
 
 	_, err := generatedassembly.BuildApplicationsWithCapabilities(
@@ -19,10 +19,10 @@ func TestGeneratedAssemblyRejectsMissingSQLiteTransactionCapability(t *testing.T
 		modulecatalog.EmptyCapabilitySet(),
 	)
 	if err == nil {
-		t.Fatal("generated assembly accepted missing SQLite transaction capability")
+		t.Fatal("generated assembly accepted missing required capabilities")
 	}
-	if !strings.Contains(err.Error(), "capability sqlite.transaction-factory") {
-		t.Fatalf("generated assembly error = %q, want missing SQLite capability context", err)
+	if !strings.Contains(err.Error(), "capability ") || !strings.Contains(err.Error(), "is not provided") {
+		t.Fatalf("generated assembly error = %q, want missing capability context", err)
 	}
 }
 

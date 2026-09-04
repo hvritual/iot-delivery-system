@@ -25,13 +25,14 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitycore"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localauth"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
+	"github.com/hvritual/yunka.io/framework/core"
+	yunkagrpc "github.com/hvritual/yunka.io/gateway/rpc/transport/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	_ "modernc.org/sqlite"
-	yunkagrpc "github.com/hvritual/yunka.io/gateway/rpc/transport/grpc"
 )
 
 func TestApplicationUsesYunkaRuntimeHostForDeliveryAPI(t *testing.T) {
@@ -151,6 +152,52 @@ FROM iotd_audit_entries WHERE operation = 'delivery.items.create' ORDER BY seque
 			t.Fatalf("outbox projection did not reach %s before deadline: %v", overviewPath, readErr)
 		}
 		time.Sleep(25 * time.Millisecond)
+	}
+}
+
+func TestApplicationOwnsDeliveryEventPipelineAsTypedModule(t *testing.T) {
+	t.Setenv(localauth.APIKeyEnvironment, "typed-event-runtime-test-key")
+	application, err := bootstrap.New(t.Context(), bootstrap.Config{
+		HTTPAddress:        "127.0.0.1:0",
+		GRPCAddress:        "127.0.0.1:0",
+		DatabasePath:       filepath.Join(t.TempDir(), "typed-event-runtime.db"),
+		ObsidianVault:      t.TempDir(),
+		RuntimeEnvironment: bootstrap.RuntimeEnvironmentDevelopment,
+	})
+	if err != nil {
+		t.Fatalf("bootstrap typed event runtime: %v", err)
+	}
+	t.Cleanup(func() { closeApplication(t, application) })
+
+	diagnosticsResponse := get(t, "http://"+application.HTTPAddress()+"/__yunka/diagnostics")
+	if diagnosticsResponse.StatusCode != http.StatusOK {
+		t.Fatalf("diagnostics status = %d body=%q", diagnosticsResponse.StatusCode, diagnosticsResponse.Body)
+	}
+	var diagnostics struct {
+		Core core.DiagnosticsReport `json:"core"`
+	}
+	if err := json.Unmarshal([]byte(diagnosticsResponse.Body), &diagnostics); err != nil {
+		t.Fatalf("decode diagnostics: %v", err)
+	}
+	foundRuntimeModule := false
+	for _, module := range diagnostics.Core.Modules {
+		if module.Name == "delivery-event-runtime" {
+			foundRuntimeModule = module.Composition == "typed" && module.Startable && module.HealthChecked && module.Shutdownable
+		}
+	}
+	if !foundRuntimeModule {
+		t.Fatalf("diagnostics modules = %#v, want typed delivery-event-runtime with complete lifecycle", diagnostics.Core.Modules)
+	}
+	legacyComponents := map[string]bool{
+		"delivery-sqlite":                   true,
+		"delivery-sqlite-outbox-broker":     true,
+		"delivery-sqlite-outbox-dispatcher": true,
+		"delivery-due-reminders":            true,
+	}
+	for _, component := range diagnostics.Core.Components {
+		if legacyComponents[component.Name] {
+			t.Fatalf("delivery event resource %q remains a detached runtime component", component.Name)
+		}
 	}
 }
 

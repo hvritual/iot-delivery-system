@@ -96,6 +96,8 @@ go run ./cmd/iot-delivery-mcp
 
 每次创建、更新、关卡推进和关闭都会在同一个 Yunka `local` 执行事务中写入交付状态与 `iotd_outbox`；截止日 worker 也将稳定提醒事件写入该表。事件信封包含稳定 ID、类型、schema version 和发生时间；进程内 dispatcher 以至少一次语义发布到本地 broker，Obsidian consumer 以“当前状态全量投影”方式处理重复事件，本地通知收件箱以事件 ID 与通道组合去重。失败投递会保留诊断错误并进入退避重试或死信状态。
 
+SQLite transaction factory、Outbox、通知读模型和 Obsidian 投影通过生成的 typed Application capability 注入；`delivery-event-runtime` 模块统一拥有数据库、dispatcher、提醒 worker、两个 broker subscription 与 broker 的启动、健康检查和逆序关闭。运行时不会保存 capability resolver 或请求上下文。
+
 同一运行进程内，SQLite 使用单连接池、WAL 和 5 秒 busy timeout，命令事务、Outbox dispatcher 与本地收件箱不会因写入争用向 API 返回 `SQLITE_BUSY`。这不是多进程数据库协调方案：`yunka-bootstrap` 与 `iot-delivery-mcp` 仍不得同时打开同一 SQLite 文件。
 
 这是本地最小化运行模型：Outbox 是 SQLite 持久化的，但 broker 不是外部持久化消息系统。没有 Kafka/NATS、云身份、租户模型、生产密钥治理或生产部署能力。

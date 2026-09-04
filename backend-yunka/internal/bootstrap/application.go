@@ -20,6 +20,7 @@ import (
 	deliveryapplication "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
 	deliveryrpc "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/transport/rpc"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryauthz"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/httpapi"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/humanauthz"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitybinding"
@@ -142,17 +143,12 @@ func (policy StartupPolicy) ValidateLocalStdio() error {
 }
 
 type Application struct {
-	repository    *delivery.SQLiteRepository
 	service       *delivery.Service
 	adapter       deliveryapplication.DeliveryService
 	operations    *deliveryapplication.Operations
 	configOps     *configapplication.Operations
 	executor      operation.Executor
-	outbox        *localoutbox.SQLiteStore
-	broker        *event.LocalBroker
-	subscriptions []event.Subscription
-	dispatcher    *frameworkoutbox.Dispatcher
-	reminders     *delivery.DueReminderScheduler
+	eventRuntime  *deliveryruntime.Module
 	serviceAuth   *serviceauth.Manager
 	serviceGrants *serviceauthz.Manager
 	app           *core.App
@@ -274,11 +270,6 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		return nil, fmt.Errorf("configure audited delivery application: %w", err)
 	}
 	transactionFactory := localtx.NewSQLiteFactory(repository.Database())
-	transactionCapability, err := localtx.CapabilityDescriptor(transactionFactory)
-	if err != nil {
-		_ = repository.Close()
-		return nil, fmt.Errorf("configure SQLite transaction capability: %w", err)
-	}
 	executor, err := audit.NewRecordingExecutor(operation.NewExecutorWithOptions(security, operation.ExecutorOptions{
 		Transactions: transactionFactory,
 	}), securityRecorder)
@@ -346,19 +337,26 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		_ = repository.Close()
 		return nil, fmt.Errorf("create local outbox dispatcher: %w", err)
 	}
+	eventRuntime, err := deliveryruntime.New(deliveryruntime.Dependencies{
+		Database: repository, Transactions: transactionFactory,
+		Outbox: outboxStore, Notifications: notificationStore, Projection: exporter,
+		Dispatcher: dispatcher, Reminders: reminders, Broker: broker, Subscriptions: subscriptions,
+	})
+	if err != nil {
+		_ = dispatcher.Shutdown(context.Background())
+		_ = closeSubscriptions(subscriptions)
+		_ = broker.Close()
+		_ = repository.Close()
+		return nil, fmt.Errorf("configure delivery event runtime: %w", err)
+	}
 
 	application := &Application{
-		repository:    repository,
 		service:       service,
 		adapter:       auditedAdapter,
 		operations:    operations,
 		configOps:     configOps,
 		executor:      executor,
-		outbox:        outboxStore,
-		broker:        broker,
-		subscriptions: subscriptions,
-		dispatcher:    dispatcher,
-		reminders:     reminders,
+		eventRuntime:  eventRuntime,
 		serviceAuth:   serviceCredentialManager,
 		serviceGrants: serviceGrantManager,
 	}
@@ -374,23 +372,23 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		HealthPath:        "/health",
 		DiagnosticsPath:   "/__yunka/diagnostics",
 		Bootstrap: func(bootstrapCtx context.Context, runtime runtimehost.Runtime) (kernel.BootstrapResult[generatedassembly.Applications], error) {
-			components := append([]core.RuntimeComponent{
-				application.sqliteRuntimeComponent(),
-				application.outboxBrokerRuntimeComponent(),
-				application.outboxDispatcherRuntimeComponent(),
-				application.dueReminderRuntimeComponent(),
-			}, runtime.RuntimeComponents...)
 			if application == nil || application.adapter == nil || application.operations == nil || application.executor == nil {
 				return kernel.BootstrapResult[generatedassembly.Applications]{}, errors.New("delivery application is not configured")
 			}
 			result, bootstrapErr := generatedassembly.Bootstrap(bootstrapCtx, generatedassembly.BootstrapOptions{
-				AdditionalModules: []modulecatalog.Descriptor{transactionCapability},
-				Factories:         applicationFactories{deliveryManagement: application.adapter},
-				Executor:          application.executor,
+				AdditionalModules: []modulecatalog.Descriptor{eventRuntime.Descriptor()},
+				Factories: applicationFactories{
+					deliveryManagement: application.adapter,
+					transactions:       transactionFactory,
+					outbox:             outboxStore,
+					notifications:      notificationStore,
+					projection:         exporter,
+				},
+				Executor: application.executor,
 				Transports: generatedassembly.TransportBindings{
 					RPC: runtime.RPC,
 				},
-				RuntimeComponents: components,
+				RuntimeComponents: runtime.RuntimeComponents,
 			})
 			if bootstrapErr != nil {
 				return kernel.BootstrapResult[generatedassembly.Applications]{}, bootstrapErr
@@ -400,9 +398,7 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		},
 	})
 	if err != nil {
-		_ = closeSubscriptions(subscriptions)
-		_ = broker.Close()
-		_ = repository.Close()
+		_ = eventRuntime.Shutdown(context.Background())
 		return nil, fmt.Errorf("bootstrap Yunka runtime host: %w", err)
 	}
 	application.app = started.App
@@ -531,11 +527,30 @@ func loopbackAddress(address string) bool {
 
 type applicationFactories struct {
 	deliveryManagement deliveryapplication.DeliveryService
+	transactions       *localtx.SQLiteFactory
+	outbox             *localoutbox.SQLiteStore
+	notifications      *notification.SQLiteStore
+	projection         *obsidian.Exporter
 }
 
 func (factories applicationFactories) BuildDeliveryManagement(dependencies generatedassembly.DeliveryManagementDependencies) (deliveryapplication.DeliveryService, error) {
 	if dependencies.SqliteTransactionFactory == nil {
 		return nil, errors.New("SQLite transaction factory capability is not configured")
+	}
+	if dependencies.DeliveryOutbox == nil || dependencies.DeliveryNotifications == nil || dependencies.DeliveryProjection == nil {
+		return nil, errors.New("delivery event runtime capabilities are not configured")
+	}
+	if factories.transactions != nil && dependencies.SqliteTransactionFactory != factories.transactions {
+		return nil, errors.New("SQLite transaction factory capability does not match the root executor")
+	}
+	if factories.outbox != nil && dependencies.DeliveryOutbox != factories.outbox {
+		return nil, errors.New("delivery Outbox capability does not match the configured application")
+	}
+	if factories.notifications != nil && dependencies.DeliveryNotifications != factories.notifications {
+		return nil, errors.New("delivery notification capability does not match the configured application")
+	}
+	if factories.projection != nil && dependencies.DeliveryProjection != factories.projection {
+		return nil, errors.New("delivery projection capability does not match the configured application")
 	}
 	if factories.deliveryManagement == nil {
 		return nil, errors.New("delivery management application adapter is not configured")
@@ -595,54 +610,10 @@ func (application *Application) Close(ctx context.Context) error {
 	if application.app != nil {
 		return application.app.Shutdown(ctx)
 	}
-	if application.repository != nil {
-		return application.repository.Close()
+	if application.eventRuntime != nil {
+		return application.eventRuntime.Shutdown(ctx)
 	}
 	return nil
-}
-
-func (application *Application) sqliteRuntimeComponent() core.RuntimeComponent {
-	return core.RuntimeComponent{
-		Name: "delivery-sqlite",
-		StartFunc: func(ctx context.Context) error {
-			return application.repository.Ping(ctx)
-		},
-		HealthFunc: func(ctx context.Context) error {
-			return application.repository.Ping(ctx)
-		},
-		ShutdownFunc: func(context.Context) error {
-			return application.repository.Close()
-		},
-	}
-}
-
-func (application *Application) outboxBrokerRuntimeComponent() core.RuntimeComponent {
-	return core.RuntimeComponent{
-		Name: "delivery-sqlite-outbox-broker",
-		StartFunc: func(context.Context) error {
-			if application == nil || application.broker == nil {
-				return errors.New("local event broker is not configured")
-			}
-			return nil
-		},
-		HealthFunc: func(context.Context) error {
-			if application == nil || application.broker == nil {
-				return errors.New("local event broker is not configured")
-			}
-			return nil
-		},
-		ShutdownFunc: func(context.Context) error {
-			if application == nil {
-				return nil
-			}
-			var closeErr error
-			closeErr = errors.Join(closeErr, closeSubscriptions(application.subscriptions))
-			if application.broker != nil {
-				closeErr = errors.Join(closeErr, application.broker.Close())
-			}
-			return closeErr
-		},
-	}
 }
 
 func closeSubscriptions(subscriptions []event.Subscription) error {
@@ -653,54 +624,6 @@ func closeSubscriptions(subscriptions []event.Subscription) error {
 		}
 	}
 	return closeErr
-}
-
-func (application *Application) outboxDispatcherRuntimeComponent() core.RuntimeComponent {
-	return core.RuntimeComponent{
-		Name: "delivery-sqlite-outbox-dispatcher",
-		StartFunc: func(ctx context.Context) error {
-			if application == nil || application.dispatcher == nil {
-				return errors.New("local outbox dispatcher is not configured")
-			}
-			return application.dispatcher.Start(ctx)
-		},
-		HealthFunc: func(ctx context.Context) error {
-			if application == nil || application.dispatcher == nil {
-				return errors.New("local outbox dispatcher is not configured")
-			}
-			return application.dispatcher.Health(ctx)
-		},
-		ShutdownFunc: func(ctx context.Context) error {
-			if application == nil || application.dispatcher == nil {
-				return nil
-			}
-			return application.dispatcher.Shutdown(ctx)
-		},
-	}
-}
-
-func (application *Application) dueReminderRuntimeComponent() core.RuntimeComponent {
-	return core.RuntimeComponent{
-		Name: "delivery-due-reminders",
-		StartFunc: func(ctx context.Context) error {
-			if application == nil || application.reminders == nil {
-				return errors.New("due reminder scheduler is not configured")
-			}
-			return application.reminders.Start(ctx)
-		},
-		HealthFunc: func(ctx context.Context) error {
-			if application == nil || application.reminders == nil {
-				return errors.New("due reminder scheduler is not configured")
-			}
-			return application.reminders.Health(ctx)
-		},
-		ShutdownFunc: func(ctx context.Context) error {
-			if application == nil || application.reminders == nil {
-				return nil
-			}
-			return application.reminders.Stop(ctx)
-		},
-	}
 }
 
 func seedExample(ctx context.Context, operations *deliveryapplication.Operations) error {

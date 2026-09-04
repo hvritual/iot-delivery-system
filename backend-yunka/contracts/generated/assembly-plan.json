@@ -8,6 +8,36 @@
       "name": "management",
       "capabilities": [
         {
+          "name": "delivery.notifications",
+          "package": "github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime",
+          "type": "Notifications",
+          "evidence": {
+            "ownership": "reused",
+            "source": "manifest.json",
+            "ref": "applications/delivery/management/capabilities/delivery.notifications"
+          }
+        },
+        {
+          "name": "delivery.outbox",
+          "package": "github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime",
+          "type": "Outbox",
+          "evidence": {
+            "ownership": "reused",
+            "source": "manifest.json",
+            "ref": "applications/delivery/management/capabilities/delivery.outbox"
+          }
+        },
+        {
+          "name": "delivery.projection",
+          "package": "github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime",
+          "type": "Projection",
+          "evidence": {
+            "ownership": "reused",
+            "source": "manifest.json",
+            "ref": "applications/delivery/management/capabilities/delivery.projection"
+          }
+        },
+        {
           "name": "sqlite.transaction-factory",
           "package": "github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx",
           "type": "Factory",

@@ -19,6 +19,21 @@ service DeliveryService {
       go_package: "github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
       go_type: "Factory"
     }
+    capabilities: {
+      name: "delivery.outbox"
+      go_package: "github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime"
+      go_type: "Outbox"
+    }
+    capabilities: {
+      name: "delivery.notifications"
+      go_package: "github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime"
+      go_type: "Notifications"
+    }
+    capabilities: {
+      name: "delivery.projection"
+      go_package: "github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime"
+      go_type: "Projection"
+    }
   };
 
   rpc GetDashboard(GetDashboardRequest) returns (GetDashboardResponse) {
