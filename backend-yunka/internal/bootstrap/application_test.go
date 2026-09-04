@@ -540,7 +540,7 @@ func TestApplicationInitializesIdentityCoreSchemaInSharedSQLite(t *testing.T) {
 	if _, err := database.Exec(`PRAGMA busy_timeout = 5000`); err != nil {
 		t.Fatalf("configure SQLite schema readback: %v", err)
 	}
-	for _, table := range []string{"organizations", "users", "external_identities", "service_accounts", "iotd_schema_migrations"} {
+	for _, table := range []string{"organizations", "users", "external_identities", "service_accounts", "iotd_audit_entries", "iotd_schema_migrations"} {
 		var name string
 		if err := database.QueryRow(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`, table).Scan(&name); err != nil {
 			t.Fatalf("identity table %q is required in shared SQLite: %v", table, err)
@@ -562,6 +562,12 @@ func TestApplicationInitializesIdentityCoreSchemaInSharedSQLite(t *testing.T) {
 	}
 	if migrationCount != 1 {
 		t.Fatalf("identity migration ledger rows = %d, want 1", migrationCount)
+	}
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = 'S0-04-01_audit_entries_v1'`).Scan(&migrationCount); err != nil || migrationCount != 1 {
+		t.Fatalf("audit migration ledger rows = %d error=%v, want 1", migrationCount, err)
+	}
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_audit_entries`).Scan(&migrationCount); err != nil || migrationCount != 0 {
+		t.Fatalf("bootstrap audit entries = %d error=%v, want 0", migrationCount, err)
 	}
 }
 

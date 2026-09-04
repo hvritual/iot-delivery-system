@@ -11,6 +11,7 @@ import (
 	"time"
 
 	generatedassembly "github.com/hvritual/iot-delivery-system/backend-yunka/internal/assembly"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/bffassertion"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/bffhttp"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
@@ -183,6 +184,10 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	if err := identitycore.ApplyMigrations(ctx, repository.Database()); err != nil {
 		_ = repository.Close()
 		return nil, fmt.Errorf("initialize identity core schema: %w", err)
+	}
+	if err := audit.ApplyMigrations(ctx, repository.Database()); err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("initialize audit schema: %w", err)
 	}
 	serviceCredentialManager, err := serviceauth.NewManager(repository.Database(), serviceauth.Config{AllowInsecureTransportForDevelopment: configuration.AllowInsecureServiceCredentialsForDevelopment})
 	if err != nil {
