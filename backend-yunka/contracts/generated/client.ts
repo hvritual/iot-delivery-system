@@ -168,6 +168,13 @@ export interface Iot_Delivery_V1_ListItemsResponse {
   items?: readonly Iot_Delivery_V1_WorkItem[];
 }
 
+export interface Iot_Delivery_V1_ListProjectsRequest {
+}
+
+export interface Iot_Delivery_V1_ListProjectsResponse {
+  projects?: readonly Iot_Delivery_V1_Project[];
+}
+
 export interface Iot_Delivery_V1_Milestone {
   id?: string;
   projectId?: string;
@@ -372,6 +379,12 @@ export const operations = {
     requestType: "iot.delivery.v1.ListItemsRequest",
     responseType: "iot.delivery.v1.ListItemsResponse"
   },
+  "iot.delivery.v1.DeliveryService.ListProjects": {
+    fullName: "iot.delivery.v1.DeliveryService.ListProjects",
+    rpcPath: "/iot.delivery.v1.DeliveryService/ListProjects",
+    requestType: "iot.delivery.v1.ListProjectsRequest",
+    responseType: "iot.delivery.v1.ListProjectsResponse"
+  },
   "iot.delivery.v1.DeliveryService.UpdateItem": {
     fullName: "iot.delivery.v1.DeliveryService.UpdateItem",
     rpcPath: "/iot.delivery.v1.DeliveryService/UpdateItem",
@@ -427,6 +440,10 @@ export class Iot_Delivery_V1_DeliveryServiceClient {
 
   listItems(request: Iot_Delivery_V1_ListItemsRequest): Promise<Iot_Delivery_V1_ListItemsResponse> {
     return this.transport.call<Iot_Delivery_V1_ListItemsRequest, Iot_Delivery_V1_ListItemsResponse>(operations["iot.delivery.v1.DeliveryService.ListItems"], request);
+  }
+
+  listProjects(request: Iot_Delivery_V1_ListProjectsRequest): Promise<Iot_Delivery_V1_ListProjectsResponse> {
+    return this.transport.call<Iot_Delivery_V1_ListProjectsRequest, Iot_Delivery_V1_ListProjectsResponse>(operations["iot.delivery.v1.DeliveryService.ListProjects"], request);
   }
 
   updateItem(request: Iot_Delivery_V1_UpdateItemRequest): Promise<Iot_Delivery_V1_WorkItemResponse> {

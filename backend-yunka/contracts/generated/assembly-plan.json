@@ -267,6 +267,27 @@
       }
     },
     {
+      "id": "delivery.projects.list",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.projects.list",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.projects.list/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.projects.list"
+      }
+    },
+    {
       "id": "delivery.releases.create",
       "application": "delivery/management",
       "bindings": [
@@ -341,6 +362,7 @@
         "delivery.items.update-context",
         "delivery.milestones.create",
         "delivery.projects.create",
+        "delivery.projects.list",
         "delivery.releases.create",
         "delivery.sprints.create"
       ],

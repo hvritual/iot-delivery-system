@@ -31,6 +31,7 @@ const (
 	DeliveryService_CreateRelease_FullMethodName     = "/iot.delivery.v1.DeliveryService/CreateRelease"
 	DeliveryService_CreateSprint_FullMethodName      = "/iot.delivery.v1.DeliveryService/CreateSprint"
 	DeliveryService_CreateMilestone_FullMethodName   = "/iot.delivery.v1.DeliveryService/CreateMilestone"
+	DeliveryService_ListProjects_FullMethodName      = "/iot.delivery.v1.DeliveryService/ListProjects"
 )
 
 // DeliveryServiceClient is the client API for DeliveryService service.
@@ -53,6 +54,7 @@ type DeliveryServiceClient interface {
 	CreateRelease(ctx context.Context, in *CreateReleaseRequest, opts ...grpc.CallOption) (*ReleaseResponse, error)
 	CreateSprint(ctx context.Context, in *CreateSprintRequest, opts ...grpc.CallOption) (*SprintResponse, error)
 	CreateMilestone(ctx context.Context, in *CreateMilestoneRequest, opts ...grpc.CallOption) (*MilestoneResponse, error)
+	ListProjects(ctx context.Context, in *ListProjectsRequest, opts ...grpc.CallOption) (*ListProjectsResponse, error)
 }
 
 type deliveryServiceClient struct {
@@ -183,6 +185,16 @@ func (c *deliveryServiceClient) CreateMilestone(ctx context.Context, in *CreateM
 	return out, nil
 }
 
+func (c *deliveryServiceClient) ListProjects(ctx context.Context, in *ListProjectsRequest, opts ...grpc.CallOption) (*ListProjectsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListProjectsResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_ListProjects_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DeliveryServiceServer is the server API for DeliveryService service.
 // All implementations should embed UnimplementedDeliveryServiceServer
 // for forward compatibility.
@@ -203,6 +215,7 @@ type DeliveryServiceServer interface {
 	CreateRelease(context.Context, *CreateReleaseRequest) (*ReleaseResponse, error)
 	CreateSprint(context.Context, *CreateSprintRequest) (*SprintResponse, error)
 	CreateMilestone(context.Context, *CreateMilestoneRequest) (*MilestoneResponse, error)
+	ListProjects(context.Context, *ListProjectsRequest) (*ListProjectsResponse, error)
 }
 
 // UnimplementedDeliveryServiceServer should be embedded to have
@@ -247,6 +260,9 @@ func (UnimplementedDeliveryServiceServer) CreateSprint(context.Context, *CreateS
 }
 func (UnimplementedDeliveryServiceServer) CreateMilestone(context.Context, *CreateMilestoneRequest) (*MilestoneResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateMilestone not implemented")
+}
+func (UnimplementedDeliveryServiceServer) ListProjects(context.Context, *ListProjectsRequest) (*ListProjectsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListProjects not implemented")
 }
 func (UnimplementedDeliveryServiceServer) testEmbeddedByValue() {}
 
@@ -484,6 +500,24 @@ func _DeliveryService_CreateMilestone_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DeliveryService_ListProjects_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListProjectsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).ListProjects(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_ListProjects_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).ListProjects(ctx, req.(*ListProjectsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DeliveryService_ServiceDesc is the grpc.ServiceDesc for DeliveryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -538,6 +572,10 @@ var DeliveryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateMilestone",
 			Handler:    _DeliveryService_CreateMilestone_Handler,
+		},
+		{
+			MethodName: "ListProjects",
+			Handler:    _DeliveryService_ListProjects_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

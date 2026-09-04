@@ -831,6 +831,31 @@
       }
     },
     {
+      "name": "ListProjectsRequest",
+      "fullName": "iot.delivery.v1.ListProjectsRequest",
+      "fields": null,
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "ListProjectsResponse",
+      "fullName": "iot.delivery.v1.ListProjectsResponse",
+      "fields": [
+        {
+          "name": "projects",
+          "jsonName": "projects",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.Project",
+          "repeated": true
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
       "name": "Milestone",
       "fullName": "iot.delivery.v1.Milestone",
       "fields": [
@@ -1908,6 +1933,7 @@
               "delivery.projects.create"
             ],
             "permissionMode": "all",
+            "tenantRequired": true,
             "authentication": [
               "api-key",
               "jwt",
@@ -1925,6 +1951,7 @@
               "delivery.projects.create"
             ],
             "permissionMode": "all",
+            "tenantRequired": true,
             "authentication": [
               "api-key",
               "jwt",
@@ -2073,6 +2100,42 @@
               "api-key",
               "jwt",
               "service-token"
+            ]
+          }
+        },
+        {
+          "name": "ListProjects",
+          "fullName": "iot.delivery.v1.DeliveryService.ListProjects",
+          "request": "iot.delivery.v1.ListProjectsRequest",
+          "response": "iot.delivery.v1.ListProjectsResponse",
+          "operation": {
+            "id": "delivery.projects.list",
+            "useCase": "list_projects",
+            "permissions": [
+              "delivery.projects.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "read_only",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.projects.list",
+            "permissions": [
+              "delivery.projects.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt"
             ]
           }
         },

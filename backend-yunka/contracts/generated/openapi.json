@@ -431,6 +431,23 @@
         "type": "object",
         "x-yunka-proto-full-name": "iot.delivery.v1.ListItemsResponse"
       },
+      "iot_delivery_v1_ListProjectsRequest": {
+        "properties": {},
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.ListProjectsRequest"
+      },
+      "iot_delivery_v1_ListProjectsResponse": {
+        "properties": {
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_Project"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.ListProjectsResponse"
+      },
       "iot_delivery_v1_Milestone": {
         "properties": {
           "createdAt": {
@@ -941,6 +958,12 @@
       "request": "iot.delivery.v1.ListItemsRequest",
       "response": "iot.delivery.v1.ListItemsResponse",
       "rpcPath": "/iot.delivery.v1.DeliveryService/ListItems"
+    },
+    {
+      "operationId": "iot.delivery.v1.DeliveryService.ListProjects",
+      "request": "iot.delivery.v1.ListProjectsRequest",
+      "response": "iot.delivery.v1.ListProjectsResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/ListProjects"
     },
     {
       "operationId": "iot.delivery.v1.DeliveryService.UpdateItem",

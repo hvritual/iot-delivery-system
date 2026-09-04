@@ -25,7 +25,7 @@ func OperationPlanCreateMilestone() operationplan.Plan {
 }
 
 func OperationPlanCreateProject() operationplan.Plan {
-	return operationplan.Plan{OperationID: "delivery.projects.create", Domain: "delivery", Application: "management", UseCase: "create_project", RequestType: "iot.delivery.v1.CreateProjectRequest", ResponseType: "iot.delivery.v1.ProjectResponse", Execution: operationplan.Execution{Transaction: "local", Idempotency: "none"}, Security: operationplan.Security{Public: false, TenantRequired: false, Authentication: []string{"api-key", "jwt", "service-token"}, Permissions: []string{"delivery.projects.create"}, PermissionMode: "all"}, Composition: operationplan.Composition{Boundary: "local", RequiresOperations: []string{}, PermissionClosure: []string{}}, ApplicationRequires: []string{}, Bindings: operationplan.Bindings{RPC: "/iot.delivery.v1.DeliveryService/CreateProject", HTTP: []operationplan.HTTPBinding{}}}
+	return operationplan.Plan{OperationID: "delivery.projects.create", Domain: "delivery", Application: "management", UseCase: "create_project", RequestType: "iot.delivery.v1.CreateProjectRequest", ResponseType: "iot.delivery.v1.ProjectResponse", Execution: operationplan.Execution{Transaction: "local", Idempotency: "none"}, Security: operationplan.Security{Public: false, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}, Permissions: []string{"delivery.projects.create"}, PermissionMode: "all"}, Composition: operationplan.Composition{Boundary: "local", RequiresOperations: []string{}, PermissionClosure: []string{}}, ApplicationRequires: []string{}, Bindings: operationplan.Bindings{RPC: "/iot.delivery.v1.DeliveryService/CreateProject", HTTP: []operationplan.HTTPBinding{}}}
 }
 
 func OperationPlanCreateRelease() operationplan.Plan {
@@ -42,6 +42,10 @@ func OperationPlanGetDashboard() operationplan.Plan {
 
 func OperationPlanListItems() operationplan.Plan {
 	return operationplan.Plan{OperationID: "delivery.items.list", Domain: "delivery", Application: "management", UseCase: "list_items", RequestType: "iot.delivery.v1.ListItemsRequest", ResponseType: "iot.delivery.v1.ListItemsResponse", Execution: operationplan.Execution{Transaction: "read_only", Idempotency: "none"}, Security: operationplan.Security{Public: false, TenantRequired: false, Authentication: []string{"api-key", "jwt", "service-token"}, Permissions: []string{"delivery.work-items.read"}, PermissionMode: "all"}, Composition: operationplan.Composition{Boundary: "local", RequiresOperations: []string{}, PermissionClosure: []string{}}, ApplicationRequires: []string{}, Bindings: operationplan.Bindings{RPC: "/iot.delivery.v1.DeliveryService/ListItems", HTTP: []operationplan.HTTPBinding{}}}
+}
+
+func OperationPlanListProjects() operationplan.Plan {
+	return operationplan.Plan{OperationID: "delivery.projects.list", Domain: "delivery", Application: "management", UseCase: "list_projects", RequestType: "iot.delivery.v1.ListProjectsRequest", ResponseType: "iot.delivery.v1.ListProjectsResponse", Execution: operationplan.Execution{Transaction: "read_only", Idempotency: "none"}, Security: operationplan.Security{Public: false, TenantRequired: true, Authentication: []string{"api-key", "jwt"}, Permissions: []string{"delivery.projects.read"}, PermissionMode: "all"}, Composition: operationplan.Composition{Boundary: "local", RequiresOperations: []string{}, PermissionClosure: []string{}}, ApplicationRequires: []string{}, Bindings: operationplan.Bindings{RPC: "/iot.delivery.v1.DeliveryService/ListProjects", HTTP: []operationplan.HTTPBinding{}}}
 }
 
 func OperationPlanUpdateItem() operationplan.Plan {

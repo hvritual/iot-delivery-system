@@ -19,6 +19,7 @@ type DeliveryService interface {
 	CreateSprint(context.Context, *deliveryv1.CreateSprintRequest) (*deliveryv1.SprintResponse, error)
 	GetDashboard(context.Context, *deliveryv1.GetDashboardRequest) (*deliveryv1.GetDashboardResponse, error)
 	ListItems(context.Context, *deliveryv1.ListItemsRequest) (*deliveryv1.ListItemsResponse, error)
+	ListProjects(context.Context, *deliveryv1.ListProjectsRequest) (*deliveryv1.ListProjectsResponse, error)
 	UpdateItem(context.Context, *deliveryv1.UpdateItemRequest) (*deliveryv1.WorkItemResponse, error)
 	UpdateItemContext(context.Context, *deliveryv1.UpdateItemContextRequest) (*deliveryv1.WorkItemResponse, error)
 }

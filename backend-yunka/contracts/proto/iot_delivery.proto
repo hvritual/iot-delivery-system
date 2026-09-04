@@ -144,6 +144,7 @@ service DeliveryService {
     option (yunka.dsl.v1.operation) = {
       id: "delivery.projects.create"
       use_case: "create_project"
+      tenant_required: true
       permissions: "delivery.projects.create"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
@@ -190,6 +191,20 @@ service DeliveryService {
       authentication: AUTHENTICATION_SERVICE
       composition: COMPOSITION_LOCAL
       execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
+    };
+  }
+  rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse) {
+    option (yunka.dsl.v1.operation) = {
+      id: "delivery.projects.list"
+      use_case: "list_projects"
+      public: false
+      tenant_required: true
+      permissions: "delivery.projects.read"
+      permission_mode: PERMISSION_ALL
+      authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
+      composition: COMPOSITION_LOCAL
+      execution: { transaction: TRANSACTION_READ_ONLY idempotency: IDEMPOTENCY_NONE }
     };
   }
 }
@@ -510,4 +525,15 @@ message CloseItemRequest {
   string id = 1;
   string retrospective = 2;
   int64 expected_revision = 3;
+}
+
+// ListProjectsRequest intentionally carries no caller-controlled scope. The
+// authenticated principal and durable grants determine the visible projects.
+message ListProjectsRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+}
+
+message ListProjectsResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  repeated Project projects = 1;
 }

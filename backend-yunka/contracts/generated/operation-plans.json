@@ -270,6 +270,7 @@
       "requestType": "iot.delivery.v1.CreateProjectRequest",
       "responseType": "iot.delivery.v1.ProjectResponse",
       "security": {
+        "tenantRequired": true,
         "authentication": [
           "api-key",
           "jwt",
@@ -289,6 +290,35 @@
       },
       "bindings": {
         "rpc": "/iot.delivery.v1.DeliveryService/CreateProject"
+      }
+    },
+    {
+      "operationId": "delivery.projects.list",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "list_projects",
+      "requestType": "iot.delivery.v1.ListProjectsRequest",
+      "responseType": "iot.delivery.v1.ListProjectsResponse",
+      "security": {
+        "tenantRequired": true,
+        "authentication": [
+          "api-key",
+          "jwt"
+        ],
+        "permissions": [
+          "delivery.projects.read"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "read_only",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/ListProjects"
       }
     },
     {

@@ -165,6 +165,19 @@ func (server *OperationServer) ListItems(ctx context.Context, request *deliveryv
 	return response, nil
 }
 
+func (server *OperationServer) ListProjects(ctx context.Context, request *deliveryv1.ListProjectsRequest) (*deliveryv1.ListProjectsResponse, error) {
+	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
+		if values := metadata.Get("idempotency-key"); len(values) > 0 {
+			ctx = execution.WithIdempotencyKey(ctx, values[0])
+		}
+	}
+	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanListProjects(), request, server.application.ListProjects)
+	if err != nil {
+		return nil, gatewaygrpc.OperationError(err)
+	}
+	return response, nil
+}
+
 func (server *OperationServer) UpdateItem(ctx context.Context, request *deliveryv1.UpdateItemRequest) (*deliveryv1.WorkItemResponse, error) {
 	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
 		if values := metadata.Get("idempotency-key"); len(values) > 0 {
