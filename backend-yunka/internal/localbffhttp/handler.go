@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -38,13 +39,13 @@ const (
 )
 
 type Config struct {
-	Login        *locallogin.Manager
-	Verifier     *localtransportauth.Verifier
-	Members      *localmemberadmin.Manager
-	ProjectRoles *localprojectroleadmin.Manager
+	Login         *locallogin.Manager
+	Verifier      *localtransportauth.Verifier
+	Members       *localmemberadmin.Manager
+	ProjectRoles  *localprojectroleadmin.Manager
 	TrustedOrigin string
-	Clock        func() time.Time
-	Random       io.Reader
+	Clock         func() time.Time
+	Random        io.Reader
 }
 
 type Handler struct {
@@ -61,9 +62,13 @@ func New(config Config) (*Handler, error) {
 	if config.Login == nil || config.Verifier == nil || config.Members == nil || config.ProjectRoles == nil {
 		return nil, errors.New("local auth BFF dependencies are required")
 	}
-	origin, err := CanonicalOrigin(config.TrustedOrigin)
-	if err != nil {
-		return nil, err
+	origin := ""
+	if strings.TrimSpace(config.TrustedOrigin) != "" {
+		var err error
+		origin, err = CanonicalOrigin(config.TrustedOrigin)
+		if err != nil {
+			return nil, err
+		}
 	}
 	clock := config.Clock
 	if clock == nil {
@@ -80,7 +85,9 @@ func New(config Config) (*Handler, error) {
 }
 
 // CanonicalOrigin accepts only an absolute HTTP(S) origin with no path, query,
-// fragment or userinfo. Bootstrap adds the production HTTPS policy.
+// fragment or userinfo. When no explicit origin is configured, unsafe routes
+// use the request Host as the same-origin authority and permit plaintext only
+// for loopback development hosts.
 func CanonicalOrigin(value string) (string, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -164,7 +171,7 @@ func (handler *Handler) handleLogin(writer http.ResponseWriter, request *http.Re
 	result, err := handler.login.Login(ctx, locallogin.LoginInput{
 		OrganizationID: body.OrganizationID,
 		UserID: body.UserID,
-		Password: password,
+		Password:       password,
 	})
 	if err != nil {
 		if errors.Is(err, locallogin.ErrAuthenticationFailed) {
@@ -183,14 +190,14 @@ func (handler *Handler) handleLogin(writer http.ResponseWriter, request *http.Re
 		return
 	}
 	writeJSON(writer, http.StatusOK, map[string]any{
-		"authenticated": true,
-		"organizationId": result.OrganizationID,
-		"userId": result.UserID,
+		"authenticated":    true,
+		"organizationId":   result.OrganizationID,
+		"userId":           result.UserID,
 		"sessionExpiresAt": result.SessionExpiresAt,
-		"accessToken": result.AccessToken,
-		"accessExpiresAt": result.AccessExpiresAt,
-		"csrfToken": csrf,
-		"traceId": traceID,
+		"accessToken":      result.AccessToken,
+		"accessExpiresAt":  result.AccessExpiresAt,
+		"csrfToken":        csrf,
+		"traceId":          traceID,
 	})
 }
 
@@ -224,18 +231,18 @@ func (handler *Handler) handleCurrent(writer http.ResponseWriter, request *http.
 		}
 	}
 	writeJSON(writer, http.StatusOK, map[string]any{
-		"authenticated": true,
-		"organizationId": member.OrganizationID,
-		"userId": member.UserID,
-		"displayName": member.DisplayName,
-		"email": member.Email,
-		"userRevision": member.UserRevision,
-		"sessionRevision": member.SessionRevision,
+		"authenticated":    true,
+		"organizationId":   member.OrganizationID,
+		"userId":           member.UserID,
+		"displayName":      member.DisplayName,
+		"email":            member.Email,
+		"userRevision":     member.UserRevision,
+		"sessionRevision":  member.SessionRevision,
 		"sessionExpiresAt": member.SessionExpiresAt,
-		"accessToken": access.AccessToken,
-		"accessExpiresAt": access.AccessExpiresAt,
-		"csrfToken": csrf,
-		"traceId": traceID,
+		"accessToken":      access.AccessToken,
+		"accessExpiresAt":  access.AccessExpiresAt,
+		"csrfToken":        csrf,
+		"traceId":          traceID,
 	})
 }
 
@@ -284,12 +291,12 @@ func (handler *Handler) handleChangePassword(writer http.ResponseWriter, request
 		return
 	}
 	result, err := handler.login.ChangePassword(ctx, locallogin.ChangePasswordInput{
-		SessionToken: token,
-		ExpectedSessionRevision: session.Revision,
-		ExpectedUserRevision: member.UserRevision,
+		SessionToken:               token,
+		ExpectedSessionRevision:    session.Revision,
+		ExpectedUserRevision:       member.UserRevision,
 		ExpectedCredentialRevision: session.CredentialRevision,
-		CurrentPassword: currentPassword,
-		NewPassword: newPassword,
+		CurrentPassword:            currentPassword,
+		NewPassword:                newPassword,
 	})
 	if err != nil {
 		switch {
@@ -307,10 +314,10 @@ func (handler *Handler) handleChangePassword(writer http.ResponseWriter, request
 	}
 	handler.clearCookies(writer)
 	writeJSON(writer, http.StatusOK, map[string]any{
-		"changed": true,
-		"userRevision": result.UserRevision,
+		"changed":            true,
+		"userRevision":       result.UserRevision,
 		"credentialRevision": result.CredentialRevision,
-		"traceId": traceID,
+		"traceId":            traceID,
 	})
 }
 
@@ -386,10 +393,10 @@ func (handler *Handler) handleResetCredential(writer http.ResponseWriter, reques
 	body.Password = ""
 	defer zeroBytes(password)
 	result, err := handler.members.ResetCredential(ctx, localmemberadmin.ResetCredentialInput{
-		UserID: request.PathValue("userID"),
-		ExpectedUserRevision: body.ExpectedUserRevision,
+		UserID:                     request.PathValue("userID"),
+		ExpectedUserRevision:       body.ExpectedUserRevision,
 		ExpectedCredentialRevision: body.ExpectedCredentialRevision,
-		Password: password,
+		Password:                   password,
 	})
 	if err != nil {
 		handler.writeManagerError(writer, err, traceID)
@@ -500,11 +507,40 @@ func (handler *Handler) writeManagerError(writer http.ResponseWriter, err error,
 }
 
 func (handler *Handler) validOrigin(request *http.Request) bool {
-	if handler == nil || request == nil || handler.trustedOrigin == "" {
+	if handler == nil || request == nil {
 		return false
 	}
 	values := request.Header.Values("Origin")
-	return len(values) == 1 && values[0] == handler.trustedOrigin
+	if len(values) != 1 {
+		return false
+	}
+	if handler.trustedOrigin != "" {
+		return values[0] == handler.trustedOrigin
+	}
+	origin, err := CanonicalOrigin(values[0])
+	if err != nil {
+		return false
+	}
+	parsed, err := url.Parse(origin)
+	if err != nil || parsed.Host != request.Host {
+		return false
+	}
+	if parsed.Scheme == "https" {
+		return true
+	}
+	return parsed.Scheme == "http" && loopbackHost(request.Host)
+}
+
+func loopbackHost(hostPort string) bool {
+	host := hostPort
+	if parsedHost, _, err := net.SplitHostPort(hostPort); err == nil {
+		host = parsedHost
+	}
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(strings.Trim(host, "[]"))
+	return ip != nil && ip.IsLoopback()
 }
 
 func validCSRF(request *http.Request) bool {
