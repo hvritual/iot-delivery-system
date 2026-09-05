@@ -30,12 +30,14 @@ func TestYU23DevelopmentGuardBypassAcceptsOnlyCanonicalLocalAPIKeyPrincipal(t *t
 		{Authenticated: true, AuthMethod: identity.AuthMethodJWT, TenantID: "org-a", UserID: "user-a", Subject: "local-user/user-a", Roles: []string{localauth.RoleLocalAdmin}},
 		{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, TenantID: "org-a", UserID: "local-api-key/local-admin", Subject: "local-api-key/local-admin", Roles: []string{localauth.RoleLocalAdmin}},
 		{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, TenantID: localauth.DevelopmentTenantID, UserID: "local-api-key/local-admin", Subject: "different-subject", Roles: []string{localauth.RoleLocalAdmin}},
+		{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, TenantID: localauth.DevelopmentTenantID, UserID: "local-api-key/fake", Subject: "local-api-key/fake", Roles: []string{localauth.RoleLocalAdmin}},
+		{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, TenantID: localauth.DevelopmentTenantID, UserID: "local-api-key/viewer", Subject: "local-api-key/viewer", Roles: []string{localauth.RoleViewer, localauth.RoleLocalAdmin}},
 	} {
 		if _, err := guard.Prepare(t.Context(), authz.AuthorizedOperation{Principal: principal}, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if durable.calls != 3 {
-		t.Fatalf("noncanonical principals entered durable guard %d times, want 3", durable.calls)
+	if durable.calls != 5 {
+		t.Fatalf("noncanonical principals entered durable guard %d times, want 5", durable.calls)
 	}
 }
