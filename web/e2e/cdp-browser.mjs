@@ -48,10 +48,14 @@ export async function launchBrowser(environment = process.env) {
       try {
         await client.send("Browser.close");
       } catch {
-        child.kill("SIGTERM");
+        if (child.exitCode === null) child.kill("SIGTERM");
       }
       client.close();
-      if (!child.killed) child.kill("SIGTERM");
+      const exited = await waitForProcessExit(child, 5_000);
+      if (!exited && child.exitCode === null) {
+        child.kill("SIGTERM");
+        await waitForProcessExit(child, 2_000);
+      }
       await rm(userDataDir, { recursive: true, force: true });
     },
   };
@@ -254,6 +258,14 @@ function devtoolsEndpoint(child) {
       reject(error);
     });
   });
+}
+
+function waitForProcessExit(child, timeoutMs) {
+  if (child.exitCode !== null) return Promise.resolve(true);
+  return Promise.race([
+    new Promise((resolve) => child.once("exit", () => resolve(true))),
+    delay(timeoutMs).then(() => false),
+  ]);
 }
 
 function delay(ms) {
