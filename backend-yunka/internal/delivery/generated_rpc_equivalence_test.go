@@ -3,6 +3,7 @@ package delivery_test
 import (
 	"bytes"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
@@ -114,5 +115,18 @@ func TestGeneratedRPCOperationPlansRemainCanonical(t *testing.T) {
 			t.Fatalf("generated policy plans differ from canonical artifact and digest failed: artifact=%v policy=%v", fileDigestErr, policyDigestErr)
 		}
 		t.Fatalf("generated policy plans differ from canonical artifact: artifact digest=%s policy digest=%s", fileDigest, policyDigest)
+	}
+}
+
+func TestUpdateItemPlanDeclaresContextComposition(t *testing.T) {
+	t.Parallel()
+	plan := policy.OperationPlanUpdateItem()
+	if want := []string{policy.OperationPlanUpdateItemContext().OperationID}; !slices.Equal(plan.Composition.RequiresOperations, want) {
+		t.Fatalf("update item requires operations = %v, want %v", plan.Composition.RequiresOperations, want)
+	}
+	for _, permission := range policy.OperationPlanUpdateItemContext().Security.Permissions {
+		if !slices.Contains(plan.Security.Permissions, permission) {
+			t.Errorf("update item permission closure %v does not contain child permission %q", plan.Security.Permissions, permission)
+		}
 	}
 }

@@ -9,6 +9,7 @@ import (
 	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/policy"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryauthz"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitycore"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
@@ -23,6 +24,44 @@ type preservingSecurity struct{}
 
 func (preservingSecurity) Prepare(ctx context.Context, _ operationplan.Plan, _ any) (context.Context, error) {
 	return ctx, nil
+}
+
+type recordingSecurity struct {
+	plans []operationplan.Plan
+}
+
+func (security *recordingSecurity) Prepare(ctx context.Context, plan operationplan.Plan, _ any) (context.Context, error) {
+	security.plans = append(security.plans, plan)
+	return ctx, nil
+}
+
+func TestDashboardAndListUseCanonicalPlansWhenLegacyServiceIsAttached(t *testing.T) {
+	repository := delivery.NewMemoryRepository()
+	service := delivery.NewService(repository, nil)
+	security := &recordingSecurity{}
+	database, err := sql.Open("sqlite", "file:"+t.Name()+"?mode=memory&cache=shared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	operations := application.NewOperations(application.NewAdapter(service), operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(database)}), service)
+
+	if _, err := operations.Dashboard(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := operations.List(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(security.plans) != 2 {
+		t.Fatalf("prepared plans = %d, want 2", len(security.plans))
+	}
+	for index, want := range []operationplan.Plan{policy.OperationPlanGetDashboard(), policy.OperationPlanListItems()} {
+		got := security.plans[index]
+		if got.OperationID != want.OperationID || got.UseCase != want.UseCase || got.Security.Permissions[0] != want.Security.Permissions[0] {
+			t.Errorf("prepared plan[%d] = id %q use case %q permissions %v, want canonical id %q use case %q permissions %v", index, got.OperationID, got.UseCase, got.Security.Permissions, want.OperationID, want.UseCase, want.Security.Permissions)
+		}
+	}
 }
 
 func TestOperationsListDoesNotBypassGuardProjectSet(t *testing.T) {
