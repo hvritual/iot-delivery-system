@@ -1,11 +1,14 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const repoRoot = path.resolve(process.cwd(), "..");
-const scenario = readFileSync(path.join(process.cwd(), "e2e/yu29-scenario.mjs"), "utf8");
+const testsDir = path.dirname(fileURLToPath(import.meta.url));
+const webRoot = path.resolve(testsDir, "..");
+const repoRoot = path.resolve(webRoot, "..");
+const scenario = readFileSync(path.join(webRoot, "e2e/yu29-scenario.mjs"), "utf8");
 const fixture = readFileSync(path.join(repoRoot, "backend-yunka/cmd/yu29-fixture/main.go"), "utf8");
-const packageJSON = JSON.parse(readFileSync(path.join(process.cwd(), "package.json"), "utf8"));
+const packageJSON = JSON.parse(readFileSync(path.join(webRoot, "package.json"), "utf8"));
 
 describe("YU-29 E2E harness contract", () => {
   it("uses two independent real browser contexts without browser identity persistence", () => {
