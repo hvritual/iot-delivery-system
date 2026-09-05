@@ -119,13 +119,30 @@ func verifySessionSchema(ctx context.Context, tx *sql.Tx) error {
 			return fmt.Errorf("local session column %d = %#v, want %#v", index, columns[index], want[index])
 		}
 	}
-	var fkRows *sql.Rows
-	fkRows, err = tx.QueryContext(ctx, `PRAGMA foreign_key_list('iotd_local_sessions')`)
+	var tableSQL string
+	if err := tx.QueryRowContext(ctx, `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'iotd_local_sessions'`).Scan(&tableSQL); err != nil {
+		return errors.New("local session physical schema is missing")
+	}
+	normalized := strings.ToLower(strings.Join(strings.Fields(tableSQL), " "))
+	for _, required := range []string{
+		"secret_digest blob not null unique check (length(secret_digest) = 32)",
+		"status text not null check (status in ('active', 'revoked'))",
+		"credential_revision integer not null check (credential_revision >= 1)",
+		"check (expires_at > created_at)",
+		"status = 'active' and revoked_at is null",
+		"status = 'revoked' and revoked_at is not null",
+		"foreign key (organization_id, user_id) references users(organization_id, id) on delete restrict",
+	} {
+		if !strings.Contains(normalized, required) {
+			return errors.New("local session physical schema contract is invalid")
+		}
+	}
+	fkRows, err := tx.QueryContext(ctx, `PRAGMA foreign_key_list('iotd_local_sessions')`)
 	if err != nil {
 		return fmt.Errorf("inspect local session foreign key: %w", err)
 	}
 	defer fkRows.Close()
-	matchedOrg, matchedUser := false, false
+	orgFK, userFK := -1, -2
 	for fkRows.Next() {
 		var id, seq int
 		var table, from, to, onUpdate, onDelete, match string
@@ -136,21 +153,22 @@ func verifySessionSchema(ctx context.Context, tx *sql.Tx) error {
 			continue
 		}
 		if from == "organization_id" && to == "organization_id" {
-			matchedOrg = true
+			orgFK = id
 		}
 		if from == "user_id" && to == "id" {
-			matchedUser = true
+			userFK = id
 		}
 	}
-	if !matchedOrg || !matchedUser {
-		return errors.New("local session tenant/User foreign key is invalid")
+	if orgFK < 0 || userFK < 0 || orgFK != userFK {
+		return errors.New("local session tenant/User composite foreign key is invalid")
 	}
-	var indexCount int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'idx_iotd_local_sessions_user_active'`).Scan(&indexCount); err != nil {
-		return fmt.Errorf("inspect local session index: %w", err)
-	}
-	if indexCount != 1 {
+	var indexSQL string
+	if err := tx.QueryRowContext(ctx, `SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'idx_iotd_local_sessions_user_active'`).Scan(&indexSQL); err != nil {
 		return errors.New("local session active-user index is missing")
+	}
+	indexNormalized := strings.ToLower(strings.Join(strings.Fields(indexSQL), " "))
+	if !strings.Contains(indexNormalized, "on iotd_local_sessions (organization_id, user_id, status, expires_at)") {
+		return errors.New("local session active-user index contract is invalid")
 	}
 	return nil
 }
