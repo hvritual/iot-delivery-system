@@ -15,17 +15,20 @@ const OperationCreateSprint authz.OperationID = "delivery.sprints.create"
 const OperationFindSimilarItems authz.OperationID = "delivery.items.similarity"
 const OperationGetDashboard authz.OperationID = "delivery.dashboard.get"
 const OperationGetItem authz.OperationID = "delivery.items.get"
+const OperationGetMemberWeek authz.OperationID = "delivery.members.week"
 const OperationListItems authz.OperationID = "delivery.items.list"
 const OperationListMilestones authz.OperationID = "delivery.milestones.list"
 const OperationListProjects authz.OperationID = "delivery.projects.list"
 const OperationListReleases authz.OperationID = "delivery.releases.list"
+const OperationListSavedViews authz.OperationID = "delivery.views.list"
 const OperationListSprints authz.OperationID = "delivery.sprints.list"
+const OperationSaveView authz.OperationID = "delivery.views.save"
 const OperationSearchItems authz.OperationID = "delivery.items.search"
 const OperationUpdateItem authz.OperationID = "delivery.items.update"
 const OperationUpdateItemContext authz.OperationID = "delivery.items.update-context"
 
 func Permissions() []authz.PermissionKey {
-	return []authz.PermissionKey{"delivery.dashboard.read", "delivery.milestones.create", "delivery.milestones.read", "delivery.projects.create", "delivery.projects.read", "delivery.releases.create", "delivery.releases.read", "delivery.sprints.create", "delivery.sprints.read", "delivery.work-items.close", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.create", "delivery.work-items.gate.advance", "delivery.work-items.read", "delivery.work-items.update"}
+	return []authz.PermissionKey{"delivery.dashboard.read", "delivery.members.read", "delivery.milestones.create", "delivery.milestones.read", "delivery.projects.create", "delivery.projects.read", "delivery.releases.create", "delivery.releases.read", "delivery.sprints.create", "delivery.sprints.read", "delivery.views.read", "delivery.views.write", "delivery.work-items.close", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.create", "delivery.work-items.gate.advance", "delivery.work-items.read", "delivery.work-items.update"}
 }
 
 func Resolver() authz.StaticResolver {
@@ -41,11 +44,14 @@ func Resolver() authz.StaticResolver {
 		"/iot.delivery.v1.DeliveryService/FindSimilarItems":  {Operation: OperationFindSimilarItems, Permissions: []authz.PermissionKey{"delivery.work-items.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/GetDashboard":      {Operation: OperationGetDashboard, Permissions: []authz.PermissionKey{"delivery.dashboard.read"}, Mode: authz.PermissionAll, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/GetItem":           {Operation: OperationGetItem, Permissions: []authz.PermissionKey{"delivery.work-items.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
+		"/iot.delivery.v1.DeliveryService/GetMemberWeek":     {Operation: OperationGetMemberWeek, Permissions: []authz.PermissionKey{"delivery.members.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/ListItems":         {Operation: OperationListItems, Permissions: []authz.PermissionKey{"delivery.work-items.read"}, Mode: authz.PermissionAll, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/ListMilestones":    {Operation: OperationListMilestones, Permissions: []authz.PermissionKey{"delivery.milestones.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/ListProjects":      {Operation: OperationListProjects, Permissions: []authz.PermissionKey{"delivery.projects.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/ListReleases":      {Operation: OperationListReleases, Permissions: []authz.PermissionKey{"delivery.releases.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
+		"/iot.delivery.v1.DeliveryService/ListSavedViews":    {Operation: OperationListSavedViews, Permissions: []authz.PermissionKey{"delivery.views.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt"}},
 		"/iot.delivery.v1.DeliveryService/ListSprints":       {Operation: OperationListSprints, Permissions: []authz.PermissionKey{"delivery.sprints.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
+		"/iot.delivery.v1.DeliveryService/SaveView":          {Operation: OperationSaveView, Permissions: []authz.PermissionKey{"delivery.views.write"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt"}},
 		"/iot.delivery.v1.DeliveryService/SearchItems":       {Operation: OperationSearchItems, Permissions: []authz.PermissionKey{"delivery.work-items.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/UpdateItem":        {Operation: OperationUpdateItem, Permissions: []authz.PermissionKey{"delivery.work-items.context.update", "delivery.work-items.update"}, Mode: authz.PermissionAll, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/UpdateItemContext": {Operation: OperationUpdateItemContext, Permissions: []authz.PermissionKey{"delivery.work-items.context.update"}, Mode: authz.PermissionAll, Authentication: []string{"api-key", "jwt", "service-token"}},

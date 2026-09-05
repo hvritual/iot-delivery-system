@@ -331,6 +331,36 @@
       }
     },
     {
+      "operationId": "delivery.members.week",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "get_member_week",
+      "requestType": "iot.delivery.v1.GetMemberWeekRequest",
+      "responseType": "iot.delivery.v1.MemberWeekResponse",
+      "security": {
+        "tenantRequired": true,
+        "authentication": [
+          "api-key",
+          "jwt",
+          "service-token"
+        ],
+        "permissions": [
+          "delivery.members.read"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "read_only",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/GetMemberWeek"
+      }
+    },
+    {
       "operationId": "delivery.milestones.create",
       "domain": "delivery",
       "application": "management",
@@ -565,6 +595,64 @@
       },
       "bindings": {
         "rpc": "/iot.delivery.v1.DeliveryService/ListSprints"
+      }
+    },
+    {
+      "operationId": "delivery.views.list",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "list_saved_views",
+      "requestType": "iot.delivery.v1.ListSavedViewsRequest",
+      "responseType": "iot.delivery.v1.ListSavedViewsResponse",
+      "security": {
+        "tenantRequired": true,
+        "authentication": [
+          "api-key",
+          "jwt"
+        ],
+        "permissions": [
+          "delivery.views.read"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "read_only",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/ListSavedViews"
+      }
+    },
+    {
+      "operationId": "delivery.views.save",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "save_view",
+      "requestType": "iot.delivery.v1.SaveViewRequest",
+      "responseType": "iot.delivery.v1.SavedViewResponse",
+      "security": {
+        "tenantRequired": true,
+        "authentication": [
+          "api-key",
+          "jwt"
+        ],
+        "permissions": [
+          "delivery.views.write"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "local",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/SaveView"
       }
     }
   ]

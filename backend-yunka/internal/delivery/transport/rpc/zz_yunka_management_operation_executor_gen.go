@@ -178,6 +178,19 @@ func (server *OperationServer) GetItem(ctx context.Context, request *deliveryv1.
 	return response, nil
 }
 
+func (server *OperationServer) GetMemberWeek(ctx context.Context, request *deliveryv1.GetMemberWeekRequest) (*deliveryv1.MemberWeekResponse, error) {
+	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
+		if values := metadata.Get("idempotency-key"); len(values) > 0 {
+			ctx = execution.WithIdempotencyKey(ctx, values[0])
+		}
+	}
+	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanGetMemberWeek(), request, server.application.GetMemberWeek)
+	if err != nil {
+		return nil, gatewaygrpc.OperationError(err)
+	}
+	return response, nil
+}
+
 func (server *OperationServer) ListItems(ctx context.Context, request *deliveryv1.ListItemsRequest) (*deliveryv1.ListItemsResponse, error) {
 	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
 		if values := metadata.Get("idempotency-key"); len(values) > 0 {
@@ -230,6 +243,19 @@ func (server *OperationServer) ListReleases(ctx context.Context, request *delive
 	return response, nil
 }
 
+func (server *OperationServer) ListSavedViews(ctx context.Context, request *deliveryv1.ListSavedViewsRequest) (*deliveryv1.ListSavedViewsResponse, error) {
+	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
+		if values := metadata.Get("idempotency-key"); len(values) > 0 {
+			ctx = execution.WithIdempotencyKey(ctx, values[0])
+		}
+	}
+	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanListSavedViews(), request, server.application.ListSavedViews)
+	if err != nil {
+		return nil, gatewaygrpc.OperationError(err)
+	}
+	return response, nil
+}
+
 func (server *OperationServer) ListSprints(ctx context.Context, request *deliveryv1.ListSprintsRequest) (*deliveryv1.ListSprintsResponse, error) {
 	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
 		if values := metadata.Get("idempotency-key"); len(values) > 0 {
@@ -237,6 +263,19 @@ func (server *OperationServer) ListSprints(ctx context.Context, request *deliver
 		}
 	}
 	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanListSprints(), request, server.application.ListSprints)
+	if err != nil {
+		return nil, gatewaygrpc.OperationError(err)
+	}
+	return response, nil
+}
+
+func (server *OperationServer) SaveView(ctx context.Context, request *deliveryv1.SaveViewRequest) (*deliveryv1.SavedViewResponse, error) {
+	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
+		if values := metadata.Get("idempotency-key"); len(values) > 0 {
+			ctx = execution.WithIdempotencyKey(ctx, values[0])
+		}
+	}
+	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanSaveView(), request, server.application.SaveView)
 	if err != nil {
 		return nil, gatewaygrpc.OperationError(err)
 	}

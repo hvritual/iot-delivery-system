@@ -170,6 +170,11 @@ export interface Iot_Delivery_V1_GetItemRequest {
   id?: string;
 }
 
+export interface Iot_Delivery_V1_GetMemberWeekRequest {
+  member?: string;
+  weekStart?: string;
+}
+
 export interface Iot_Delivery_V1_IoTBinding {
   kind?: string;
   reference?: string;
@@ -207,12 +212,30 @@ export interface Iot_Delivery_V1_ListReleasesResponse {
   releases?: readonly Iot_Delivery_V1_Release[];
 }
 
+export interface Iot_Delivery_V1_ListSavedViewsRequest {
+}
+
+export interface Iot_Delivery_V1_ListSavedViewsResponse {
+  views?: readonly Iot_Delivery_V1_SavedView[];
+}
+
 export interface Iot_Delivery_V1_ListSprintsRequest {
   projectId?: string;
 }
 
 export interface Iot_Delivery_V1_ListSprintsResponse {
   sprints?: readonly Iot_Delivery_V1_Sprint[];
+}
+
+export interface Iot_Delivery_V1_MemberWeek {
+  member?: string;
+  weekStart?: string;
+  weekEnd?: string;
+  items?: readonly Iot_Delivery_V1_WorkItem[];
+}
+
+export interface Iot_Delivery_V1_MemberWeekResponse {
+  week?: Iot_Delivery_V1_MemberWeek;
 }
 
 export interface Iot_Delivery_V1_Milestone {
@@ -258,6 +281,24 @@ export interface Iot_Delivery_V1_Release {
 
 export interface Iot_Delivery_V1_ReleaseResponse {
   release?: Iot_Delivery_V1_Release;
+}
+
+export interface Iot_Delivery_V1_SaveViewRequest {
+  name?: string;
+  filter?: Iot_Delivery_V1_WorkItemFilter;
+}
+
+export interface Iot_Delivery_V1_SavedView {
+  id?: string;
+  name?: string;
+  owner?: string;
+  filter?: Iot_Delivery_V1_WorkItemFilter;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Iot_Delivery_V1_SavedViewResponse {
+  view?: Iot_Delivery_V1_SavedView;
 }
 
 export interface Iot_Delivery_V1_SearchItemsRequest {
@@ -376,6 +417,18 @@ export interface Iot_Delivery_V1_WorkItemDependency {
   relation?: string;
 }
 
+export interface Iot_Delivery_V1_WorkItemFilter {
+  projectId?: string;
+  board?: string;
+  owner?: string;
+  status?: string;
+  kind?: string;
+  releaseId?: string;
+  sprintId?: string;
+  milestoneId?: string;
+  query?: string;
+}
+
 export interface Iot_Delivery_V1_WorkItemResponse {
   item?: Iot_Delivery_V1_WorkItem;
 }
@@ -447,6 +500,12 @@ export const operations = {
     requestType: "iot.delivery.v1.GetItemRequest",
     responseType: "iot.delivery.v1.WorkItemResponse"
   },
+  "iot.delivery.v1.DeliveryService.GetMemberWeek": {
+    fullName: "iot.delivery.v1.DeliveryService.GetMemberWeek",
+    rpcPath: "/iot.delivery.v1.DeliveryService/GetMemberWeek",
+    requestType: "iot.delivery.v1.GetMemberWeekRequest",
+    responseType: "iot.delivery.v1.MemberWeekResponse"
+  },
   "iot.delivery.v1.DeliveryService.ListItems": {
     fullName: "iot.delivery.v1.DeliveryService.ListItems",
     rpcPath: "/iot.delivery.v1.DeliveryService/ListItems",
@@ -471,11 +530,23 @@ export const operations = {
     requestType: "iot.delivery.v1.ListReleasesRequest",
     responseType: "iot.delivery.v1.ListReleasesResponse"
   },
+  "iot.delivery.v1.DeliveryService.ListSavedViews": {
+    fullName: "iot.delivery.v1.DeliveryService.ListSavedViews",
+    rpcPath: "/iot.delivery.v1.DeliveryService/ListSavedViews",
+    requestType: "iot.delivery.v1.ListSavedViewsRequest",
+    responseType: "iot.delivery.v1.ListSavedViewsResponse"
+  },
   "iot.delivery.v1.DeliveryService.ListSprints": {
     fullName: "iot.delivery.v1.DeliveryService.ListSprints",
     rpcPath: "/iot.delivery.v1.DeliveryService/ListSprints",
     requestType: "iot.delivery.v1.ListSprintsRequest",
     responseType: "iot.delivery.v1.ListSprintsResponse"
+  },
+  "iot.delivery.v1.DeliveryService.SaveView": {
+    fullName: "iot.delivery.v1.DeliveryService.SaveView",
+    rpcPath: "/iot.delivery.v1.DeliveryService/SaveView",
+    requestType: "iot.delivery.v1.SaveViewRequest",
+    responseType: "iot.delivery.v1.SavedViewResponse"
   },
   "iot.delivery.v1.DeliveryService.SearchItems": {
     fullName: "iot.delivery.v1.DeliveryService.SearchItems",
@@ -544,6 +615,10 @@ export class Iot_Delivery_V1_DeliveryServiceClient {
     return this.transport.call<Iot_Delivery_V1_GetItemRequest, Iot_Delivery_V1_WorkItemResponse>(operations["iot.delivery.v1.DeliveryService.GetItem"], request);
   }
 
+  getMemberWeek(request: Iot_Delivery_V1_GetMemberWeekRequest): Promise<Iot_Delivery_V1_MemberWeekResponse> {
+    return this.transport.call<Iot_Delivery_V1_GetMemberWeekRequest, Iot_Delivery_V1_MemberWeekResponse>(operations["iot.delivery.v1.DeliveryService.GetMemberWeek"], request);
+  }
+
   listItems(request: Iot_Delivery_V1_ListItemsRequest): Promise<Iot_Delivery_V1_ListItemsResponse> {
     return this.transport.call<Iot_Delivery_V1_ListItemsRequest, Iot_Delivery_V1_ListItemsResponse>(operations["iot.delivery.v1.DeliveryService.ListItems"], request);
   }
@@ -560,8 +635,16 @@ export class Iot_Delivery_V1_DeliveryServiceClient {
     return this.transport.call<Iot_Delivery_V1_ListReleasesRequest, Iot_Delivery_V1_ListReleasesResponse>(operations["iot.delivery.v1.DeliveryService.ListReleases"], request);
   }
 
+  listSavedViews(request: Iot_Delivery_V1_ListSavedViewsRequest): Promise<Iot_Delivery_V1_ListSavedViewsResponse> {
+    return this.transport.call<Iot_Delivery_V1_ListSavedViewsRequest, Iot_Delivery_V1_ListSavedViewsResponse>(operations["iot.delivery.v1.DeliveryService.ListSavedViews"], request);
+  }
+
   listSprints(request: Iot_Delivery_V1_ListSprintsRequest): Promise<Iot_Delivery_V1_ListSprintsResponse> {
     return this.transport.call<Iot_Delivery_V1_ListSprintsRequest, Iot_Delivery_V1_ListSprintsResponse>(operations["iot.delivery.v1.DeliveryService.ListSprints"], request);
+  }
+
+  saveView(request: Iot_Delivery_V1_SaveViewRequest): Promise<Iot_Delivery_V1_SavedViewResponse> {
+    return this.transport.call<Iot_Delivery_V1_SaveViewRequest, Iot_Delivery_V1_SavedViewResponse>(operations["iot.delivery.v1.DeliveryService.SaveView"], request);
   }
 
   searchItems(request: Iot_Delivery_V1_SearchItemsRequest): Promise<Iot_Delivery_V1_SearchItemsResponse> {

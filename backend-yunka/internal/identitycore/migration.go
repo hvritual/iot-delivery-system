@@ -33,6 +33,8 @@ const PlanningListAuthorizationMigrationID = "S0-04-08_planning_list_authorizati
 // migration has already been recorded.
 const ItemReadAuthorizationMigrationID = "S0-05-09_item_read_authorization_v1"
 
+const SavedViewAuthorizationMigrationID = "S0-06-12_saved_view_member_week_authorization_v1"
+
 const identitySchema = `
 CREATE TABLE organizations (
     id TEXT PRIMARY KEY NOT NULL CHECK (length(trim(id)) > 0),
@@ -325,6 +327,10 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("load item read authorization migration definitions: %w", err)
 	}
+	personalReads, err := loadSavedViewAuthorizationDefinitions(dictionary)
+	if err != nil {
+		return fmt.Errorf("load saved view authorization migration definitions: %w", err)
+	}
 	if _, err := database.ExecContext(ctx, `PRAGMA foreign_keys = ON`); err != nil {
 		return fmt.Errorf("enable identity foreign keys: %w", err)
 	}
@@ -348,6 +354,10 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, ItemReadAuthorizationMigrationID).Scan(&itemReadsApplied); err != nil {
 		return fmt.Errorf("read item read authorization migration ledger: %w", err)
 	}
+	var personalReadsApplied int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, SavedViewAuthorizationMigrationID).Scan(&personalReadsApplied); err != nil {
+		return fmt.Errorf("read saved view authorization migration ledger: %w", err)
+	}
 	for _, migration := range []struct {
 		id     string
 		schema string
@@ -369,6 +379,11 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 			for _, definition := range planningLists {
 				if err := ensureProjectReadAuthorization(ctx, tx, definition, planningListsApplied == 0); err != nil {
 					return fmt.Errorf("ensure planning list authorization before service operation migration: %w", err)
+				}
+			}
+			for _, definition := range personalReads {
+				if err := ensureProjectReadAuthorization(ctx, tx, definition, personalReadsApplied == 0); err != nil {
+					return fmt.Errorf("ensure saved view authorization before service operation migration: %w", err)
 				}
 			}
 		}
@@ -432,10 +447,66 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 			return fmt.Errorf("record item read authorization migration: %w", err)
 		}
 	}
+	for _, definition := range personalReads {
+		if err := ensureProjectReadAuthorization(ctx, tx, definition, personalReadsApplied == 0); err != nil {
+			return fmt.Errorf("ensure saved view authorization migration: %w", err)
+		}
+		if err := ensureProjectReadServiceOperation(ctx, tx, definition, personalReadsApplied == 0); err != nil {
+			return fmt.Errorf("ensure saved view service operation migration: %w", err)
+		}
+	}
+	if personalReadsApplied == 0 {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO iotd_schema_migrations (migration_id, applied_at) VALUES (?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`, SavedViewAuthorizationMigrationID); err != nil {
+			return fmt.Errorf("record saved view authorization migration: %w", err)
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit identity migration: %w", err)
 	}
 	return nil
+}
+
+func loadSavedViewAuthorizationDefinitions(dictionary authorization.Dictionary) ([]projectReadAuthorizationDefinition, error) {
+	specifications := []struct{ permission, operation, resource, action string }{
+		{permission: "delivery.views.write", operation: "delivery.views.save", resource: "delivery.views", action: "write"},
+		{permission: "delivery.views.read", operation: "delivery.views.list", resource: "delivery.views", action: "read"},
+		{permission: "delivery.members.read", operation: "delivery.members.week", resource: "delivery.members", action: "read"},
+	}
+	definitions := make([]projectReadAuthorizationDefinition, 0, len(specifications))
+	for _, specification := range specifications {
+		definition := projectReadAuthorizationDefinition{}
+		for _, permission := range dictionary.Permissions {
+			if permission.ID == specification.permission {
+				definition.permission = permission
+				break
+			}
+		}
+		if definition.permission.Resource != specification.resource || definition.permission.Action != specification.action || definition.permission.Status != "active" || !sameStrings(definition.permission.AllowedScopes, []string{"project"}) {
+			return nil, fmt.Errorf("permission %q has invalid saved view semantics", specification.permission)
+		}
+		for _, operation := range dictionary.Operations {
+			if operation.ID == specification.operation {
+				definition.operation = operation
+				break
+			}
+		}
+		if definition.operation.Permission != specification.permission || definition.operation.RequiredScope != "project" {
+			return nil, fmt.Errorf("operation %q has invalid saved view semantics", specification.operation)
+		}
+		for _, role := range dictionary.Roles {
+			for _, grant := range role.Grants {
+				if grant.Permission == specification.permission && sameStrings(grant.AllowedScopes, []string{"project"}) {
+					definition.roles = append(definition.roles, role)
+					break
+				}
+			}
+		}
+		if len(definition.roles) != 6 {
+			return nil, fmt.Errorf("all six built-in roles must grant %q", specification.permission)
+		}
+		definitions = append(definitions, definition)
+	}
+	return definitions, nil
 }
 
 type projectReadAuthorizationDefinition struct {

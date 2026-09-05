@@ -137,6 +137,8 @@ func TestOperationsItemReadsDoNotRequireLegacyExtensionService(t *testing.T) {
 		Authenticated: true,
 		AuthMethod:    identity.AuthMethodAPIKey,
 		TenantID:      localauth.DevelopmentTenantID,
+		UserID:        "canonical-admin",
+		Subject:       "display-name-must-not-own-views",
 		Roles:         []string{localauth.RoleLocalAdmin},
 	})
 	project, err := operations.CreateProject(administrator, delivery.ProjectInput{Name: "item reads", Board: delivery.BoardResearchDelivery, Owner: "owner"})
@@ -158,6 +160,18 @@ func TestOperationsItemReadsDoNotRequireLegacyExtensionService(t *testing.T) {
 	candidates, err := operations.FindSimilar(administrator, delivery.SimilarityQuery{ProjectID: project.ID, Title: created.Title, Kind: created.Kind})
 	if err != nil || len(candidates) != 1 || candidates[0].ID != created.ID || !candidates[0].Exact {
 		t.Fatalf("similar items = %#v, %v", candidates, err)
+	}
+	view, err := operations.SaveView(administrator, delivery.SavedViewInput{Name: "canonical view", Filter: delivery.WorkItemFilter{ProjectID: project.ID}})
+	if err != nil || view.Owner != "canonical-admin" {
+		t.Fatalf("save view = %#v, %v; want canonical UserID owner", view, err)
+	}
+	views, err := operations.ListSavedViews(administrator)
+	if err != nil || len(views) != 1 || views[0].ID != view.ID {
+		t.Fatalf("list saved views = %#v, %v", views, err)
+	}
+	week, err := operations.MemberWeek(administrator, "owner", "2026-09-07")
+	if err != nil || week.Member != "owner" {
+		t.Fatalf("member week = %#v, %v", week, err)
 	}
 }
 

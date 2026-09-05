@@ -142,6 +142,46 @@ service DeliveryService {
       execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
     };
   }
+  rpc SaveView(SaveViewRequest) returns (SavedViewResponse) {
+    option (yunka.dsl.v1.operation) = {
+      id: "delivery.views.save"
+      use_case: "save_view"
+      tenant_required: true
+      permissions: "delivery.views.write"
+      permission_mode: PERMISSION_ALL
+      authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
+      composition: COMPOSITION_LOCAL
+      execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
+    };
+  }
+  rpc ListSavedViews(ListSavedViewsRequest) returns (ListSavedViewsResponse) {
+    option (yunka.dsl.v1.operation) = {
+      id: "delivery.views.list"
+      use_case: "list_saved_views"
+      tenant_required: true
+      permissions: "delivery.views.read"
+      permission_mode: PERMISSION_ALL
+      authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
+      composition: COMPOSITION_LOCAL
+      execution: { transaction: TRANSACTION_READ_ONLY idempotency: IDEMPOTENCY_NONE }
+    };
+  }
+  rpc GetMemberWeek(GetMemberWeekRequest) returns (MemberWeekResponse) {
+    option (yunka.dsl.v1.operation) = {
+      id: "delivery.members.week"
+      use_case: "get_member_week"
+      tenant_required: true
+      permissions: "delivery.members.read"
+      permission_mode: PERMISSION_ALL
+      authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
+      authentication: AUTHENTICATION_SERVICE
+      composition: COMPOSITION_LOCAL
+      execution: { transaction: TRANSACTION_READ_ONLY idempotency: IDEMPOTENCY_NONE }
+    };
+  }
   rpc CreateProject(CreateProjectRequest) returns (ProjectResponse) {
     option (yunka.dsl.v1.operation) = {
       id: "delivery.projects.create"
@@ -490,6 +530,24 @@ message Activity {
   google.protobuf.Timestamp occurred_at = 5;
 }
 
+message SavedView {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string id = 1;
+  string name = 2;
+  string owner = 3;
+  WorkItemFilter filter = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message MemberWeek {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string member = 1;
+  string week_start = 2;
+  string week_end = 3;
+  repeated WorkItem items = 4;
+}
+
 message Evidence {
   option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
   string kind = 1;
@@ -618,6 +676,50 @@ message CloseItemRequest {
   string id = 1;
   string retrospective = 2;
   int64 expected_revision = 3;
+}
+
+message WorkItemFilter {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string project_id = 1;
+  string board = 2;
+  string owner = 3;
+  string status = 4;
+  string kind = 5;
+  string release_id = 6;
+  string sprint_id = 7;
+  string milestone_id = 8;
+  string query = 9;
+}
+
+message SaveViewRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string name = 1;
+  WorkItemFilter filter = 2;
+}
+
+message ListSavedViewsRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+}
+
+message GetMemberWeekRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string member = 1;
+  string week_start = 2;
+}
+
+message SavedViewResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  SavedView view = 1;
+}
+
+message ListSavedViewsResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  repeated SavedView views = 1;
+}
+
+message MemberWeekResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  MemberWeek week = 1;
 }
 
 // ListProjectsRequest intentionally carries no caller-controlled scope. The

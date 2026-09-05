@@ -288,6 +288,27 @@
       }
     },
     {
+      "id": "delivery.members.week",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.members.week",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.members.week/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.members.week"
+      }
+    },
+    {
       "id": "delivery.milestones.create",
       "application": "delivery/management",
       "bindings": [
@@ -454,6 +475,48 @@
         "source": "operation-plans.json",
         "ref": "operations/delivery.sprints.list"
       }
+    },
+    {
+      "id": "delivery.views.list",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.views.list",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.views.list/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.views.list"
+      }
+    },
+    {
+      "id": "delivery.views.save",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.views.save",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.views.save/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.views.save"
+      }
     }
   ],
   "operationDependencies": [
@@ -500,6 +563,7 @@
         "delivery.items.similarity",
         "delivery.items.update",
         "delivery.items.update-context",
+        "delivery.members.week",
         "delivery.milestones.create",
         "delivery.milestones.list",
         "delivery.projects.create",
@@ -507,7 +571,9 @@
         "delivery.releases.create",
         "delivery.releases.list",
         "delivery.sprints.create",
-        "delivery.sprints.list"
+        "delivery.sprints.list",
+        "delivery.views.list",
+        "delivery.views.save"
       ],
       "evidence": {
         "ownership": "derived",

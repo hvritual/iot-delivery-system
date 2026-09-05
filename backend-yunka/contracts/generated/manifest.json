@@ -842,6 +842,29 @@
       }
     },
     {
+      "name": "GetMemberWeekRequest",
+      "fullName": "iot.delivery.v1.GetMemberWeekRequest",
+      "fields": [
+        {
+          "name": "member",
+          "jsonName": "member",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "week_start",
+          "jsonName": "weekStart",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
       "name": "IoTBinding",
       "fullName": "iot.delivery.v1.IoTBinding",
       "fields": [
@@ -999,6 +1022,31 @@
       }
     },
     {
+      "name": "ListSavedViewsRequest",
+      "fullName": "iot.delivery.v1.ListSavedViewsRequest",
+      "fields": null,
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "ListSavedViewsResponse",
+      "fullName": "iot.delivery.v1.ListSavedViewsResponse",
+      "fields": [
+        {
+          "name": "views",
+          "jsonName": "views",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.SavedView",
+          "repeated": true
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
       "name": "ListSprintsRequest",
       "fullName": "iot.delivery.v1.ListSprintsRequest",
       "fields": [
@@ -1025,6 +1073,60 @@
           "kind": "message",
           "type": "iot.delivery.v1.Sprint",
           "repeated": true
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
+      "name": "MemberWeek",
+      "fullName": "iot.delivery.v1.MemberWeek",
+      "fields": [
+        {
+          "name": "member",
+          "jsonName": "member",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "week_start",
+          "jsonName": "weekStart",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "week_end",
+          "jsonName": "weekEnd",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "items",
+          "jsonName": "items",
+          "number": 4,
+          "kind": "message",
+          "type": "iot.delivery.v1.WorkItem",
+          "repeated": true
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
+      "name": "MemberWeekResponse",
+      "fullName": "iot.delivery.v1.MemberWeekResponse",
+      "fields": [
+        {
+          "name": "week",
+          "jsonName": "week",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.MemberWeek"
         }
       ],
       "dto": {
@@ -1268,6 +1370,96 @@
           "number": 1,
           "kind": "message",
           "type": "iot.delivery.v1.Release"
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
+      "name": "SaveViewRequest",
+      "fullName": "iot.delivery.v1.SaveViewRequest",
+      "fields": [
+        {
+          "name": "name",
+          "jsonName": "name",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "filter",
+          "jsonName": "filter",
+          "number": 2,
+          "kind": "message",
+          "type": "iot.delivery.v1.WorkItemFilter"
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "SavedView",
+      "fullName": "iot.delivery.v1.SavedView",
+      "fields": [
+        {
+          "name": "id",
+          "jsonName": "id",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "name",
+          "jsonName": "name",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "owner",
+          "jsonName": "owner",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "filter",
+          "jsonName": "filter",
+          "number": 4,
+          "kind": "message",
+          "type": "iot.delivery.v1.WorkItemFilter"
+        },
+        {
+          "name": "created_at",
+          "jsonName": "createdAt",
+          "number": 5,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        },
+        {
+          "name": "updated_at",
+          "jsonName": "updatedAt",
+          "number": 6,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
+      "name": "SavedViewResponse",
+      "fullName": "iot.delivery.v1.SavedViewResponse",
+      "fields": [
+        {
+          "name": "view",
+          "jsonName": "view",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.SavedView"
         }
       ],
       "dto": {
@@ -1983,6 +2175,78 @@
       }
     },
     {
+      "name": "WorkItemFilter",
+      "fullName": "iot.delivery.v1.WorkItemFilter",
+      "fields": [
+        {
+          "name": "project_id",
+          "jsonName": "projectId",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "board",
+          "jsonName": "board",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "owner",
+          "jsonName": "owner",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "jsonName": "status",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "kind",
+          "jsonName": "kind",
+          "number": 5,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "release_id",
+          "jsonName": "releaseId",
+          "number": 6,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "sprint_id",
+          "jsonName": "sprintId",
+          "number": 7,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "milestone_id",
+          "jsonName": "milestoneId",
+          "number": 8,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "query",
+          "jsonName": "query",
+          "number": 9,
+          "kind": "scalar",
+          "type": "string"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
       "name": "WorkItemResponse",
       "fullName": "iot.delivery.v1.WorkItemResponse",
       "fields": [
@@ -2439,6 +2703,44 @@
           }
         },
         {
+          "name": "GetMemberWeek",
+          "fullName": "iot.delivery.v1.DeliveryService.GetMemberWeek",
+          "request": "iot.delivery.v1.GetMemberWeekRequest",
+          "response": "iot.delivery.v1.MemberWeekResponse",
+          "operation": {
+            "id": "delivery.members.week",
+            "useCase": "get_member_week",
+            "permissions": [
+              "delivery.members.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt",
+              "service-token"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "read_only",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.members.week",
+            "permissions": [
+              "delivery.members.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt",
+              "service-token"
+            ]
+          }
+        },
+        {
           "name": "ListItems",
           "fullName": "iot.delivery.v1.DeliveryService.ListItems",
           "request": "iot.delivery.v1.ListItemsRequest",
@@ -2589,6 +2891,42 @@
           }
         },
         {
+          "name": "ListSavedViews",
+          "fullName": "iot.delivery.v1.DeliveryService.ListSavedViews",
+          "request": "iot.delivery.v1.ListSavedViewsRequest",
+          "response": "iot.delivery.v1.ListSavedViewsResponse",
+          "operation": {
+            "id": "delivery.views.list",
+            "useCase": "list_saved_views",
+            "permissions": [
+              "delivery.views.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "read_only",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.views.list",
+            "permissions": [
+              "delivery.views.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt"
+            ]
+          }
+        },
+        {
           "name": "ListSprints",
           "fullName": "iot.delivery.v1.DeliveryService.ListSprints",
           "request": "iot.delivery.v1.ListSprintsRequest",
@@ -2623,6 +2961,42 @@
               "api-key",
               "jwt",
               "service-token"
+            ]
+          }
+        },
+        {
+          "name": "SaveView",
+          "fullName": "iot.delivery.v1.DeliveryService.SaveView",
+          "request": "iot.delivery.v1.SaveViewRequest",
+          "response": "iot.delivery.v1.SavedViewResponse",
+          "operation": {
+            "id": "delivery.views.save",
+            "useCase": "save_view",
+            "permissions": [
+              "delivery.views.write"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "local",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.views.save",
+            "permissions": [
+              "delivery.views.write"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt"
             ]
           }
         },

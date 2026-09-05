@@ -221,6 +221,36 @@ func (service *auditedDeliveryService) CloseItem(ctx context.Context, request *d
 	return response, nil
 }
 
+func (service *auditedDeliveryService) SaveView(ctx context.Context, request *deliveryv1.SaveViewRequest) (*deliveryv1.SavedViewResponse, error) {
+	operationID, metadata, err := verifiedWriteOperation(ctx, policy.OperationPlanSaveView().OperationID)
+	if err != nil {
+		return nil, err
+	}
+	response, err := service.delegate.SaveView(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	if response == nil || response.GetView() == nil {
+		return nil, errors.New("save view returned no view")
+	}
+	projectID := ""
+	if request.GetFilter() != nil {
+		projectID = request.GetFilter().GetProjectId()
+	}
+	if err := service.append(ctx, operationID, metadata, auditInput{change: "created", fields: []string{"name", "filter"}, projectID: projectID, targetType: "delivery.saved-view", targetID: response.GetView().GetId()}); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+func (service *auditedDeliveryService) ListSavedViews(ctx context.Context, request *deliveryv1.ListSavedViewsRequest) (*deliveryv1.ListSavedViewsResponse, error) {
+	return service.delegate.ListSavedViews(ctx, request)
+}
+
+func (service *auditedDeliveryService) GetMemberWeek(ctx context.Context, request *deliveryv1.GetMemberWeekRequest) (*deliveryv1.MemberWeekResponse, error) {
+	return service.delegate.GetMemberWeek(ctx, request)
+}
+
 func (service *auditedDeliveryService) CreateProject(ctx context.Context, request *deliveryv1.CreateProjectRequest) (*deliveryv1.ProjectResponse, error) {
 	operationID, metadata, err := verifiedWriteOperation(ctx, policy.OperationPlanCreateProject().OperationID)
 	if err != nil {

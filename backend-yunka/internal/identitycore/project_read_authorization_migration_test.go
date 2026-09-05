@@ -16,7 +16,8 @@ func TestApplyMigrationsAddsProjectReadAuthorizationToOldFourLedgerDatabase(t *t
 	}
 	assertProjectReadAuthorizationRows(t, database)
 	assertPlanningListAuthorizationRows(t, database)
-	assertProjectReadMigrationLedger(t, database, 7)
+	assertSavedViewAuthorizationRows(t, database)
+	assertProjectReadMigrationLedger(t, database, 8)
 	var serviceGrantCount int
 	if err := database.QueryRow(`SELECT COUNT(*) FROM service_operation_grants WHERE operation_id = 'delivery.projects.list'`).Scan(&serviceGrantCount); err != nil || serviceGrantCount != 0 {
 		t.Fatalf("project list service grants = %d error=%v, want no default grants", serviceGrantCount, err)
@@ -29,7 +30,8 @@ func TestApplyMigrationsAddsProjectReadAuthorizationToOldFourLedgerDatabase(t *t
 	}
 	assertProjectReadAuthorizationRows(t, database)
 	assertPlanningListAuthorizationRows(t, database)
-	assertProjectReadMigrationLedger(t, database, 7)
+	assertSavedViewAuthorizationRows(t, database)
+	assertProjectReadMigrationLedger(t, database, 8)
 }
 
 func TestApplyMigrationsAddsProjectReadAuthorizationBeforeServiceGrantSeed(t *testing.T) {
@@ -40,7 +42,27 @@ func TestApplyMigrationsAddsProjectReadAuthorizationBeforeServiceGrantSeed(t *te
 	}
 	assertProjectReadAuthorizationRows(t, database)
 	assertPlanningListAuthorizationRows(t, database)
-	assertProjectReadMigrationLedger(t, database, 7)
+	assertSavedViewAuthorizationRows(t, database)
+	assertProjectReadMigrationLedger(t, database, 8)
+}
+
+func assertSavedViewAuthorizationRows(t *testing.T, database *sql.DB) {
+	t.Helper()
+	for _, id := range []string{"delivery.views.write", "delivery.views.read", "delivery.members.read"} {
+		var scopes, grants int
+		if err := database.QueryRow(`SELECT COUNT(*) FROM permission_allowed_scopes WHERE permission_id = ? AND scope_type = 'project'`, id).Scan(&scopes); err != nil || scopes != 1 {
+			t.Fatalf("permission %s project scopes = %d error=%v, want 1", id, scopes, err)
+		}
+		if err := database.QueryRow(`SELECT COUNT(*) FROM role_permission_grants WHERE permission_id = ?`, id).Scan(&grants); err != nil || grants != 6 {
+			t.Fatalf("permission %s role grants = %d error=%v, want 6", id, grants, err)
+		}
+	}
+	for _, id := range []string{"delivery.views.save", "delivery.views.list", "delivery.members.week"} {
+		var operations int
+		if err := database.QueryRow(`SELECT COUNT(*) FROM service_operations WHERE id = ? AND required_scope = 'project'`, id).Scan(&operations); err != nil || operations != 1 {
+			t.Fatalf("service operation %s = %d error=%v, want 1", id, operations, err)
+		}
+	}
 }
 
 func TestApplyMigrationsRejectsProjectReadConflictAndForgedLedger(t *testing.T) {

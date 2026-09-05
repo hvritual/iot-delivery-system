@@ -8,8 +8,8 @@ import (
 	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryauthz"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/hvritual/yunka.io/gateway/authz"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Adapter is the explicit, handwritten application implementation injected
@@ -325,6 +325,60 @@ func (adapter *Adapter) CloseItem(ctx context.Context, request *deliveryv1.Close
 	return &deliveryv1.WorkItemResponse{Item: workItem(item)}, nil
 }
 
+func (adapter *Adapter) SaveView(ctx context.Context, request *deliveryv1.SaveViewRequest) (*deliveryv1.SavedViewResponse, error) {
+	if request == nil {
+		return nil, errors.New("request is required")
+	}
+	service, err := adapter.deliveryService()
+	if err != nil {
+		return nil, err
+	}
+	view, err := service.SaveView(ctx, delivery.SavedViewInput{Name: request.GetName(), Filter: workItemFilterFromProto(request.GetFilter())})
+	if err != nil {
+		return nil, err
+	}
+	return &deliveryv1.SavedViewResponse{View: savedViewToProto(view)}, nil
+}
+
+func (adapter *Adapter) ListSavedViews(ctx context.Context, request *deliveryv1.ListSavedViewsRequest) (*deliveryv1.ListSavedViewsResponse, error) {
+	if request == nil {
+		return nil, errors.New("request is required")
+	}
+	service, err := adapter.deliveryService()
+	if err != nil {
+		return nil, err
+	}
+	views, err := service.ListSavedViews(ctx)
+	if err != nil {
+		return nil, err
+	}
+	projects, restricted := deliveryauthz.AuthorizedProjectsFromContext(ctx)
+	response := &deliveryv1.ListSavedViewsResponse{Views: make([]*deliveryv1.SavedView, 0, len(views))}
+	for _, view := range views {
+		if restricted && view.Filter.ProjectID != "" && !projects[view.Filter.ProjectID] {
+			continue
+		}
+		response.Views = append(response.Views, savedViewToProto(view))
+	}
+	return response, nil
+}
+
+func (adapter *Adapter) GetMemberWeek(ctx context.Context, request *deliveryv1.GetMemberWeekRequest) (*deliveryv1.MemberWeekResponse, error) {
+	if request == nil {
+		return nil, errors.New("request is required")
+	}
+	service, err := adapter.deliveryService()
+	if err != nil {
+		return nil, err
+	}
+	week, err := service.MemberWeek(ctx, request.GetMember(), request.GetWeekStart())
+	if err != nil {
+		return nil, err
+	}
+	week.Items = filterAuthorizedWorkItems(ctx, week.Items)
+	return &deliveryv1.MemberWeekResponse{Week: &deliveryv1.MemberWeek{Member: week.Member, WeekStart: week.WeekStart, WeekEnd: week.WeekEnd, Items: workItems(week.Items)}}, nil
+}
+
 // normalizeAuthorizationError retains domain sentinel matching while marking
 // high-risk separation-of-duties denials for the shared transport adapters.
 func normalizeAuthorizationError(err error) error {
@@ -444,6 +498,21 @@ func workItem(item delivery.WorkItem) *deliveryv1.WorkItem {
 
 func projectToProto(value delivery.Project) *deliveryv1.Project {
 	return &deliveryv1.Project{Id: value.ID, Name: value.Name, Board: string(value.Board), Owner: value.Owner, CreatedAt: timestamp(value.CreatedAt), UpdatedAt: timestamp(value.UpdatedAt), Description: value.Description}
+}
+
+func workItemFilterToProto(value delivery.WorkItemFilter) *deliveryv1.WorkItemFilter {
+	return &deliveryv1.WorkItemFilter{ProjectId: value.ProjectID, Board: string(value.Board), Owner: value.Owner, Status: string(value.Status), Kind: string(value.Kind), ReleaseId: value.ReleaseID, SprintId: value.SprintID, MilestoneId: value.MilestoneID, Query: value.Query}
+}
+
+func workItemFilterFromProto(value *deliveryv1.WorkItemFilter) delivery.WorkItemFilter {
+	if value == nil {
+		return delivery.WorkItemFilter{}
+	}
+	return delivery.WorkItemFilter{ProjectID: value.GetProjectId(), Board: delivery.Board(value.GetBoard()), Owner: value.GetOwner(), Status: delivery.Status(value.GetStatus()), Kind: delivery.WorkItemKind(value.GetKind()), ReleaseID: value.GetReleaseId(), SprintID: value.GetSprintId(), MilestoneID: value.GetMilestoneId(), Query: value.GetQuery()}
+}
+
+func savedViewToProto(value delivery.SavedView) *deliveryv1.SavedView {
+	return &deliveryv1.SavedView{Id: value.ID, Name: value.Name, Owner: value.Owner, Filter: workItemFilterToProto(value.Filter), CreatedAt: timestamp(value.CreatedAt), UpdatedAt: timestamp(value.UpdatedAt)}
 }
 
 func releaseToProto(value delivery.Release) *deliveryv1.Release {

@@ -1663,6 +1663,158 @@ func (x *Activity) GetOccurredAt() *timestamppb.Timestamp {
 	return nil
 }
 
+type SavedView struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Owner         string                 `protobuf:"bytes,3,opt,name=owner,proto3" json:"owner,omitempty"`
+	Filter        *WorkItemFilter        `protobuf:"bytes,4,opt,name=filter,proto3" json:"filter,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SavedView) Reset() {
+	*x = SavedView{}
+	mi := &file_iot_delivery_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SavedView) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SavedView) ProtoMessage() {}
+
+func (x *SavedView) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SavedView.ProtoReflect.Descriptor instead.
+func (*SavedView) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *SavedView) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SavedView) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *SavedView) GetOwner() string {
+	if x != nil {
+		return x.Owner
+	}
+	return ""
+}
+
+func (x *SavedView) GetFilter() *WorkItemFilter {
+	if x != nil {
+		return x.Filter
+	}
+	return nil
+}
+
+func (x *SavedView) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *SavedView) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type MemberWeek struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Member        string                 `protobuf:"bytes,1,opt,name=member,proto3" json:"member,omitempty"`
+	WeekStart     string                 `protobuf:"bytes,2,opt,name=week_start,json=weekStart,proto3" json:"week_start,omitempty"`
+	WeekEnd       string                 `protobuf:"bytes,3,opt,name=week_end,json=weekEnd,proto3" json:"week_end,omitempty"`
+	Items         []*WorkItem            `protobuf:"bytes,4,rep,name=items,proto3" json:"items,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MemberWeek) Reset() {
+	*x = MemberWeek{}
+	mi := &file_iot_delivery_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MemberWeek) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MemberWeek) ProtoMessage() {}
+
+func (x *MemberWeek) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MemberWeek.ProtoReflect.Descriptor instead.
+func (*MemberWeek) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *MemberWeek) GetMember() string {
+	if x != nil {
+		return x.Member
+	}
+	return ""
+}
+
+func (x *MemberWeek) GetWeekStart() string {
+	if x != nil {
+		return x.WeekStart
+	}
+	return ""
+}
+
+func (x *MemberWeek) GetWeekEnd() string {
+	if x != nil {
+		return x.WeekEnd
+	}
+	return ""
+}
+
+func (x *MemberWeek) GetItems() []*WorkItem {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
 type Evidence struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Kind          string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`
@@ -1675,7 +1827,7 @@ type Evidence struct {
 
 func (x *Evidence) Reset() {
 	*x = Evidence{}
-	mi := &file_iot_delivery_proto_msgTypes[22]
+	mi := &file_iot_delivery_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1687,7 +1839,7 @@ func (x *Evidence) String() string {
 func (*Evidence) ProtoMessage() {}
 
 func (x *Evidence) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[22]
+	mi := &file_iot_delivery_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1700,7 +1852,7 @@ func (x *Evidence) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Evidence.ProtoReflect.Descriptor instead.
 func (*Evidence) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{22}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *Evidence) GetKind() string {
@@ -1745,7 +1897,7 @@ type Decision struct {
 
 func (x *Decision) Reset() {
 	*x = Decision{}
-	mi := &file_iot_delivery_proto_msgTypes[23]
+	mi := &file_iot_delivery_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1757,7 +1909,7 @@ func (x *Decision) String() string {
 func (*Decision) ProtoMessage() {}
 
 func (x *Decision) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[23]
+	mi := &file_iot_delivery_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1770,7 +1922,7 @@ func (x *Decision) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Decision.ProtoReflect.Descriptor instead.
 func (*Decision) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{23}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *Decision) GetId() string {
@@ -1844,7 +1996,7 @@ type CreateItemRequest struct {
 
 func (x *CreateItemRequest) Reset() {
 	*x = CreateItemRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[24]
+	mi := &file_iot_delivery_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1856,7 +2008,7 @@ func (x *CreateItemRequest) String() string {
 func (*CreateItemRequest) ProtoMessage() {}
 
 func (x *CreateItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[24]
+	mi := &file_iot_delivery_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1869,7 +2021,7 @@ func (x *CreateItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateItemRequest.ProtoReflect.Descriptor instead.
 func (*CreateItemRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{24}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *CreateItemRequest) GetTitle() string {
@@ -2043,7 +2195,7 @@ type UpdateItemRequest struct {
 
 func (x *UpdateItemRequest) Reset() {
 	*x = UpdateItemRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[25]
+	mi := &file_iot_delivery_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2055,7 +2207,7 @@ func (x *UpdateItemRequest) String() string {
 func (*UpdateItemRequest) ProtoMessage() {}
 
 func (x *UpdateItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[25]
+	mi := &file_iot_delivery_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2068,7 +2220,7 @@ func (x *UpdateItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateItemRequest.ProtoReflect.Descriptor instead.
 func (*UpdateItemRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{25}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *UpdateItemRequest) GetId() string {
@@ -2194,7 +2346,7 @@ type CreateItemCommentRequest struct {
 
 func (x *CreateItemCommentRequest) Reset() {
 	*x = CreateItemCommentRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[26]
+	mi := &file_iot_delivery_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2206,7 +2358,7 @@ func (x *CreateItemCommentRequest) String() string {
 func (*CreateItemCommentRequest) ProtoMessage() {}
 
 func (x *CreateItemCommentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[26]
+	mi := &file_iot_delivery_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2219,7 +2371,7 @@ func (x *CreateItemCommentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateItemCommentRequest.ProtoReflect.Descriptor instead.
 func (*CreateItemCommentRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{26}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *CreateItemCommentRequest) GetId() string {
@@ -2255,7 +2407,7 @@ type CreateProjectRequest struct {
 
 func (x *CreateProjectRequest) Reset() {
 	*x = CreateProjectRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[27]
+	mi := &file_iot_delivery_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2267,7 +2419,7 @@ func (x *CreateProjectRequest) String() string {
 func (*CreateProjectRequest) ProtoMessage() {}
 
 func (x *CreateProjectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[27]
+	mi := &file_iot_delivery_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2280,7 +2432,7 @@ func (x *CreateProjectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateProjectRequest.ProtoReflect.Descriptor instead.
 func (*CreateProjectRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{27}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *CreateProjectRequest) GetName() string {
@@ -2325,7 +2477,7 @@ type CreateReleaseRequest struct {
 
 func (x *CreateReleaseRequest) Reset() {
 	*x = CreateReleaseRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[28]
+	mi := &file_iot_delivery_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2337,7 +2489,7 @@ func (x *CreateReleaseRequest) String() string {
 func (*CreateReleaseRequest) ProtoMessage() {}
 
 func (x *CreateReleaseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[28]
+	mi := &file_iot_delivery_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2350,7 +2502,7 @@ func (x *CreateReleaseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateReleaseRequest.ProtoReflect.Descriptor instead.
 func (*CreateReleaseRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{28}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *CreateReleaseRequest) GetProjectId() string {
@@ -2409,7 +2561,7 @@ type CreateSprintRequest struct {
 
 func (x *CreateSprintRequest) Reset() {
 	*x = CreateSprintRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[29]
+	mi := &file_iot_delivery_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2421,7 +2573,7 @@ func (x *CreateSprintRequest) String() string {
 func (*CreateSprintRequest) ProtoMessage() {}
 
 func (x *CreateSprintRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[29]
+	mi := &file_iot_delivery_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2434,7 +2586,7 @@ func (x *CreateSprintRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSprintRequest.ProtoReflect.Descriptor instead.
 func (*CreateSprintRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{29}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *CreateSprintRequest) GetProjectId() string {
@@ -2492,7 +2644,7 @@ type CreateMilestoneRequest struct {
 
 func (x *CreateMilestoneRequest) Reset() {
 	*x = CreateMilestoneRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[30]
+	mi := &file_iot_delivery_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2504,7 +2656,7 @@ func (x *CreateMilestoneRequest) String() string {
 func (*CreateMilestoneRequest) ProtoMessage() {}
 
 func (x *CreateMilestoneRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[30]
+	mi := &file_iot_delivery_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2517,7 +2669,7 @@ func (x *CreateMilestoneRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateMilestoneRequest.ProtoReflect.Descriptor instead.
 func (*CreateMilestoneRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{30}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *CreateMilestoneRequest) GetProjectId() string {
@@ -2569,7 +2721,7 @@ type UpdateItemContextRequest struct {
 
 func (x *UpdateItemContextRequest) Reset() {
 	*x = UpdateItemContextRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[31]
+	mi := &file_iot_delivery_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2581,7 +2733,7 @@ func (x *UpdateItemContextRequest) String() string {
 func (*UpdateItemContextRequest) ProtoMessage() {}
 
 func (x *UpdateItemContextRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[31]
+	mi := &file_iot_delivery_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2594,7 +2746,7 @@ func (x *UpdateItemContextRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateItemContextRequest.ProtoReflect.Descriptor instead.
 func (*UpdateItemContextRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{31}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *UpdateItemContextRequest) GetId() string {
@@ -2651,7 +2803,7 @@ type AdvanceGateRequest struct {
 
 func (x *AdvanceGateRequest) Reset() {
 	*x = AdvanceGateRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[32]
+	mi := &file_iot_delivery_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2663,7 +2815,7 @@ func (x *AdvanceGateRequest) String() string {
 func (*AdvanceGateRequest) ProtoMessage() {}
 
 func (x *AdvanceGateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[32]
+	mi := &file_iot_delivery_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2676,7 +2828,7 @@ func (x *AdvanceGateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdvanceGateRequest.ProtoReflect.Descriptor instead.
 func (*AdvanceGateRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{32}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *AdvanceGateRequest) GetId() string {
@@ -2718,7 +2870,7 @@ type CloseItemRequest struct {
 
 func (x *CloseItemRequest) Reset() {
 	*x = CloseItemRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[33]
+	mi := &file_iot_delivery_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2730,7 +2882,7 @@ func (x *CloseItemRequest) String() string {
 func (*CloseItemRequest) ProtoMessage() {}
 
 func (x *CloseItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[33]
+	mi := &file_iot_delivery_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2743,7 +2895,7 @@ func (x *CloseItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloseItemRequest.ProtoReflect.Descriptor instead.
 func (*CloseItemRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{33}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *CloseItemRequest) GetId() string {
@@ -2767,6 +2919,386 @@ func (x *CloseItemRequest) GetExpectedRevision() int64 {
 	return 0
 }
 
+type WorkItemFilter struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ProjectId     string                 `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	Board         string                 `protobuf:"bytes,2,opt,name=board,proto3" json:"board,omitempty"`
+	Owner         string                 `protobuf:"bytes,3,opt,name=owner,proto3" json:"owner,omitempty"`
+	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	Kind          string                 `protobuf:"bytes,5,opt,name=kind,proto3" json:"kind,omitempty"`
+	ReleaseId     string                 `protobuf:"bytes,6,opt,name=release_id,json=releaseId,proto3" json:"release_id,omitempty"`
+	SprintId      string                 `protobuf:"bytes,7,opt,name=sprint_id,json=sprintId,proto3" json:"sprint_id,omitempty"`
+	MilestoneId   string                 `protobuf:"bytes,8,opt,name=milestone_id,json=milestoneId,proto3" json:"milestone_id,omitempty"`
+	Query         string                 `protobuf:"bytes,9,opt,name=query,proto3" json:"query,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WorkItemFilter) Reset() {
+	*x = WorkItemFilter{}
+	mi := &file_iot_delivery_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WorkItemFilter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WorkItemFilter) ProtoMessage() {}
+
+func (x *WorkItemFilter) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WorkItemFilter.ProtoReflect.Descriptor instead.
+func (*WorkItemFilter) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *WorkItemFilter) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+func (x *WorkItemFilter) GetBoard() string {
+	if x != nil {
+		return x.Board
+	}
+	return ""
+}
+
+func (x *WorkItemFilter) GetOwner() string {
+	if x != nil {
+		return x.Owner
+	}
+	return ""
+}
+
+func (x *WorkItemFilter) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *WorkItemFilter) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
+func (x *WorkItemFilter) GetReleaseId() string {
+	if x != nil {
+		return x.ReleaseId
+	}
+	return ""
+}
+
+func (x *WorkItemFilter) GetSprintId() string {
+	if x != nil {
+		return x.SprintId
+	}
+	return ""
+}
+
+func (x *WorkItemFilter) GetMilestoneId() string {
+	if x != nil {
+		return x.MilestoneId
+	}
+	return ""
+}
+
+func (x *WorkItemFilter) GetQuery() string {
+	if x != nil {
+		return x.Query
+	}
+	return ""
+}
+
+type SaveViewRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Filter        *WorkItemFilter        `protobuf:"bytes,2,opt,name=filter,proto3" json:"filter,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveViewRequest) Reset() {
+	*x = SaveViewRequest{}
+	mi := &file_iot_delivery_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveViewRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveViewRequest) ProtoMessage() {}
+
+func (x *SaveViewRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveViewRequest.ProtoReflect.Descriptor instead.
+func (*SaveViewRequest) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *SaveViewRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *SaveViewRequest) GetFilter() *WorkItemFilter {
+	if x != nil {
+		return x.Filter
+	}
+	return nil
+}
+
+type ListSavedViewsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSavedViewsRequest) Reset() {
+	*x = ListSavedViewsRequest{}
+	mi := &file_iot_delivery_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSavedViewsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSavedViewsRequest) ProtoMessage() {}
+
+func (x *ListSavedViewsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSavedViewsRequest.ProtoReflect.Descriptor instead.
+func (*ListSavedViewsRequest) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{38}
+}
+
+type GetMemberWeekRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Member        string                 `protobuf:"bytes,1,opt,name=member,proto3" json:"member,omitempty"`
+	WeekStart     string                 `protobuf:"bytes,2,opt,name=week_start,json=weekStart,proto3" json:"week_start,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMemberWeekRequest) Reset() {
+	*x = GetMemberWeekRequest{}
+	mi := &file_iot_delivery_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMemberWeekRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMemberWeekRequest) ProtoMessage() {}
+
+func (x *GetMemberWeekRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMemberWeekRequest.ProtoReflect.Descriptor instead.
+func (*GetMemberWeekRequest) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *GetMemberWeekRequest) GetMember() string {
+	if x != nil {
+		return x.Member
+	}
+	return ""
+}
+
+func (x *GetMemberWeekRequest) GetWeekStart() string {
+	if x != nil {
+		return x.WeekStart
+	}
+	return ""
+}
+
+type SavedViewResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	View          *SavedView             `protobuf:"bytes,1,opt,name=view,proto3" json:"view,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SavedViewResponse) Reset() {
+	*x = SavedViewResponse{}
+	mi := &file_iot_delivery_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SavedViewResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SavedViewResponse) ProtoMessage() {}
+
+func (x *SavedViewResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SavedViewResponse.ProtoReflect.Descriptor instead.
+func (*SavedViewResponse) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *SavedViewResponse) GetView() *SavedView {
+	if x != nil {
+		return x.View
+	}
+	return nil
+}
+
+type ListSavedViewsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Views         []*SavedView           `protobuf:"bytes,1,rep,name=views,proto3" json:"views,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSavedViewsResponse) Reset() {
+	*x = ListSavedViewsResponse{}
+	mi := &file_iot_delivery_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSavedViewsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSavedViewsResponse) ProtoMessage() {}
+
+func (x *ListSavedViewsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSavedViewsResponse.ProtoReflect.Descriptor instead.
+func (*ListSavedViewsResponse) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *ListSavedViewsResponse) GetViews() []*SavedView {
+	if x != nil {
+		return x.Views
+	}
+	return nil
+}
+
+type MemberWeekResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Week          *MemberWeek            `protobuf:"bytes,1,opt,name=week,proto3" json:"week,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MemberWeekResponse) Reset() {
+	*x = MemberWeekResponse{}
+	mi := &file_iot_delivery_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MemberWeekResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MemberWeekResponse) ProtoMessage() {}
+
+func (x *MemberWeekResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MemberWeekResponse.ProtoReflect.Descriptor instead.
+func (*MemberWeekResponse) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *MemberWeekResponse) GetWeek() *MemberWeek {
+	if x != nil {
+		return x.Week
+	}
+	return nil
+}
+
 // ListProjectsRequest intentionally carries no caller-controlled scope. The
 // authenticated principal and durable grants determine the visible projects.
 type ListProjectsRequest struct {
@@ -2777,7 +3309,7 @@ type ListProjectsRequest struct {
 
 func (x *ListProjectsRequest) Reset() {
 	*x = ListProjectsRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[34]
+	mi := &file_iot_delivery_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2789,7 +3321,7 @@ func (x *ListProjectsRequest) String() string {
 func (*ListProjectsRequest) ProtoMessage() {}
 
 func (x *ListProjectsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[34]
+	mi := &file_iot_delivery_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2802,7 +3334,7 @@ func (x *ListProjectsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProjectsRequest.ProtoReflect.Descriptor instead.
 func (*ListProjectsRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{34}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{43}
 }
 
 type ListProjectsResponse struct {
@@ -2814,7 +3346,7 @@ type ListProjectsResponse struct {
 
 func (x *ListProjectsResponse) Reset() {
 	*x = ListProjectsResponse{}
-	mi := &file_iot_delivery_proto_msgTypes[35]
+	mi := &file_iot_delivery_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2826,7 +3358,7 @@ func (x *ListProjectsResponse) String() string {
 func (*ListProjectsResponse) ProtoMessage() {}
 
 func (x *ListProjectsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[35]
+	mi := &file_iot_delivery_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2839,7 +3371,7 @@ func (x *ListProjectsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProjectsResponse.ProtoReflect.Descriptor instead.
 func (*ListProjectsResponse) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{35}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *ListProjectsResponse) GetProjects() []*Project {
@@ -2858,7 +3390,7 @@ type ListReleasesRequest struct {
 
 func (x *ListReleasesRequest) Reset() {
 	*x = ListReleasesRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[36]
+	mi := &file_iot_delivery_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2870,7 +3402,7 @@ func (x *ListReleasesRequest) String() string {
 func (*ListReleasesRequest) ProtoMessage() {}
 
 func (x *ListReleasesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[36]
+	mi := &file_iot_delivery_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2883,7 +3415,7 @@ func (x *ListReleasesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListReleasesRequest.ProtoReflect.Descriptor instead.
 func (*ListReleasesRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{36}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *ListReleasesRequest) GetProjectId() string {
@@ -2902,7 +3434,7 @@ type ListReleasesResponse struct {
 
 func (x *ListReleasesResponse) Reset() {
 	*x = ListReleasesResponse{}
-	mi := &file_iot_delivery_proto_msgTypes[37]
+	mi := &file_iot_delivery_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2914,7 +3446,7 @@ func (x *ListReleasesResponse) String() string {
 func (*ListReleasesResponse) ProtoMessage() {}
 
 func (x *ListReleasesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[37]
+	mi := &file_iot_delivery_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2927,7 +3459,7 @@ func (x *ListReleasesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListReleasesResponse.ProtoReflect.Descriptor instead.
 func (*ListReleasesResponse) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{37}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ListReleasesResponse) GetReleases() []*Release {
@@ -2946,7 +3478,7 @@ type ListSprintsRequest struct {
 
 func (x *ListSprintsRequest) Reset() {
 	*x = ListSprintsRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[38]
+	mi := &file_iot_delivery_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2958,7 +3490,7 @@ func (x *ListSprintsRequest) String() string {
 func (*ListSprintsRequest) ProtoMessage() {}
 
 func (x *ListSprintsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[38]
+	mi := &file_iot_delivery_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2971,7 +3503,7 @@ func (x *ListSprintsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSprintsRequest.ProtoReflect.Descriptor instead.
 func (*ListSprintsRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{38}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ListSprintsRequest) GetProjectId() string {
@@ -2990,7 +3522,7 @@ type ListSprintsResponse struct {
 
 func (x *ListSprintsResponse) Reset() {
 	*x = ListSprintsResponse{}
-	mi := &file_iot_delivery_proto_msgTypes[39]
+	mi := &file_iot_delivery_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3002,7 +3534,7 @@ func (x *ListSprintsResponse) String() string {
 func (*ListSprintsResponse) ProtoMessage() {}
 
 func (x *ListSprintsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[39]
+	mi := &file_iot_delivery_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3015,7 +3547,7 @@ func (x *ListSprintsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSprintsResponse.ProtoReflect.Descriptor instead.
 func (*ListSprintsResponse) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{39}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *ListSprintsResponse) GetSprints() []*Sprint {
@@ -3034,7 +3566,7 @@ type ListMilestonesRequest struct {
 
 func (x *ListMilestonesRequest) Reset() {
 	*x = ListMilestonesRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[40]
+	mi := &file_iot_delivery_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3046,7 +3578,7 @@ func (x *ListMilestonesRequest) String() string {
 func (*ListMilestonesRequest) ProtoMessage() {}
 
 func (x *ListMilestonesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[40]
+	mi := &file_iot_delivery_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3059,7 +3591,7 @@ func (x *ListMilestonesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMilestonesRequest.ProtoReflect.Descriptor instead.
 func (*ListMilestonesRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{40}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *ListMilestonesRequest) GetProjectId() string {
@@ -3078,7 +3610,7 @@ type ListMilestonesResponse struct {
 
 func (x *ListMilestonesResponse) Reset() {
 	*x = ListMilestonesResponse{}
-	mi := &file_iot_delivery_proto_msgTypes[41]
+	mi := &file_iot_delivery_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3090,7 +3622,7 @@ func (x *ListMilestonesResponse) String() string {
 func (*ListMilestonesResponse) ProtoMessage() {}
 
 func (x *ListMilestonesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[41]
+	mi := &file_iot_delivery_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3103,7 +3635,7 @@ func (x *ListMilestonesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMilestonesResponse.ProtoReflect.Descriptor instead.
 func (*ListMilestonesResponse) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{41}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *ListMilestonesResponse) GetMilestones() []*Milestone {
@@ -3122,7 +3654,7 @@ type GetItemRequest struct {
 
 func (x *GetItemRequest) Reset() {
 	*x = GetItemRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[42]
+	mi := &file_iot_delivery_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3134,7 +3666,7 @@ func (x *GetItemRequest) String() string {
 func (*GetItemRequest) ProtoMessage() {}
 
 func (x *GetItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[42]
+	mi := &file_iot_delivery_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3147,7 +3679,7 @@ func (x *GetItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetItemRequest.ProtoReflect.Descriptor instead.
 func (*GetItemRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{42}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *GetItemRequest) GetId() string {
@@ -3174,7 +3706,7 @@ type SearchItemsRequest struct {
 
 func (x *SearchItemsRequest) Reset() {
 	*x = SearchItemsRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[43]
+	mi := &file_iot_delivery_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3186,7 +3718,7 @@ func (x *SearchItemsRequest) String() string {
 func (*SearchItemsRequest) ProtoMessage() {}
 
 func (x *SearchItemsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[43]
+	mi := &file_iot_delivery_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3199,7 +3731,7 @@ func (x *SearchItemsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchItemsRequest.ProtoReflect.Descriptor instead.
 func (*SearchItemsRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{43}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *SearchItemsRequest) GetProjectId() string {
@@ -3274,7 +3806,7 @@ type SearchItemsResponse struct {
 
 func (x *SearchItemsResponse) Reset() {
 	*x = SearchItemsResponse{}
-	mi := &file_iot_delivery_proto_msgTypes[44]
+	mi := &file_iot_delivery_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3286,7 +3818,7 @@ func (x *SearchItemsResponse) String() string {
 func (*SearchItemsResponse) ProtoMessage() {}
 
 func (x *SearchItemsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[44]
+	mi := &file_iot_delivery_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3299,7 +3831,7 @@ func (x *SearchItemsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchItemsResponse.ProtoReflect.Descriptor instead.
 func (*SearchItemsResponse) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{44}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *SearchItemsResponse) GetItems() []*WorkItem {
@@ -3322,7 +3854,7 @@ type FindSimilarItemsRequest struct {
 
 func (x *FindSimilarItemsRequest) Reset() {
 	*x = FindSimilarItemsRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[45]
+	mi := &file_iot_delivery_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3334,7 +3866,7 @@ func (x *FindSimilarItemsRequest) String() string {
 func (*FindSimilarItemsRequest) ProtoMessage() {}
 
 func (x *FindSimilarItemsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[45]
+	mi := &file_iot_delivery_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3347,7 +3879,7 @@ func (x *FindSimilarItemsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindSimilarItemsRequest.ProtoReflect.Descriptor instead.
 func (*FindSimilarItemsRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{45}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *FindSimilarItemsRequest) GetTitle() string {
@@ -3394,7 +3926,7 @@ type FindSimilarItemsResponse struct {
 
 func (x *FindSimilarItemsResponse) Reset() {
 	*x = FindSimilarItemsResponse{}
-	mi := &file_iot_delivery_proto_msgTypes[46]
+	mi := &file_iot_delivery_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3406,7 +3938,7 @@ func (x *FindSimilarItemsResponse) String() string {
 func (*FindSimilarItemsResponse) ProtoMessage() {}
 
 func (x *FindSimilarItemsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[46]
+	mi := &file_iot_delivery_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3419,7 +3951,7 @@ func (x *FindSimilarItemsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindSimilarItemsResponse.ProtoReflect.Descriptor instead.
 func (*FindSimilarItemsResponse) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{46}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *FindSimilarItemsResponse) GetCandidates() []*SimilarityCandidate {
@@ -3440,7 +3972,7 @@ type SimilarityCandidate struct {
 
 func (x *SimilarityCandidate) Reset() {
 	*x = SimilarityCandidate{}
-	mi := &file_iot_delivery_proto_msgTypes[47]
+	mi := &file_iot_delivery_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3452,7 +3984,7 @@ func (x *SimilarityCandidate) String() string {
 func (*SimilarityCandidate) ProtoMessage() {}
 
 func (x *SimilarityCandidate) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[47]
+	mi := &file_iot_delivery_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3465,7 +3997,7 @@ func (x *SimilarityCandidate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SimilarityCandidate.ProtoReflect.Descriptor instead.
 func (*SimilarityCandidate) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{47}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *SimilarityCandidate) GetItem() *WorkItem {
@@ -3653,7 +4185,23 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\asummary\x18\x03 \x01(\tR\asummary\x12\x14\n" +
 	"\x05actor\x18\x04 \x01(\tR\x05actor\x12;\n" +
 	"\voccurred_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"occurredAt:\x06\xd2\xf3\x18\x02\b\x03\"\x97\x01\n" +
+	"occurredAt:\x06\xd2\xf3\x18\x02\b\x03\"\xfc\x01\n" +
+	"\tSavedView\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
+	"\x05owner\x18\x03 \x01(\tR\x05owner\x127\n" +
+	"\x06filter\x18\x04 \x01(\v2\x1f.iot.delivery.v1.WorkItemFilterR\x06filter\x129\n" +
+	"\n" +
+	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt:\x06\xd2\xf3\x18\x02\b\x03\"\x97\x01\n" +
+	"\n" +
+	"MemberWeek\x12\x16\n" +
+	"\x06member\x18\x01 \x01(\tR\x06member\x12\x1d\n" +
+	"\n" +
+	"week_start\x18\x02 \x01(\tR\tweekStart\x12\x19\n" +
+	"\bweek_end\x18\x03 \x01(\tR\aweekEnd\x12/\n" +
+	"\x05items\x18\x04 \x03(\v2\x19.iot.delivery.v1.WorkItemR\x05items:\x06\xd2\xf3\x18\x02\b\x03\"\x97\x01\n" +
 	"\bEvidence\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x1c\n" +
@@ -3772,7 +4320,33 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\x10CloseItemRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12$\n" +
 	"\rretrospective\x18\x02 \x01(\tR\rretrospective\x12+\n" +
-	"\x11expected_revision\x18\x03 \x01(\x03R\x10expectedRevision:\x06\xd2\xf3\x18\x02\b\x01\"\x1d\n" +
+	"\x11expected_revision\x18\x03 \x01(\x03R\x10expectedRevision:\x06\xd2\xf3\x18\x02\b\x01\"\x84\x02\n" +
+	"\x0eWorkItemFilter\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\x01 \x01(\tR\tprojectId\x12\x14\n" +
+	"\x05board\x18\x02 \x01(\tR\x05board\x12\x14\n" +
+	"\x05owner\x18\x03 \x01(\tR\x05owner\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12\x12\n" +
+	"\x04kind\x18\x05 \x01(\tR\x04kind\x12\x1d\n" +
+	"\n" +
+	"release_id\x18\x06 \x01(\tR\treleaseId\x12\x1b\n" +
+	"\tsprint_id\x18\a \x01(\tR\bsprintId\x12!\n" +
+	"\fmilestone_id\x18\b \x01(\tR\vmilestoneId\x12\x14\n" +
+	"\x05query\x18\t \x01(\tR\x05query:\x06\xd2\xf3\x18\x02\b\x03\"f\n" +
+	"\x0fSaveViewRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x127\n" +
+	"\x06filter\x18\x02 \x01(\v2\x1f.iot.delivery.v1.WorkItemFilterR\x06filter:\x06\xd2\xf3\x18\x02\b\x01\"\x1f\n" +
+	"\x15ListSavedViewsRequest:\x06\xd2\xf3\x18\x02\b\x01\"U\n" +
+	"\x14GetMemberWeekRequest\x12\x16\n" +
+	"\x06member\x18\x01 \x01(\tR\x06member\x12\x1d\n" +
+	"\n" +
+	"week_start\x18\x02 \x01(\tR\tweekStart:\x06\xd2\xf3\x18\x02\b\x01\"K\n" +
+	"\x11SavedViewResponse\x12.\n" +
+	"\x04view\x18\x01 \x01(\v2\x1a.iot.delivery.v1.SavedViewR\x04view:\x06\xd2\xf3\x18\x02\b\x02\"R\n" +
+	"\x16ListSavedViewsResponse\x120\n" +
+	"\x05views\x18\x01 \x03(\v2\x1a.iot.delivery.v1.SavedViewR\x05views:\x06\xd2\xf3\x18\x02\b\x02\"M\n" +
+	"\x12MemberWeekResponse\x12/\n" +
+	"\x04week\x18\x01 \x01(\v2\x1b.iot.delivery.v1.MemberWeekR\x04week:\x06\xd2\xf3\x18\x02\b\x02\"\x1d\n" +
 	"\x13ListProjectsRequest:\x06\xd2\xf3\x18\x02\b\x01\"T\n" +
 	"\x14ListProjectsResponse\x124\n" +
 	"\bprojects\x18\x01 \x03(\v2\x18.iot.delivery.v1.ProjectR\bprojects:\x06\xd2\xf3\x18\x02\b\x02\"<\n" +
@@ -3823,7 +4397,7 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\x13SimilarityCandidate\x12-\n" +
 	"\x04item\x18\x01 \x01(\v2\x19.iot.delivery.v1.WorkItemR\x04item\x12\x14\n" +
 	"\x05score\x18\x02 \x01(\x01R\x05score\x12\x14\n" +
-	"\x05exact\x18\x03 \x01(\bR\x05exact:\x06\xd2\xf3\x18\x02\b\x032\xf9\x1e\n" +
+	"\x05exact\x18\x03 \x01(\bR\x05exact:\x06\xd2\xf3\x18\x02\b\x032\xfc\"\n" +
 	"\x0fDeliveryService\x12\xae\x01\n" +
 	"\fGetDashboard\x12$.iot.delivery.v1.GetDashboardRequest\x1a%.iot.delivery.v1.GetDashboardResponse\"Q\xe2\xf3\x18M\n" +
 	"\x16delivery.dashboard.get\x12\rget_dashboard\x1a\x17delivery.dashboard.read2\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\xa0\x01\n" +
@@ -3844,7 +4418,13 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\x1bdelivery.items.advance-gate\x12\fadvance_gate\x1a delivery.work-items.gate.advance2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xa1\x01\n" +
 	"\tCloseItem\x12!.iot.delivery.v1.CloseItemRequest\x1a!.iot.delivery.v1.WorkItemResponse\"N\xe2\xf3\x18J\n" +
 	"\x14delivery.items.close\x12\n" +
-	"close_item\x1a\x19delivery.work-items.close2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xb1\x01\n" +
+	"close_item\x1a\x19delivery.work-items.close2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\x9a\x01\n" +
+	"\bSaveView\x12 .iot.delivery.v1.SaveViewRequest\x1a\".iot.delivery.v1.SavedViewResponse\"H\xe2\xf3\x18D\n" +
+	"\x13delivery.views.save\x12\tsave_view\x1a\x14delivery.views.write(\x012\x02\x02\x01H\x01R\x04\b\x03\x10\x01\x12\xb1\x01\n" +
+	"\x0eListSavedViews\x12&.iot.delivery.v1.ListSavedViewsRequest\x1a'.iot.delivery.v1.ListSavedViewsResponse\"N\xe2\xf3\x18J\n" +
+	"\x13delivery.views.list\x12\x10list_saved_views\x1a\x13delivery.views.read(\x012\x02\x02\x01H\x01R\x04\b\x02\x10\x01\x12\xaf\x01\n" +
+	"\rGetMemberWeek\x12%.iot.delivery.v1.GetMemberWeekRequest\x1a#.iot.delivery.v1.MemberWeekResponse\"R\xe2\xf3\x18N\n" +
+	"\x15delivery.members.week\x12\x0fget_member_week\x1a\x15delivery.members.read(\x012\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\xb1\x01\n" +
 	"\rCreateProject\x12%.iot.delivery.v1.CreateProjectRequest\x1a .iot.delivery.v1.ProjectResponse\"W\xe2\xf3\x18S\n" +
 	"\x18delivery.projects.create\x12\x0ecreate_project\x1a\x18delivery.projects.create(\x012\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xaf\x01\n" +
 	"\rCreateRelease\x12%.iot.delivery.v1.CreateReleaseRequest\x1a .iot.delivery.v1.ReleaseResponse\"U\xe2\xf3\x18Q\n" +
@@ -3888,7 +4468,7 @@ func file_iot_delivery_proto_rawDescGZIP() []byte {
 	return file_iot_delivery_proto_rawDescData
 }
 
-var file_iot_delivery_proto_msgTypes = make([]protoimpl.MessageInfo, 49)
+var file_iot_delivery_proto_msgTypes = make([]protoimpl.MessageInfo, 58)
 var file_iot_delivery_proto_goTypes = []any{
 	(*GetDashboardRequest)(nil),      // 0: iot.delivery.v1.GetDashboardRequest
 	(*GetDashboardResponse)(nil),     // 1: iot.delivery.v1.GetDashboardResponse
@@ -3912,34 +4492,43 @@ var file_iot_delivery_proto_goTypes = []any{
 	(*TraceLink)(nil),                // 19: iot.delivery.v1.TraceLink
 	(*Comment)(nil),                  // 20: iot.delivery.v1.Comment
 	(*Activity)(nil),                 // 21: iot.delivery.v1.Activity
-	(*Evidence)(nil),                 // 22: iot.delivery.v1.Evidence
-	(*Decision)(nil),                 // 23: iot.delivery.v1.Decision
-	(*CreateItemRequest)(nil),        // 24: iot.delivery.v1.CreateItemRequest
-	(*UpdateItemRequest)(nil),        // 25: iot.delivery.v1.UpdateItemRequest
-	(*CreateItemCommentRequest)(nil), // 26: iot.delivery.v1.CreateItemCommentRequest
-	(*CreateProjectRequest)(nil),     // 27: iot.delivery.v1.CreateProjectRequest
-	(*CreateReleaseRequest)(nil),     // 28: iot.delivery.v1.CreateReleaseRequest
-	(*CreateSprintRequest)(nil),      // 29: iot.delivery.v1.CreateSprintRequest
-	(*CreateMilestoneRequest)(nil),   // 30: iot.delivery.v1.CreateMilestoneRequest
-	(*UpdateItemContextRequest)(nil), // 31: iot.delivery.v1.UpdateItemContextRequest
-	(*AdvanceGateRequest)(nil),       // 32: iot.delivery.v1.AdvanceGateRequest
-	(*CloseItemRequest)(nil),         // 33: iot.delivery.v1.CloseItemRequest
-	(*ListProjectsRequest)(nil),      // 34: iot.delivery.v1.ListProjectsRequest
-	(*ListProjectsResponse)(nil),     // 35: iot.delivery.v1.ListProjectsResponse
-	(*ListReleasesRequest)(nil),      // 36: iot.delivery.v1.ListReleasesRequest
-	(*ListReleasesResponse)(nil),     // 37: iot.delivery.v1.ListReleasesResponse
-	(*ListSprintsRequest)(nil),       // 38: iot.delivery.v1.ListSprintsRequest
-	(*ListSprintsResponse)(nil),      // 39: iot.delivery.v1.ListSprintsResponse
-	(*ListMilestonesRequest)(nil),    // 40: iot.delivery.v1.ListMilestonesRequest
-	(*ListMilestonesResponse)(nil),   // 41: iot.delivery.v1.ListMilestonesResponse
-	(*GetItemRequest)(nil),           // 42: iot.delivery.v1.GetItemRequest
-	(*SearchItemsRequest)(nil),       // 43: iot.delivery.v1.SearchItemsRequest
-	(*SearchItemsResponse)(nil),      // 44: iot.delivery.v1.SearchItemsResponse
-	(*FindSimilarItemsRequest)(nil),  // 45: iot.delivery.v1.FindSimilarItemsRequest
-	(*FindSimilarItemsResponse)(nil), // 46: iot.delivery.v1.FindSimilarItemsResponse
-	(*SimilarityCandidate)(nil),      // 47: iot.delivery.v1.SimilarityCandidate
-	nil,                              // 48: iot.delivery.v1.IoTBinding.AttributesEntry
-	(*timestamppb.Timestamp)(nil),    // 49: google.protobuf.Timestamp
+	(*SavedView)(nil),                // 22: iot.delivery.v1.SavedView
+	(*MemberWeek)(nil),               // 23: iot.delivery.v1.MemberWeek
+	(*Evidence)(nil),                 // 24: iot.delivery.v1.Evidence
+	(*Decision)(nil),                 // 25: iot.delivery.v1.Decision
+	(*CreateItemRequest)(nil),        // 26: iot.delivery.v1.CreateItemRequest
+	(*UpdateItemRequest)(nil),        // 27: iot.delivery.v1.UpdateItemRequest
+	(*CreateItemCommentRequest)(nil), // 28: iot.delivery.v1.CreateItemCommentRequest
+	(*CreateProjectRequest)(nil),     // 29: iot.delivery.v1.CreateProjectRequest
+	(*CreateReleaseRequest)(nil),     // 30: iot.delivery.v1.CreateReleaseRequest
+	(*CreateSprintRequest)(nil),      // 31: iot.delivery.v1.CreateSprintRequest
+	(*CreateMilestoneRequest)(nil),   // 32: iot.delivery.v1.CreateMilestoneRequest
+	(*UpdateItemContextRequest)(nil), // 33: iot.delivery.v1.UpdateItemContextRequest
+	(*AdvanceGateRequest)(nil),       // 34: iot.delivery.v1.AdvanceGateRequest
+	(*CloseItemRequest)(nil),         // 35: iot.delivery.v1.CloseItemRequest
+	(*WorkItemFilter)(nil),           // 36: iot.delivery.v1.WorkItemFilter
+	(*SaveViewRequest)(nil),          // 37: iot.delivery.v1.SaveViewRequest
+	(*ListSavedViewsRequest)(nil),    // 38: iot.delivery.v1.ListSavedViewsRequest
+	(*GetMemberWeekRequest)(nil),     // 39: iot.delivery.v1.GetMemberWeekRequest
+	(*SavedViewResponse)(nil),        // 40: iot.delivery.v1.SavedViewResponse
+	(*ListSavedViewsResponse)(nil),   // 41: iot.delivery.v1.ListSavedViewsResponse
+	(*MemberWeekResponse)(nil),       // 42: iot.delivery.v1.MemberWeekResponse
+	(*ListProjectsRequest)(nil),      // 43: iot.delivery.v1.ListProjectsRequest
+	(*ListProjectsResponse)(nil),     // 44: iot.delivery.v1.ListProjectsResponse
+	(*ListReleasesRequest)(nil),      // 45: iot.delivery.v1.ListReleasesRequest
+	(*ListReleasesResponse)(nil),     // 46: iot.delivery.v1.ListReleasesResponse
+	(*ListSprintsRequest)(nil),       // 47: iot.delivery.v1.ListSprintsRequest
+	(*ListSprintsResponse)(nil),      // 48: iot.delivery.v1.ListSprintsResponse
+	(*ListMilestonesRequest)(nil),    // 49: iot.delivery.v1.ListMilestonesRequest
+	(*ListMilestonesResponse)(nil),   // 50: iot.delivery.v1.ListMilestonesResponse
+	(*GetItemRequest)(nil),           // 51: iot.delivery.v1.GetItemRequest
+	(*SearchItemsRequest)(nil),       // 52: iot.delivery.v1.SearchItemsRequest
+	(*SearchItemsResponse)(nil),      // 53: iot.delivery.v1.SearchItemsResponse
+	(*FindSimilarItemsRequest)(nil),  // 54: iot.delivery.v1.FindSimilarItemsRequest
+	(*FindSimilarItemsResponse)(nil), // 55: iot.delivery.v1.FindSimilarItemsResponse
+	(*SimilarityCandidate)(nil),      // 56: iot.delivery.v1.SimilarityCandidate
+	nil,                              // 57: iot.delivery.v1.IoTBinding.AttributesEntry
+	(*timestamppb.Timestamp)(nil),    // 58: google.protobuf.Timestamp
 }
 var file_iot_delivery_proto_depIdxs = []int32{
 	10, // 0: iot.delivery.v1.GetDashboardResponse.dashboard:type_name -> iot.delivery.v1.Dashboard
@@ -3952,88 +4541,102 @@ var file_iot_delivery_proto_depIdxs = []int32{
 	15, // 7: iot.delivery.v1.MilestoneResponse.milestone:type_name -> iot.delivery.v1.Milestone
 	11, // 8: iot.delivery.v1.Dashboard.boards:type_name -> iot.delivery.v1.BoardSummary
 	16, // 9: iot.delivery.v1.Dashboard.items:type_name -> iot.delivery.v1.WorkItem
-	49, // 10: iot.delivery.v1.Dashboard.generated_at:type_name -> google.protobuf.Timestamp
-	49, // 11: iot.delivery.v1.Project.created_at:type_name -> google.protobuf.Timestamp
-	49, // 12: iot.delivery.v1.Project.updated_at:type_name -> google.protobuf.Timestamp
-	49, // 13: iot.delivery.v1.Release.created_at:type_name -> google.protobuf.Timestamp
-	49, // 14: iot.delivery.v1.Release.updated_at:type_name -> google.protobuf.Timestamp
-	49, // 15: iot.delivery.v1.Sprint.created_at:type_name -> google.protobuf.Timestamp
-	49, // 16: iot.delivery.v1.Sprint.updated_at:type_name -> google.protobuf.Timestamp
-	49, // 17: iot.delivery.v1.Milestone.created_at:type_name -> google.protobuf.Timestamp
-	49, // 18: iot.delivery.v1.Milestone.updated_at:type_name -> google.protobuf.Timestamp
-	23, // 19: iot.delivery.v1.WorkItem.decisions:type_name -> iot.delivery.v1.Decision
-	22, // 20: iot.delivery.v1.WorkItem.evidence:type_name -> iot.delivery.v1.Evidence
-	49, // 21: iot.delivery.v1.WorkItem.created_at:type_name -> google.protobuf.Timestamp
-	49, // 22: iot.delivery.v1.WorkItem.updated_at:type_name -> google.protobuf.Timestamp
+	58, // 10: iot.delivery.v1.Dashboard.generated_at:type_name -> google.protobuf.Timestamp
+	58, // 11: iot.delivery.v1.Project.created_at:type_name -> google.protobuf.Timestamp
+	58, // 12: iot.delivery.v1.Project.updated_at:type_name -> google.protobuf.Timestamp
+	58, // 13: iot.delivery.v1.Release.created_at:type_name -> google.protobuf.Timestamp
+	58, // 14: iot.delivery.v1.Release.updated_at:type_name -> google.protobuf.Timestamp
+	58, // 15: iot.delivery.v1.Sprint.created_at:type_name -> google.protobuf.Timestamp
+	58, // 16: iot.delivery.v1.Sprint.updated_at:type_name -> google.protobuf.Timestamp
+	58, // 17: iot.delivery.v1.Milestone.created_at:type_name -> google.protobuf.Timestamp
+	58, // 18: iot.delivery.v1.Milestone.updated_at:type_name -> google.protobuf.Timestamp
+	25, // 19: iot.delivery.v1.WorkItem.decisions:type_name -> iot.delivery.v1.Decision
+	24, // 20: iot.delivery.v1.WorkItem.evidence:type_name -> iot.delivery.v1.Evidence
+	58, // 21: iot.delivery.v1.WorkItem.created_at:type_name -> google.protobuf.Timestamp
+	58, // 22: iot.delivery.v1.WorkItem.updated_at:type_name -> google.protobuf.Timestamp
 	17, // 23: iot.delivery.v1.WorkItem.dependencies:type_name -> iot.delivery.v1.WorkItemDependency
 	18, // 24: iot.delivery.v1.WorkItem.iot_bindings:type_name -> iot.delivery.v1.IoTBinding
 	19, // 25: iot.delivery.v1.WorkItem.trace_links:type_name -> iot.delivery.v1.TraceLink
 	20, // 26: iot.delivery.v1.WorkItem.comments:type_name -> iot.delivery.v1.Comment
 	21, // 27: iot.delivery.v1.WorkItem.activities:type_name -> iot.delivery.v1.Activity
-	48, // 28: iot.delivery.v1.IoTBinding.attributes:type_name -> iot.delivery.v1.IoTBinding.AttributesEntry
-	49, // 29: iot.delivery.v1.TraceLink.recorded_at:type_name -> google.protobuf.Timestamp
-	49, // 30: iot.delivery.v1.Comment.created_at:type_name -> google.protobuf.Timestamp
-	49, // 31: iot.delivery.v1.Activity.occurred_at:type_name -> google.protobuf.Timestamp
-	49, // 32: iot.delivery.v1.Evidence.recorded_at:type_name -> google.protobuf.Timestamp
-	49, // 33: iot.delivery.v1.Decision.created_at:type_name -> google.protobuf.Timestamp
-	17, // 34: iot.delivery.v1.CreateItemRequest.dependencies:type_name -> iot.delivery.v1.WorkItemDependency
-	18, // 35: iot.delivery.v1.CreateItemRequest.iot_bindings:type_name -> iot.delivery.v1.IoTBinding
-	19, // 36: iot.delivery.v1.CreateItemRequest.trace_links:type_name -> iot.delivery.v1.TraceLink
-	17, // 37: iot.delivery.v1.UpdateItemRequest.dependencies:type_name -> iot.delivery.v1.WorkItemDependency
-	18, // 38: iot.delivery.v1.UpdateItemRequest.iot_bindings:type_name -> iot.delivery.v1.IoTBinding
-	19, // 39: iot.delivery.v1.UpdateItemRequest.trace_links:type_name -> iot.delivery.v1.TraceLink
-	23, // 40: iot.delivery.v1.UpdateItemContextRequest.decision:type_name -> iot.delivery.v1.Decision
-	22, // 41: iot.delivery.v1.AdvanceGateRequest.evidence:type_name -> iot.delivery.v1.Evidence
-	12, // 42: iot.delivery.v1.ListProjectsResponse.projects:type_name -> iot.delivery.v1.Project
-	13, // 43: iot.delivery.v1.ListReleasesResponse.releases:type_name -> iot.delivery.v1.Release
-	14, // 44: iot.delivery.v1.ListSprintsResponse.sprints:type_name -> iot.delivery.v1.Sprint
-	15, // 45: iot.delivery.v1.ListMilestonesResponse.milestones:type_name -> iot.delivery.v1.Milestone
-	16, // 46: iot.delivery.v1.SearchItemsResponse.items:type_name -> iot.delivery.v1.WorkItem
-	47, // 47: iot.delivery.v1.FindSimilarItemsResponse.candidates:type_name -> iot.delivery.v1.SimilarityCandidate
-	16, // 48: iot.delivery.v1.SimilarityCandidate.item:type_name -> iot.delivery.v1.WorkItem
-	0,  // 49: iot.delivery.v1.DeliveryService.GetDashboard:input_type -> iot.delivery.v1.GetDashboardRequest
-	2,  // 50: iot.delivery.v1.DeliveryService.ListItems:input_type -> iot.delivery.v1.ListItemsRequest
-	24, // 51: iot.delivery.v1.DeliveryService.CreateItem:input_type -> iot.delivery.v1.CreateItemRequest
-	25, // 52: iot.delivery.v1.DeliveryService.UpdateItem:input_type -> iot.delivery.v1.UpdateItemRequest
-	26, // 53: iot.delivery.v1.DeliveryService.CreateItemComment:input_type -> iot.delivery.v1.CreateItemCommentRequest
-	31, // 54: iot.delivery.v1.DeliveryService.UpdateItemContext:input_type -> iot.delivery.v1.UpdateItemContextRequest
-	32, // 55: iot.delivery.v1.DeliveryService.AdvanceGate:input_type -> iot.delivery.v1.AdvanceGateRequest
-	33, // 56: iot.delivery.v1.DeliveryService.CloseItem:input_type -> iot.delivery.v1.CloseItemRequest
-	27, // 57: iot.delivery.v1.DeliveryService.CreateProject:input_type -> iot.delivery.v1.CreateProjectRequest
-	28, // 58: iot.delivery.v1.DeliveryService.CreateRelease:input_type -> iot.delivery.v1.CreateReleaseRequest
-	29, // 59: iot.delivery.v1.DeliveryService.CreateSprint:input_type -> iot.delivery.v1.CreateSprintRequest
-	30, // 60: iot.delivery.v1.DeliveryService.CreateMilestone:input_type -> iot.delivery.v1.CreateMilestoneRequest
-	34, // 61: iot.delivery.v1.DeliveryService.ListProjects:input_type -> iot.delivery.v1.ListProjectsRequest
-	36, // 62: iot.delivery.v1.DeliveryService.ListReleases:input_type -> iot.delivery.v1.ListReleasesRequest
-	38, // 63: iot.delivery.v1.DeliveryService.ListSprints:input_type -> iot.delivery.v1.ListSprintsRequest
-	40, // 64: iot.delivery.v1.DeliveryService.ListMilestones:input_type -> iot.delivery.v1.ListMilestonesRequest
-	42, // 65: iot.delivery.v1.DeliveryService.GetItem:input_type -> iot.delivery.v1.GetItemRequest
-	43, // 66: iot.delivery.v1.DeliveryService.SearchItems:input_type -> iot.delivery.v1.SearchItemsRequest
-	45, // 67: iot.delivery.v1.DeliveryService.FindSimilarItems:input_type -> iot.delivery.v1.FindSimilarItemsRequest
-	1,  // 68: iot.delivery.v1.DeliveryService.GetDashboard:output_type -> iot.delivery.v1.GetDashboardResponse
-	3,  // 69: iot.delivery.v1.DeliveryService.ListItems:output_type -> iot.delivery.v1.ListItemsResponse
-	4,  // 70: iot.delivery.v1.DeliveryService.CreateItem:output_type -> iot.delivery.v1.WorkItemResponse
-	4,  // 71: iot.delivery.v1.DeliveryService.UpdateItem:output_type -> iot.delivery.v1.WorkItemResponse
-	5,  // 72: iot.delivery.v1.DeliveryService.CreateItemComment:output_type -> iot.delivery.v1.CommentResponse
-	4,  // 73: iot.delivery.v1.DeliveryService.UpdateItemContext:output_type -> iot.delivery.v1.WorkItemResponse
-	4,  // 74: iot.delivery.v1.DeliveryService.AdvanceGate:output_type -> iot.delivery.v1.WorkItemResponse
-	4,  // 75: iot.delivery.v1.DeliveryService.CloseItem:output_type -> iot.delivery.v1.WorkItemResponse
-	6,  // 76: iot.delivery.v1.DeliveryService.CreateProject:output_type -> iot.delivery.v1.ProjectResponse
-	7,  // 77: iot.delivery.v1.DeliveryService.CreateRelease:output_type -> iot.delivery.v1.ReleaseResponse
-	8,  // 78: iot.delivery.v1.DeliveryService.CreateSprint:output_type -> iot.delivery.v1.SprintResponse
-	9,  // 79: iot.delivery.v1.DeliveryService.CreateMilestone:output_type -> iot.delivery.v1.MilestoneResponse
-	35, // 80: iot.delivery.v1.DeliveryService.ListProjects:output_type -> iot.delivery.v1.ListProjectsResponse
-	37, // 81: iot.delivery.v1.DeliveryService.ListReleases:output_type -> iot.delivery.v1.ListReleasesResponse
-	39, // 82: iot.delivery.v1.DeliveryService.ListSprints:output_type -> iot.delivery.v1.ListSprintsResponse
-	41, // 83: iot.delivery.v1.DeliveryService.ListMilestones:output_type -> iot.delivery.v1.ListMilestonesResponse
-	4,  // 84: iot.delivery.v1.DeliveryService.GetItem:output_type -> iot.delivery.v1.WorkItemResponse
-	44, // 85: iot.delivery.v1.DeliveryService.SearchItems:output_type -> iot.delivery.v1.SearchItemsResponse
-	46, // 86: iot.delivery.v1.DeliveryService.FindSimilarItems:output_type -> iot.delivery.v1.FindSimilarItemsResponse
-	68, // [68:87] is the sub-list for method output_type
-	49, // [49:68] is the sub-list for method input_type
-	49, // [49:49] is the sub-list for extension type_name
-	49, // [49:49] is the sub-list for extension extendee
-	0,  // [0:49] is the sub-list for field type_name
+	57, // 28: iot.delivery.v1.IoTBinding.attributes:type_name -> iot.delivery.v1.IoTBinding.AttributesEntry
+	58, // 29: iot.delivery.v1.TraceLink.recorded_at:type_name -> google.protobuf.Timestamp
+	58, // 30: iot.delivery.v1.Comment.created_at:type_name -> google.protobuf.Timestamp
+	58, // 31: iot.delivery.v1.Activity.occurred_at:type_name -> google.protobuf.Timestamp
+	36, // 32: iot.delivery.v1.SavedView.filter:type_name -> iot.delivery.v1.WorkItemFilter
+	58, // 33: iot.delivery.v1.SavedView.created_at:type_name -> google.protobuf.Timestamp
+	58, // 34: iot.delivery.v1.SavedView.updated_at:type_name -> google.protobuf.Timestamp
+	16, // 35: iot.delivery.v1.MemberWeek.items:type_name -> iot.delivery.v1.WorkItem
+	58, // 36: iot.delivery.v1.Evidence.recorded_at:type_name -> google.protobuf.Timestamp
+	58, // 37: iot.delivery.v1.Decision.created_at:type_name -> google.protobuf.Timestamp
+	17, // 38: iot.delivery.v1.CreateItemRequest.dependencies:type_name -> iot.delivery.v1.WorkItemDependency
+	18, // 39: iot.delivery.v1.CreateItemRequest.iot_bindings:type_name -> iot.delivery.v1.IoTBinding
+	19, // 40: iot.delivery.v1.CreateItemRequest.trace_links:type_name -> iot.delivery.v1.TraceLink
+	17, // 41: iot.delivery.v1.UpdateItemRequest.dependencies:type_name -> iot.delivery.v1.WorkItemDependency
+	18, // 42: iot.delivery.v1.UpdateItemRequest.iot_bindings:type_name -> iot.delivery.v1.IoTBinding
+	19, // 43: iot.delivery.v1.UpdateItemRequest.trace_links:type_name -> iot.delivery.v1.TraceLink
+	25, // 44: iot.delivery.v1.UpdateItemContextRequest.decision:type_name -> iot.delivery.v1.Decision
+	24, // 45: iot.delivery.v1.AdvanceGateRequest.evidence:type_name -> iot.delivery.v1.Evidence
+	36, // 46: iot.delivery.v1.SaveViewRequest.filter:type_name -> iot.delivery.v1.WorkItemFilter
+	22, // 47: iot.delivery.v1.SavedViewResponse.view:type_name -> iot.delivery.v1.SavedView
+	22, // 48: iot.delivery.v1.ListSavedViewsResponse.views:type_name -> iot.delivery.v1.SavedView
+	23, // 49: iot.delivery.v1.MemberWeekResponse.week:type_name -> iot.delivery.v1.MemberWeek
+	12, // 50: iot.delivery.v1.ListProjectsResponse.projects:type_name -> iot.delivery.v1.Project
+	13, // 51: iot.delivery.v1.ListReleasesResponse.releases:type_name -> iot.delivery.v1.Release
+	14, // 52: iot.delivery.v1.ListSprintsResponse.sprints:type_name -> iot.delivery.v1.Sprint
+	15, // 53: iot.delivery.v1.ListMilestonesResponse.milestones:type_name -> iot.delivery.v1.Milestone
+	16, // 54: iot.delivery.v1.SearchItemsResponse.items:type_name -> iot.delivery.v1.WorkItem
+	56, // 55: iot.delivery.v1.FindSimilarItemsResponse.candidates:type_name -> iot.delivery.v1.SimilarityCandidate
+	16, // 56: iot.delivery.v1.SimilarityCandidate.item:type_name -> iot.delivery.v1.WorkItem
+	0,  // 57: iot.delivery.v1.DeliveryService.GetDashboard:input_type -> iot.delivery.v1.GetDashboardRequest
+	2,  // 58: iot.delivery.v1.DeliveryService.ListItems:input_type -> iot.delivery.v1.ListItemsRequest
+	26, // 59: iot.delivery.v1.DeliveryService.CreateItem:input_type -> iot.delivery.v1.CreateItemRequest
+	27, // 60: iot.delivery.v1.DeliveryService.UpdateItem:input_type -> iot.delivery.v1.UpdateItemRequest
+	28, // 61: iot.delivery.v1.DeliveryService.CreateItemComment:input_type -> iot.delivery.v1.CreateItemCommentRequest
+	33, // 62: iot.delivery.v1.DeliveryService.UpdateItemContext:input_type -> iot.delivery.v1.UpdateItemContextRequest
+	34, // 63: iot.delivery.v1.DeliveryService.AdvanceGate:input_type -> iot.delivery.v1.AdvanceGateRequest
+	35, // 64: iot.delivery.v1.DeliveryService.CloseItem:input_type -> iot.delivery.v1.CloseItemRequest
+	37, // 65: iot.delivery.v1.DeliveryService.SaveView:input_type -> iot.delivery.v1.SaveViewRequest
+	38, // 66: iot.delivery.v1.DeliveryService.ListSavedViews:input_type -> iot.delivery.v1.ListSavedViewsRequest
+	39, // 67: iot.delivery.v1.DeliveryService.GetMemberWeek:input_type -> iot.delivery.v1.GetMemberWeekRequest
+	29, // 68: iot.delivery.v1.DeliveryService.CreateProject:input_type -> iot.delivery.v1.CreateProjectRequest
+	30, // 69: iot.delivery.v1.DeliveryService.CreateRelease:input_type -> iot.delivery.v1.CreateReleaseRequest
+	31, // 70: iot.delivery.v1.DeliveryService.CreateSprint:input_type -> iot.delivery.v1.CreateSprintRequest
+	32, // 71: iot.delivery.v1.DeliveryService.CreateMilestone:input_type -> iot.delivery.v1.CreateMilestoneRequest
+	43, // 72: iot.delivery.v1.DeliveryService.ListProjects:input_type -> iot.delivery.v1.ListProjectsRequest
+	45, // 73: iot.delivery.v1.DeliveryService.ListReleases:input_type -> iot.delivery.v1.ListReleasesRequest
+	47, // 74: iot.delivery.v1.DeliveryService.ListSprints:input_type -> iot.delivery.v1.ListSprintsRequest
+	49, // 75: iot.delivery.v1.DeliveryService.ListMilestones:input_type -> iot.delivery.v1.ListMilestonesRequest
+	51, // 76: iot.delivery.v1.DeliveryService.GetItem:input_type -> iot.delivery.v1.GetItemRequest
+	52, // 77: iot.delivery.v1.DeliveryService.SearchItems:input_type -> iot.delivery.v1.SearchItemsRequest
+	54, // 78: iot.delivery.v1.DeliveryService.FindSimilarItems:input_type -> iot.delivery.v1.FindSimilarItemsRequest
+	1,  // 79: iot.delivery.v1.DeliveryService.GetDashboard:output_type -> iot.delivery.v1.GetDashboardResponse
+	3,  // 80: iot.delivery.v1.DeliveryService.ListItems:output_type -> iot.delivery.v1.ListItemsResponse
+	4,  // 81: iot.delivery.v1.DeliveryService.CreateItem:output_type -> iot.delivery.v1.WorkItemResponse
+	4,  // 82: iot.delivery.v1.DeliveryService.UpdateItem:output_type -> iot.delivery.v1.WorkItemResponse
+	5,  // 83: iot.delivery.v1.DeliveryService.CreateItemComment:output_type -> iot.delivery.v1.CommentResponse
+	4,  // 84: iot.delivery.v1.DeliveryService.UpdateItemContext:output_type -> iot.delivery.v1.WorkItemResponse
+	4,  // 85: iot.delivery.v1.DeliveryService.AdvanceGate:output_type -> iot.delivery.v1.WorkItemResponse
+	4,  // 86: iot.delivery.v1.DeliveryService.CloseItem:output_type -> iot.delivery.v1.WorkItemResponse
+	40, // 87: iot.delivery.v1.DeliveryService.SaveView:output_type -> iot.delivery.v1.SavedViewResponse
+	41, // 88: iot.delivery.v1.DeliveryService.ListSavedViews:output_type -> iot.delivery.v1.ListSavedViewsResponse
+	42, // 89: iot.delivery.v1.DeliveryService.GetMemberWeek:output_type -> iot.delivery.v1.MemberWeekResponse
+	6,  // 90: iot.delivery.v1.DeliveryService.CreateProject:output_type -> iot.delivery.v1.ProjectResponse
+	7,  // 91: iot.delivery.v1.DeliveryService.CreateRelease:output_type -> iot.delivery.v1.ReleaseResponse
+	8,  // 92: iot.delivery.v1.DeliveryService.CreateSprint:output_type -> iot.delivery.v1.SprintResponse
+	9,  // 93: iot.delivery.v1.DeliveryService.CreateMilestone:output_type -> iot.delivery.v1.MilestoneResponse
+	44, // 94: iot.delivery.v1.DeliveryService.ListProjects:output_type -> iot.delivery.v1.ListProjectsResponse
+	46, // 95: iot.delivery.v1.DeliveryService.ListReleases:output_type -> iot.delivery.v1.ListReleasesResponse
+	48, // 96: iot.delivery.v1.DeliveryService.ListSprints:output_type -> iot.delivery.v1.ListSprintsResponse
+	50, // 97: iot.delivery.v1.DeliveryService.ListMilestones:output_type -> iot.delivery.v1.ListMilestonesResponse
+	4,  // 98: iot.delivery.v1.DeliveryService.GetItem:output_type -> iot.delivery.v1.WorkItemResponse
+	53, // 99: iot.delivery.v1.DeliveryService.SearchItems:output_type -> iot.delivery.v1.SearchItemsResponse
+	55, // 100: iot.delivery.v1.DeliveryService.FindSimilarItems:output_type -> iot.delivery.v1.FindSimilarItemsResponse
+	79, // [79:101] is the sub-list for method output_type
+	57, // [57:79] is the sub-list for method input_type
+	57, // [57:57] is the sub-list for extension type_name
+	57, // [57:57] is the sub-list for extension extendee
+	0,  // [0:57] is the sub-list for field type_name
 }
 
 func init() { file_iot_delivery_proto_init() }
@@ -4041,14 +4644,14 @@ func file_iot_delivery_proto_init() {
 	if File_iot_delivery_proto != nil {
 		return
 	}
-	file_iot_delivery_proto_msgTypes[31].OneofWrappers = []any{}
+	file_iot_delivery_proto_msgTypes[33].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_iot_delivery_proto_rawDesc), len(file_iot_delivery_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   49,
+			NumMessages:   58,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

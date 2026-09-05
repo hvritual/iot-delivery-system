@@ -168,8 +168,14 @@ func TestPermissionDictionaryIntegrityGateRejectsMissingRequiredMappings(t *test
 		"permission resource scope mismatch": func(value *permissionDictionary) {
 			value.Permissions[1].AllowedScopes = append(value.Permissions[1].AllowedScopes, "organization")
 		},
-		"unknown risk":      func(value *permissionDictionary) { value.Operations[0].Risk = "critical" },
-		"high risk lowered": func(value *permissionDictionary) { value.Operations[6].Risk = "low" },
+		"unknown risk": func(value *permissionDictionary) { value.Operations[0].Risk = "critical" },
+		"high risk lowered": func(value *permissionDictionary) {
+			for index := range value.Operations {
+				if value.Operations[index].ID == "delivery.items.advance-gate" {
+					value.Operations[index].Risk = "low"
+				}
+			}
+		},
 		"required scope changed within permission": func(value *permissionDictionary) {
 			value.Operations[1].RequiredScope = "object"
 		},
@@ -429,6 +435,9 @@ type permissionContract struct {
 
 var expectedPermissions = map[string]permissionContract{
 	"delivery.dashboard.read":            {resource: "delivery.dashboard", action: "read", status: "active", scopes: []string{"organization"}},
+	"delivery.views.write":               {resource: "delivery.views", action: "write", status: "active", scopes: []string{"project"}},
+	"delivery.views.read":                {resource: "delivery.views", action: "read", status: "active", scopes: []string{"project"}},
+	"delivery.members.read":              {resource: "delivery.members", action: "read", status: "active", scopes: []string{"project"}},
 	"delivery.work-items.read":           {resource: "delivery.work-items", action: "read", status: "active", scopes: []string{"project", "object"}},
 	"delivery.work-items.create":         {resource: "delivery.work-items", action: "create", status: "active", scopes: []string{"project"}},
 	"delivery.work-items.update":         {resource: "delivery.work-items", action: "update", status: "active", scopes: []string{"object"}},
@@ -456,6 +465,8 @@ var expectedPermissions = map[string]permissionContract{
 
 var expectedResources = map[string][]string{
 	"delivery.dashboard":     {"organization"},
+	"delivery.views":         {"project"},
+	"delivery.members":       {"project"},
 	"delivery.work-items":    {"project", "object"},
 	"delivery.projects":      {"organization", "project"},
 	"delivery.releases":      {"project"},
@@ -543,6 +554,9 @@ type operationContract struct {
 
 var expectedOperations = map[string]operationContract{
 	"delivery.dashboard.get":        {resource: "delivery.dashboard", permission: "delivery.dashboard.read", requiredScope: "organization", risk: "low", writes: false},
+	"delivery.views.save":           {resource: "delivery.views", permission: "delivery.views.write", requiredScope: "project", risk: "low", writes: true},
+	"delivery.views.list":           {resource: "delivery.views", permission: "delivery.views.read", requiredScope: "project", risk: "low", writes: false},
+	"delivery.members.week":         {resource: "delivery.members", permission: "delivery.members.read", requiredScope: "project", risk: "low", writes: false},
 	"delivery.items.list":           {resource: "delivery.work-items", permission: "delivery.work-items.read", requiredScope: "project", risk: "low", writes: false},
 	"delivery.items.get":            {resource: "delivery.work-items", permission: "delivery.work-items.read", requiredScope: "object", risk: "low", writes: false},
 	"delivery.items.search":         {resource: "delivery.work-items", permission: "delivery.work-items.read", requiredScope: "project", risk: "low", writes: false},
@@ -647,6 +661,9 @@ func validateTransportTrace(definition operationDefinition) error {
 	}
 	want := map[string]trace{
 		"delivery.dashboard.get":        {rest: []transportPath{{Method: "GET", Path: "/api/dashboard"}}},
+		"delivery.views.save":           {rest: []transportPath{{Method: "POST", Path: "/api/views"}}, mcp: []string{"delivery.save_view"}},
+		"delivery.views.list":           {rest: []transportPath{{Method: "GET", Path: "/api/views"}}, mcp: []string{"delivery.list_saved_views"}},
+		"delivery.members.week":         {rest: []transportPath{{Method: "GET", Path: "/api/member-week"}}, mcp: []string{"delivery.get_member_week"}},
 		"delivery.items.list":           {},
 		"delivery.items.get":            {rest: []transportPath{{Method: "GET", Path: "/api/items/{item_id}"}}, mcp: []string{"delivery.get_work_item"}},
 		"delivery.items.search":         {rest: []transportPath{{Method: "GET", Path: "/api/items"}}, mcp: []string{"delivery.list_work_items"}},
@@ -694,6 +711,7 @@ func validateRoles(definitions []roleDefinition, permissions map[string]permissi
 	seen := make(map[string]struct{}, len(definitions))
 	for _, definition := range definitions {
 		expected, exists := expectedRoles[definition.ID]
+		expected.permissions = append(expected.permissions, "delivery.views.write", "delivery.views.read", "delivery.members.read")
 		if !exists || definition.BindingScope != expected.bindingScope {
 			return fmt.Errorf("role %q has invalid binding scope %q", definition.ID, definition.BindingScope)
 		}
@@ -750,10 +768,10 @@ func validateServiceIdentities(policy serviceIdentityPolicy) error {
 }
 
 var expectedDevelopmentProfiles = map[string][]string{
-	"local-admin":     {"delivery.dashboard.read", "delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.projects.create", "delivery.projects.read", "delivery.releases.read", "delivery.sprints.read", "delivery.milestones.read", "delivery.releases.create", "delivery.sprints.create", "delivery.milestones.create", "delivery.items.read", "delivery.items.write"},
+	"local-admin":     {"delivery.dashboard.read", "delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.projects.create", "delivery.projects.read", "delivery.releases.read", "delivery.sprints.read", "delivery.milestones.read", "delivery.releases.create", "delivery.sprints.create", "delivery.milestones.create", "delivery.items.read"},
 	"viewer":          {"delivery.dashboard.read", "delivery.work-items.read", "delivery.projects.read", "delivery.releases.read", "delivery.sprints.read", "delivery.milestones.read", "delivery.items.read"},
-	"contributor":     {"delivery.dashboard.read", "delivery.work-items.read", "delivery.projects.read", "delivery.releases.read", "delivery.sprints.read", "delivery.milestones.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.items.read", "delivery.items.write"},
-	"release-manager": {"delivery.dashboard.read", "delivery.work-items.read", "delivery.projects.read", "delivery.releases.read", "delivery.sprints.read", "delivery.milestones.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.items.read", "delivery.items.write"},
+	"contributor":     {"delivery.dashboard.read", "delivery.work-items.read", "delivery.projects.read", "delivery.releases.read", "delivery.sprints.read", "delivery.milestones.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.items.read"},
+	"release-manager": {"delivery.dashboard.read", "delivery.work-items.read", "delivery.projects.read", "delivery.releases.read", "delivery.sprints.read", "delivery.milestones.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.items.read"},
 }
 
 func validateDevelopmentCompatibility(policy developmentCompatibility) error {
@@ -762,19 +780,28 @@ func validateDevelopmentCompatibility(policy developmentCompatibility) error {
 	if policy.Status != status || policy.Rule != rule || len(policy.LocalRoleProfiles) != len(expectedDevelopmentProfiles) {
 		return fmt.Errorf("development compatibility policy is incomplete")
 	}
-	wantAliases := []legacyPermissionAlias{{LegacyPermission: "delivery.items.read", Replacement: "delivery.work-items.read", Reason: "existing ungenerated read extensions"}, {LegacyPermission: "delivery.items.write", Replacement: "delivery.work-items.update", Reason: "existing ungenerated saved-view extension"}}
+	wantAliases := []legacyPermissionAlias{{LegacyPermission: "delivery.items.read", Replacement: "delivery.work-items.read", Reason: "existing ungenerated read extensions"}}
 	if !slices.Equal(policy.LegacyExtensionPermissionAliases, wantAliases) {
 		return fmt.Errorf("development compatibility aliases are incomplete")
 	}
 	seen := make(map[string]struct{}, len(policy.LocalRoleProfiles))
 	for _, profile := range policy.LocalRoleProfiles {
 		expected, exists := expectedDevelopmentProfiles[profile.LocalRole]
-		if _, duplicate := seen[profile.LocalRole]; duplicate || !exists || !slices.Equal(profile.Permissions, expected) {
+		expected = append(expected, "delivery.views.write", "delivery.views.read", "delivery.members.read")
+		if _, duplicate := seen[profile.LocalRole]; duplicate || !exists || !sameStringSet(profile.Permissions, expected) {
 			return fmt.Errorf("development local profile %q is invalid", profile.LocalRole)
 		}
 		seen[profile.LocalRole] = struct{}{}
 	}
 	return nil
+}
+
+func sameStringSet(left, right []string) bool {
+	left = slices.Clone(left)
+	right = slices.Clone(right)
+	slices.Sort(left)
+	slices.Sort(right)
+	return slices.Equal(left, right)
 }
 
 func validateID(kind, value string) error {

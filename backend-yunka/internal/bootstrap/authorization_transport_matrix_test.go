@@ -1087,10 +1087,10 @@ func TestMCPRegistrationContainsExactlySixteenDictionaryPublicToolsAndFiveExclud
 		"delivery.get_work_item": true, "delivery.find_similar": true,
 		"delivery.close_work_item": true, "delivery.create_project": true, "delivery.list_projects": true, "delivery.create_release": true, "delivery.create_sprint": true, "delivery.create_milestone": true,
 		"delivery.list_releases": true, "delivery.list_sprints": true, "delivery.list_milestones": true,
+		"delivery.get_member_week": true, "delivery.save_view": true, "delivery.list_saved_views": true,
 	}
 	excluded := map[string]bool{
-		"delivery.get_member_week": true, "delivery.get_project_progress": true,
-		"delivery.get_project_schedule": true, "delivery.save_view": true, "delivery.list_saved_views": true,
+		"delivery.get_project_progress": true, "delivery.get_project_schedule": true,
 	}
 	seen := map[string]bool{}
 	for _, tool := range result.Tools {

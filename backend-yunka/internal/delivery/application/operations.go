@@ -446,21 +446,44 @@ func (operations *Operations) ListMilestones(ctx context.Context, projectID stri
 }
 
 func (operations *Operations) SaveView(ctx context.Context, input delivery.SavedViewInput) (delivery.SavedView, error) {
-	return executeServiceExtension(operations, ctx, "delivery.views.save", "save_view", "delivery.items.write", "local", input, func(callContext context.Context) (delivery.SavedView, error) {
-		return operations.service.SaveView(callContext, input)
-	})
+	if err := operations.ready(); err != nil {
+		return delivery.SavedView{}, err
+	}
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanSaveView(), &deliveryv1.SaveViewRequest{Name: input.Name, Filter: workItemFilterToProto(input.Filter)}, operations.application.SaveView)
+	if err != nil {
+		return delivery.SavedView{}, err
+	}
+	return savedViewFromProto(response.GetView()), nil
 }
 
 func (operations *Operations) ListSavedViews(ctx context.Context) ([]delivery.SavedView, error) {
-	return executeServiceExtension(operations, ctx, "delivery.views.list", "list_views", "delivery.items.read", "read_only", nil, func(callContext context.Context) ([]delivery.SavedView, error) {
-		return operations.service.ListSavedViews(callContext)
-	})
+	if err := operations.ready(); err != nil {
+		return nil, err
+	}
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanListSavedViews(), &deliveryv1.ListSavedViewsRequest{}, operations.application.ListSavedViews)
+	if err != nil {
+		return nil, err
+	}
+	views := make([]delivery.SavedView, 0, len(response.GetViews()))
+	for _, view := range response.GetViews() {
+		views = append(views, savedViewFromProto(view))
+	}
+	return views, nil
 }
 
 func (operations *Operations) MemberWeek(ctx context.Context, member, weekStart string) (delivery.MemberWeek, error) {
-	return executeServiceExtension(operations, ctx, "delivery.members.week", "get_member_week", "delivery.items.read", "read_only", map[string]string{"member": member, "weekStart": weekStart}, func(callContext context.Context) (delivery.MemberWeek, error) {
-		return operations.service.MemberWeek(callContext, member, weekStart)
-	})
+	if err := operations.ready(); err != nil {
+		return delivery.MemberWeek{}, err
+	}
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanGetMemberWeek(), &deliveryv1.GetMemberWeekRequest{Member: member, WeekStart: weekStart}, operations.application.GetMemberWeek)
+	if err != nil {
+		return delivery.MemberWeek{}, err
+	}
+	week := response.GetWeek()
+	if week == nil {
+		return delivery.MemberWeek{}, nil
+	}
+	return delivery.MemberWeek{Member: week.GetMember(), WeekStart: week.GetWeekStart(), WeekEnd: week.GetWeekEnd(), Items: workItemsFromProto(week.GetItems())}, nil
 }
 
 func (operations *Operations) ProjectProgress(ctx context.Context, projectID string) (delivery.ProjectProgress, error) {
@@ -511,6 +534,13 @@ func executeServiceExtension[T any](operations *Operations, ctx context.Context,
 		return zero, errors.New("delivery extension operation returned an unexpected result")
 	}
 	return result, nil
+}
+
+func savedViewFromProto(value *deliveryv1.SavedView) delivery.SavedView {
+	if value == nil {
+		return delivery.SavedView{}
+	}
+	return delivery.SavedView{ID: value.GetId(), Name: value.GetName(), Owner: value.GetOwner(), Filter: workItemFilterFromProto(value.GetFilter()), CreatedAt: timeFromProto(value.GetCreatedAt()), UpdatedAt: timeFromProto(value.GetUpdatedAt())}
 }
 
 func (operations *Operations) ready() error {

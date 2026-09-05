@@ -173,10 +173,17 @@ func (guard *OperationGuard) Prepare(ctx context.Context, authorized authz.Autho
 	// Resolve the durable grants into a tenant-owned project set before the
 	// application boundary, so every adapter can filter the same trusted set.
 	if authorized.Policy.Operation == "delivery.items.list" || authorized.Policy.Operation == "delivery.projects.list" ||
+		authorized.Policy.Operation == "delivery.views.save" || authorized.Policy.Operation == "delivery.views.list" || authorized.Policy.Operation == "delivery.members.week" ||
 		((authorized.Policy.Operation == "delivery.items.search" || authorized.Policy.Operation == "delivery.items.similarity") && itemReadProjectID(input) == "") {
 		projects, err := guard.allowedProjects(ctx, grants, permissions, operation, tenantID)
 		if err != nil {
 			return nil, err
+		}
+		if request, ok := input.(*deliveryv1.SaveViewRequest); ok && request.GetFilter() != nil {
+			projectID := strings.TrimSpace(request.GetFilter().GetProjectId())
+			if projectID != "" && !projects[projectID] {
+				return nil, denied()
+			}
 		}
 		return authorizedProjectsKey.With(secured, projects), nil
 	}
@@ -616,6 +623,15 @@ func validInput(operation authz.OperationID, input any) bool {
 		return ok && request != nil
 	case "delivery.milestones.list":
 		request, ok := input.(*deliveryv1.ListMilestonesRequest)
+		return ok && request != nil
+	case "delivery.views.save":
+		request, ok := input.(*deliveryv1.SaveViewRequest)
+		return ok && request != nil
+	case "delivery.views.list":
+		request, ok := input.(*deliveryv1.ListSavedViewsRequest)
+		return ok && request != nil
+	case "delivery.members.week":
+		request, ok := input.(*deliveryv1.GetMemberWeekRequest)
 		return ok && request != nil
 	default:
 		return false

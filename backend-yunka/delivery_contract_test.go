@@ -104,6 +104,9 @@ func TestGeneratedOperationPlansDeclareLocalAPIKeyAuthorizationAndTransactions(t
 		"delivery.sprints.list":         {permission: "delivery.sprints.read", transaction: "read_only"},
 		"delivery.milestones.create":    {permission: "delivery.milestones.create", transaction: "local"},
 		"delivery.milestones.list":      {permission: "delivery.milestones.read", transaction: "read_only"},
+		"delivery.views.save":           {permission: "delivery.views.write", transaction: "local"},
+		"delivery.views.list":           {permission: "delivery.views.read", transaction: "read_only"},
+		"delivery.members.week":         {permission: "delivery.members.read", transaction: "read_only"},
 	}
 	if len(plans.Operations) != len(want) {
 		t.Fatalf("generated operation count = %d, want %d", len(plans.Operations), len(want))
@@ -116,8 +119,12 @@ func TestGeneratedOperationPlansDeclareLocalAPIKeyAuthorizationAndTransactions(t
 		if plan.Execution.Transaction != expected.transaction {
 			t.Fatalf("operation %s transaction = %q, want %q", plan.OperationID, plan.Execution.Transaction, expected.transaction)
 		}
-		if plan.Security.Public || len(plan.Security.Authentication) != 3 || plan.Security.Authentication[0] != "api-key" || plan.Security.Authentication[1] != "jwt" || plan.Security.Authentication[2] != "service-token" {
-			t.Fatalf("operation %s security = %#v, want API key, JWT, and service-token protection", plan.OperationID, plan.Security)
+		wantAuthentication := []string{"api-key", "jwt", "service-token"}
+		if plan.OperationID == "delivery.views.save" || plan.OperationID == "delivery.views.list" {
+			wantAuthentication = []string{"api-key", "jwt"}
+		}
+		if plan.Security.Public || !slices.Equal(plan.Security.Authentication, wantAuthentication) {
+			t.Fatalf("operation %s security = %#v, want authentication %v", plan.OperationID, plan.Security, wantAuthentication)
 		}
 		expectedPermissions := expected.permissions
 		if expectedPermissions == nil {

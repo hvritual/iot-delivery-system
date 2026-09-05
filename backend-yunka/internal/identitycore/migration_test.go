@@ -157,7 +157,7 @@ INSERT INTO service_accounts (id, organization_id, name) VALUES ('service-a', 'o
 		t.Fatalf("repeat upgraded migration: %v", err)
 	}
 	var ledgerCount int
-	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations`).Scan(&ledgerCount); err != nil || ledgerCount != 7 {
-		t.Fatalf("repeat migration ledger count = %d error=%v, want 7", ledgerCount, err)
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations`).Scan(&ledgerCount); err != nil || ledgerCount != 8 {
+		t.Fatalf("repeat migration ledger count = %d error=%v, want 8", ledgerCount, err)
 	}
 }

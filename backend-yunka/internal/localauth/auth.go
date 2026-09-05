@@ -204,6 +204,9 @@ func (grantResolver) ResolveGrants(_ context.Context, request authz.GrantRequest
 var permissionsByRole = map[string][]authz.PermissionKey{
 	RoleViewer: {
 		"delivery.dashboard.read",
+		"delivery.views.write",
+		"delivery.views.read",
+		"delivery.members.read",
 		"delivery.projects.read",
 		"delivery.releases.read",
 		"delivery.sprints.read",
@@ -213,6 +216,9 @@ var permissionsByRole = map[string][]authz.PermissionKey{
 	},
 	RoleContributor: {
 		"delivery.dashboard.read",
+		"delivery.views.write",
+		"delivery.views.read",
+		"delivery.members.read",
 		"delivery.projects.read",
 		"delivery.releases.read",
 		"delivery.sprints.read",
@@ -222,11 +228,13 @@ var permissionsByRole = map[string][]authz.PermissionKey{
 		"delivery.work-items.update",
 		"delivery.work-items.comment.create",
 		"delivery.work-items.context.update",
-		"delivery.items.read",  // Development-only alias for legacy extension operations.
-		"delivery.items.write", // Development-only alias for legacy saved views.
+		"delivery.items.read", // Development-only alias for legacy extension operations.
 	},
 	RoleReleaseManager: {
 		"delivery.dashboard.read",
+		"delivery.views.write",
+		"delivery.views.read",
+		"delivery.members.read",
 		"delivery.projects.read",
 		"delivery.releases.read",
 		"delivery.sprints.read",
@@ -238,11 +246,13 @@ var permissionsByRole = map[string][]authz.PermissionKey{
 		"delivery.work-items.context.update",
 		"delivery.work-items.gate.advance",
 		"delivery.work-items.close",
-		"delivery.items.read",  // Development-only alias for legacy extension operations.
-		"delivery.items.write", // Development-only alias for legacy saved views.
+		"delivery.items.read", // Development-only alias for legacy extension operations.
 	},
 	RoleLocalAdmin: {
 		"delivery.dashboard.read",
+		"delivery.views.write",
+		"delivery.views.read",
+		"delivery.members.read",
 		"delivery.projects.read",
 		"delivery.releases.read",
 		"delivery.sprints.read",
@@ -258,8 +268,7 @@ var permissionsByRole = map[string][]authz.PermissionKey{
 		"delivery.releases.create",
 		"delivery.sprints.create",
 		"delivery.milestones.create",
-		"delivery.items.read",  // Development-only alias for legacy extension operations.
-		"delivery.items.write", // Development-only alias for legacy saved views.
+		"delivery.items.read", // Development-only alias for legacy extension operations.
 	},
 }
 

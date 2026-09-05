@@ -436,6 +436,18 @@
         "type": "object",
         "x-yunka-proto-full-name": "iot.delivery.v1.GetItemRequest"
       },
+      "iot_delivery_v1_GetMemberWeekRequest": {
+        "properties": {
+          "member": {
+            "type": "string"
+          },
+          "weekStart": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.GetMemberWeekRequest"
+      },
       "iot_delivery_v1_IoTBinding": {
         "properties": {
           "attributes": {
@@ -533,6 +545,23 @@
         "type": "object",
         "x-yunka-proto-full-name": "iot.delivery.v1.ListReleasesResponse"
       },
+      "iot_delivery_v1_ListSavedViewsRequest": {
+        "properties": {},
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.ListSavedViewsRequest"
+      },
+      "iot_delivery_v1_ListSavedViewsResponse": {
+        "properties": {
+          "views": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_SavedView"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.ListSavedViewsResponse"
+      },
       "iot_delivery_v1_ListSprintsRequest": {
         "properties": {
           "projectId": {
@@ -553,6 +582,36 @@
         },
         "type": "object",
         "x-yunka-proto-full-name": "iot.delivery.v1.ListSprintsResponse"
+      },
+      "iot_delivery_v1_MemberWeek": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_WorkItem"
+            },
+            "type": "array"
+          },
+          "member": {
+            "type": "string"
+          },
+          "weekEnd": {
+            "type": "string"
+          },
+          "weekStart": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.MemberWeek"
+      },
+      "iot_delivery_v1_MemberWeekResponse": {
+        "properties": {
+          "week": {
+            "$ref": "#/components/schemas/iot_delivery_v1_MemberWeek"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.MemberWeekResponse"
       },
       "iot_delivery_v1_Milestone": {
         "properties": {
@@ -676,6 +735,53 @@
         },
         "type": "object",
         "x-yunka-proto-full-name": "iot.delivery.v1.ReleaseResponse"
+      },
+      "iot_delivery_v1_SaveViewRequest": {
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/iot_delivery_v1_WorkItemFilter"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.SaveViewRequest"
+      },
+      "iot_delivery_v1_SavedView": {
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "filter": {
+            "$ref": "#/components/schemas/iot_delivery_v1_WorkItemFilter"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.SavedView"
+      },
+      "iot_delivery_v1_SavedViewResponse": {
+        "properties": {
+          "view": {
+            "$ref": "#/components/schemas/iot_delivery_v1_SavedView"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.SavedViewResponse"
       },
       "iot_delivery_v1_SearchItemsRequest": {
         "properties": {
@@ -1047,6 +1153,39 @@
         "type": "object",
         "x-yunka-proto-full-name": "iot.delivery.v1.WorkItemDependency"
       },
+      "iot_delivery_v1_WorkItemFilter": {
+        "properties": {
+          "board": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "milestoneId": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "releaseId": {
+            "type": "string"
+          },
+          "sprintId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.WorkItemFilter"
+      },
       "iot_delivery_v1_WorkItemResponse": {
         "properties": {
           "item": {
@@ -1133,6 +1272,12 @@
       "rpcPath": "/iot.delivery.v1.DeliveryService/GetItem"
     },
     {
+      "operationId": "iot.delivery.v1.DeliveryService.GetMemberWeek",
+      "request": "iot.delivery.v1.GetMemberWeekRequest",
+      "response": "iot.delivery.v1.MemberWeekResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/GetMemberWeek"
+    },
+    {
       "operationId": "iot.delivery.v1.DeliveryService.ListItems",
       "request": "iot.delivery.v1.ListItemsRequest",
       "response": "iot.delivery.v1.ListItemsResponse",
@@ -1157,10 +1302,22 @@
       "rpcPath": "/iot.delivery.v1.DeliveryService/ListReleases"
     },
     {
+      "operationId": "iot.delivery.v1.DeliveryService.ListSavedViews",
+      "request": "iot.delivery.v1.ListSavedViewsRequest",
+      "response": "iot.delivery.v1.ListSavedViewsResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/ListSavedViews"
+    },
+    {
       "operationId": "iot.delivery.v1.DeliveryService.ListSprints",
       "request": "iot.delivery.v1.ListSprintsRequest",
       "response": "iot.delivery.v1.ListSprintsResponse",
       "rpcPath": "/iot.delivery.v1.DeliveryService/ListSprints"
+    },
+    {
+      "operationId": "iot.delivery.v1.DeliveryService.SaveView",
+      "request": "iot.delivery.v1.SaveViewRequest",
+      "response": "iot.delivery.v1.SavedViewResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/SaveView"
     },
     {
       "operationId": "iot.delivery.v1.DeliveryService.SearchItems",

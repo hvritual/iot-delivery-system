@@ -30,6 +30,7 @@ var (
 	ErrProductionPrincipalRequired      = errors.New("production validation and closing require a named JWT principal")
 	ErrImplementationSourceRequired     = errors.New("delivery item has no trusted implementation principal")
 	ErrImplementerCannotVerifyOwnChange = errors.New("implementer cannot production-verify or close their own change")
+	ErrCanonicalUserRequired            = errors.New("saved views require a canonical user identity")
 )
 
 type Exporter interface {
@@ -577,6 +578,10 @@ func (service *Service) SaveView(ctx context.Context, input SavedViewInput) (Sav
 	if name == "" {
 		return SavedView{}, errors.New("delivery saved view name is required")
 	}
+	owner, err := canonicalUserIDFromContext(ctx)
+	if err != nil {
+		return SavedView{}, err
+	}
 	now := service.now().UTC()
 	id, err := service.nextSavedViewID(ctx, now)
 	if err != nil {
@@ -585,7 +590,7 @@ func (service *Service) SaveView(ctx context.Context, input SavedViewInput) (Sav
 	view := SavedView{
 		ID:        id,
 		Name:      name,
-		Owner:     actorFromContext(ctx),
+		Owner:     owner,
 		Filter:    normalizeWorkItemFilter(input.Filter),
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -600,7 +605,19 @@ func (service *Service) ListSavedViews(ctx context.Context) ([]SavedView, error)
 	if service == nil || service.repository == nil {
 		return nil, errors.New("delivery service is not configured")
 	}
-	return service.repository.ListSavedViews(ctx, actorFromContext(ctx))
+	owner, err := canonicalUserIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return service.repository.ListSavedViews(ctx, owner)
+}
+
+func canonicalUserIDFromContext(ctx context.Context) (string, error) {
+	principal, ok := identity.FromContext(ctx)
+	if !ok || !principal.Authenticated || strings.TrimSpace(principal.UserID) == "" {
+		return "", ErrCanonicalUserRequired
+	}
+	return strings.TrimSpace(principal.UserID), nil
 }
 
 func (service *Service) MemberWeek(ctx context.Context, member, weekStart string) (MemberWeek, error) {

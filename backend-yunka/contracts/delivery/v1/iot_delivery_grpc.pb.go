@@ -27,6 +27,9 @@ const (
 	DeliveryService_UpdateItemContext_FullMethodName = "/iot.delivery.v1.DeliveryService/UpdateItemContext"
 	DeliveryService_AdvanceGate_FullMethodName       = "/iot.delivery.v1.DeliveryService/AdvanceGate"
 	DeliveryService_CloseItem_FullMethodName         = "/iot.delivery.v1.DeliveryService/CloseItem"
+	DeliveryService_SaveView_FullMethodName          = "/iot.delivery.v1.DeliveryService/SaveView"
+	DeliveryService_ListSavedViews_FullMethodName    = "/iot.delivery.v1.DeliveryService/ListSavedViews"
+	DeliveryService_GetMemberWeek_FullMethodName     = "/iot.delivery.v1.DeliveryService/GetMemberWeek"
 	DeliveryService_CreateProject_FullMethodName     = "/iot.delivery.v1.DeliveryService/CreateProject"
 	DeliveryService_CreateRelease_FullMethodName     = "/iot.delivery.v1.DeliveryService/CreateRelease"
 	DeliveryService_CreateSprint_FullMethodName      = "/iot.delivery.v1.DeliveryService/CreateSprint"
@@ -56,6 +59,9 @@ type DeliveryServiceClient interface {
 	UpdateItemContext(ctx context.Context, in *UpdateItemContextRequest, opts ...grpc.CallOption) (*WorkItemResponse, error)
 	AdvanceGate(ctx context.Context, in *AdvanceGateRequest, opts ...grpc.CallOption) (*WorkItemResponse, error)
 	CloseItem(ctx context.Context, in *CloseItemRequest, opts ...grpc.CallOption) (*WorkItemResponse, error)
+	SaveView(ctx context.Context, in *SaveViewRequest, opts ...grpc.CallOption) (*SavedViewResponse, error)
+	ListSavedViews(ctx context.Context, in *ListSavedViewsRequest, opts ...grpc.CallOption) (*ListSavedViewsResponse, error)
+	GetMemberWeek(ctx context.Context, in *GetMemberWeekRequest, opts ...grpc.CallOption) (*MemberWeekResponse, error)
 	CreateProject(ctx context.Context, in *CreateProjectRequest, opts ...grpc.CallOption) (*ProjectResponse, error)
 	CreateRelease(ctx context.Context, in *CreateReleaseRequest, opts ...grpc.CallOption) (*ReleaseResponse, error)
 	CreateSprint(ctx context.Context, in *CreateSprintRequest, opts ...grpc.CallOption) (*SprintResponse, error)
@@ -151,6 +157,36 @@ func (c *deliveryServiceClient) CloseItem(ctx context.Context, in *CloseItemRequ
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(WorkItemResponse)
 	err := c.cc.Invoke(ctx, DeliveryService_CloseItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *deliveryServiceClient) SaveView(ctx context.Context, in *SaveViewRequest, opts ...grpc.CallOption) (*SavedViewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SavedViewResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_SaveView_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *deliveryServiceClient) ListSavedViews(ctx context.Context, in *ListSavedViewsRequest, opts ...grpc.CallOption) (*ListSavedViewsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSavedViewsResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_ListSavedViews_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *deliveryServiceClient) GetMemberWeek(ctx context.Context, in *GetMemberWeekRequest, opts ...grpc.CallOption) (*MemberWeekResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MemberWeekResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_GetMemberWeek_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -283,6 +319,9 @@ type DeliveryServiceServer interface {
 	UpdateItemContext(context.Context, *UpdateItemContextRequest) (*WorkItemResponse, error)
 	AdvanceGate(context.Context, *AdvanceGateRequest) (*WorkItemResponse, error)
 	CloseItem(context.Context, *CloseItemRequest) (*WorkItemResponse, error)
+	SaveView(context.Context, *SaveViewRequest) (*SavedViewResponse, error)
+	ListSavedViews(context.Context, *ListSavedViewsRequest) (*ListSavedViewsResponse, error)
+	GetMemberWeek(context.Context, *GetMemberWeekRequest) (*MemberWeekResponse, error)
 	CreateProject(context.Context, *CreateProjectRequest) (*ProjectResponse, error)
 	CreateRelease(context.Context, *CreateReleaseRequest) (*ReleaseResponse, error)
 	CreateSprint(context.Context, *CreateSprintRequest) (*SprintResponse, error)
@@ -326,6 +365,15 @@ func (UnimplementedDeliveryServiceServer) AdvanceGate(context.Context, *AdvanceG
 }
 func (UnimplementedDeliveryServiceServer) CloseItem(context.Context, *CloseItemRequest) (*WorkItemResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CloseItem not implemented")
+}
+func (UnimplementedDeliveryServiceServer) SaveView(context.Context, *SaveViewRequest) (*SavedViewResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveView not implemented")
+}
+func (UnimplementedDeliveryServiceServer) ListSavedViews(context.Context, *ListSavedViewsRequest) (*ListSavedViewsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListSavedViews not implemented")
+}
+func (UnimplementedDeliveryServiceServer) GetMemberWeek(context.Context, *GetMemberWeekRequest) (*MemberWeekResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMemberWeek not implemented")
 }
 func (UnimplementedDeliveryServiceServer) CreateProject(context.Context, *CreateProjectRequest) (*ProjectResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateProject not implemented")
@@ -520,6 +568,60 @@ func _DeliveryService_CloseItem_Handler(srv interface{}, ctx context.Context, de
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DeliveryServiceServer).CloseItem(ctx, req.(*CloseItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DeliveryService_SaveView_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveViewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).SaveView(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_SaveView_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).SaveView(ctx, req.(*SaveViewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DeliveryService_ListSavedViews_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSavedViewsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).ListSavedViews(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_ListSavedViews_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).ListSavedViews(ctx, req.(*ListSavedViewsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DeliveryService_GetMemberWeek_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMemberWeekRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).GetMemberWeek(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_GetMemberWeek_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).GetMemberWeek(ctx, req.(*GetMemberWeekRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -760,6 +862,18 @@ var DeliveryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CloseItem",
 			Handler:    _DeliveryService_CloseItem_Handler,
+		},
+		{
+			MethodName: "SaveView",
+			Handler:    _DeliveryService_SaveView_Handler,
+		},
+		{
+			MethodName: "ListSavedViews",
+			Handler:    _DeliveryService_ListSavedViews_Handler,
+		},
+		{
+			MethodName: "GetMemberWeek",
+			Handler:    _DeliveryService_GetMemberWeek_Handler,
 		},
 		{
 			MethodName: "CreateProject",

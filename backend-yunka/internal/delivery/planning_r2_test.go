@@ -2,6 +2,7 @@ package delivery_test
 
 import (
 	"context"
+	"errors"
 	"math"
 	"testing"
 
@@ -118,5 +119,24 @@ func TestServicePlansReleaseSprintAndMilestoneThenDerivesWeeklyWorkAndProjectPro
 	}
 	if len(views) != 1 || views[0].ID != view.ID {
 		t.Fatalf("saved views = %#v, want %#v", views, view)
+	}
+}
+
+func TestSavedViewsUseCanonicalUserIDAndNeverDisplayOrServiceIdentity(t *testing.T) {
+	t.Parallel()
+	service := delivery.NewService(delivery.NewMemoryRepository(), nil)
+	alice := identity.WithPrincipal(context.Background(), identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodJWT, TenantID: "org-a", UserID: "user-alice", Subject: "Alice Display Name"})
+	view, err := service.SaveView(alice, delivery.SavedViewInput{Name: "Alice view"})
+	if err != nil || view.Owner != "user-alice" {
+		t.Fatalf("saved view = %#v err=%v, want canonical user-alice owner", view, err)
+	}
+	bob := identity.WithPrincipal(context.Background(), identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodJWT, TenantID: "org-a", UserID: "user-bob", Subject: "Alice Display Name"})
+	views, err := service.ListSavedViews(bob)
+	if err != nil || len(views) != 0 {
+		t.Fatalf("same display name leaked another user's views: %#v err=%v", views, err)
+	}
+	serviceAccount := identity.WithPrincipal(context.Background(), identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodServiceToken, TenantID: "org-a", Subject: "service-account/reporter"})
+	if _, err := service.SaveView(serviceAccount, delivery.SavedViewInput{Name: "service view"}); !errors.Is(err, delivery.ErrCanonicalUserRequired) {
+		t.Fatalf("service identity saved a personal view: %v", err)
 	}
 }
