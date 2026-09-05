@@ -57,6 +57,7 @@ async function certifySOD(admin, reviewer, adminUserId, projectId) {
     body: { expectedRevision: revision, evidence: [{ kind: "e2e", title: "same implementer" }] },
   });
   assert(rejected.status >= 400, "implementer must not production-validate its own change");
+  assert(rejected.body?.error === "implementer cannot production-verify or close their own change", "SOD rejection must come from the real delivery domain rule");
   const unchanged = expectStatus(await browserRequest(admin, `/api/items/${encodeURIComponent(created.id)}`), 200, "read rejected SOD item").body;
   assert(unchanged.gate === "test_passed" && unchanged.revision === revision, "rejected validation must have zero business mutation");
 
