@@ -31,6 +31,9 @@ func (manager *Manager) VerifySessionToken(ctx context.Context, token string) (S
 	if err := manager.ready(); err != nil {
 		return SessionIdentity{}, err
 	}
+	if len(token) != 43 {
+		return SessionIdentity{}, ErrSessionInvalid
+	}
 	raw, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil || len(raw) != sessionSecretBytes || base64.RawURLEncoding.EncodeToString(raw) != token {
 		return SessionIdentity{}, ErrSessionInvalid
@@ -77,6 +80,9 @@ func (manager *Manager) IssueAccessTokenFromSession(ctx context.Context, session
 		return AccessTokenResult{}, err
 	}
 	now := manager.clock().UTC().Truncate(time.Second)
+	if session.ExpiresAt.Sub(now) < manager.config.AccessTTL {
+		return AccessTokenResult{}, ErrSessionInvalid
+	}
 	token, expiresAt, err := signAccessToken(manager.config, session.OrganizationID, session.UserID, session.SessionID, now)
 	if err != nil {
 		return AccessTokenResult{}, err
