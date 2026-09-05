@@ -53,13 +53,13 @@
 
 ## 下一原子任务派发说明
 
-**建议下一侧边栏任务：YU-22「当前成员、退出、本人改密与 session version/revocation」**。
+**建议下一侧边栏任务：YU-23「将本地成员认证接入统一 HTTP/gRPC/MCP durable human auth chain」**。
 
-- 固定 parent：使用 YU-21 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
-- 输入：YU-21 opaque session + strict internal JWT + verified SessionIdentity、YU-20 User/credential CAS、既有 durable identity/audit 边界。
-- 允许：消费者侧 current-member application operation、当前 session logout/revoke、本人密码修改、必要的 session version/revocation schema/CAS、旧 session/JWT 失效检查、事务 audit、YU-22 证据文档。
-- 禁止：修改 Yunka 源码、手改 generated 文件、扩展管理员成员管理语义（YU-20 已完成）、将 local auth 接入全部 HTTP/gRPC/MCP durable chain（YU-23）、项目角色管理（YU-24）、集中角色撤权有效性策略（YU-25）、BFF auth routes（YU-26）或 UI。
-- RED：必须由真实可执行路径证明 logout 后当前 session/JWT 仍可用、本人改密后旧 session/JWT 不失效、并发管理员重置与本人改密可绕过 User/credential CAS、current-member 可信任未验证 JWT/claims，或 disabled/revoked session 仍能建立当前成员身份；环境缺工具不算 RED。
-- GREEN：current-member 只从 YU-21 已验证 session/JWT 事实构造；logout 原子撤销当前 session 并令绑定 JWT 失效；本人改密使用 User + credential 显式 CAS，并原子使此前 session/JWT 失效；并发 reset/change-password 只有符合 CAS 的一方成功；session version/revocation 状态持久化且验证链 fail-closed；audit 不包含密码、session bearer、JWT 或签名密钥。
-- 框架问题：如复现 Yunka 缺陷，只创建/更新框架 Issue，不修改框架源码；消费者绕过不得表述为框架修复。
-- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-23。
+- 固定 parent：使用 YU-22 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
+- 输入：YU-21/YU-22 verified local JWT + opaque session/revision/revocation、既有 `humanauthz`/`principalauthz`、durable RoleBinding、OperationGuard、现有 HTTP/gRPC/MCP 认证适配边界与 YU-16 audit 脱敏。
+- 允许：消费者侧 local JWT authentication adapter/middleware/interceptor、把 verified `UserID/TenantID` Principal 接入既有 GrantResolver/OperationGuard、HTTP/gRPC/MCP 三 transport 的同判定回归、认证失败归一化与必要的 consumer wiring/证据文档。
+- 禁止：修改 Yunka 源码、手改 generated 文件、重新引入 `Principal.Roles` 作为授权事实、项目 RoleBinding 管理（YU-24）、管理员重置/停用/角色撤权的集中 session 有效性策略（YU-25）、新增 BFF login/current/logout/change-password routes（YU-26）或 UI。
+- RED：必须由真实 transport/application 链证明 local JWT User 可绕过 durable human GrantResolver/OperationGuard、不同 transport 得到不同授权结果、production local-member path 仍依赖 development `local-admin`、伪造 role claim 可授权、错误 tenant 可跨组织，或 revoked/invalid local session/JWT 仍能进入受保护应用 operation；环境缺工具不算 RED。
+- GREEN：HTTP/gRPC/MCP 的 local-member 请求都先完成 YU-22 session/JWT 验证，再建立真实 `AuthMethodJWT` UserID/TenantID Principal，并统一进入 SQLite `humanauthz`/`principalauthz` + OperationGuard；`Principal.Roles` 不作为授权源；当前 User/RoleBinding/permission/scope 每次按 durable state 判定；revoked/invalid local token 在应用 invoke 前拒绝；development API-key 仅保留明确 development compatibility，不成为 production local-member authority。
+- 框架问题：如复现 Yunka 缺陷，只创建/更新框架 Issue，不修改框架源码；消费者适配不得表述为框架修复。
+- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-24。
