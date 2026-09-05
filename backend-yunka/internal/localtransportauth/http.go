@@ -62,7 +62,7 @@ func (verifier *Verifier) HTTPMiddleware(fallback func(http.Handler) http.Handle
 				Route: request.URL.EscapedPath(), RequestID: traceID,
 			})
 			if verifier != nil && verifier.recorder != nil {
-				if err := verifier.recorder.RecordAuthenticationAccepted(ctx, "authentication.local_access_token"); err != nil {
+				if err := verifier.recorder.RecordLocalAccessAuthenticationAccepted(ctx, "authentication.local_access_token", "http"); err != nil {
 					writeHTTPServiceUnavailable(writer, traceID)
 					return
 				}
