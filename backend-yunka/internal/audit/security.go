@@ -140,10 +140,12 @@ func (recorder *SecurityRecorder) RecordApplicationRollback(ctx context.Context,
 }
 
 func rollbackAuditClassification(operation string) (EventCategory, string) {
-	if strings.HasPrefix(operation, "config.revisions.") {
+	switch operation {
+	case "config.revisions.change", "config.revisions.rollback":
 		return EventCategoryConfiguration, "configuration.transaction_rolled_back"
+	default:
+		return EventCategoryDelivery, "application.transaction_rolled_back"
 	}
-	return EventCategoryDelivery, "application.transaction_rolled_back"
 }
 
 // RecordRevocationInTransaction ensures the state change and audit entry are
