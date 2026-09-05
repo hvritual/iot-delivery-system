@@ -29,6 +29,12 @@ func TestYU25AdministratorDisableInvalidatesOldSessionAndJWTOnNextRequest(t *tes
 	if session, err := fixture.manager.VerifySessionToken(t.Context(), userLogin.SessionToken); !errors.Is(err, ErrSessionInvalid) || session.SessionID != "" {
 		t.Fatalf("disabled user old session=%#v error=%v", session, err)
 	}
+	if _, err := fixture.manager.IssueAccessTokenFromSession(t.Context(), userLogin.SessionToken); !errors.Is(err, ErrSessionInvalid) {
+		t.Fatalf("disabled user session minted access token error=%v", err)
+	}
+	if _, err := fixture.manager.CurrentMemberFromSessionToken(t.Context(), userLogin.SessionToken); !errors.Is(err, ErrSessionInvalid) {
+		t.Fatalf("disabled user session resolved current member error=%v", err)
+	}
 	// The administrator is a second real durable account. Disabling user-a must
 	// not convert the tenant into a global authentication outage.
 	adminPrincipal, ok := identity.FromContext(adminContext)
@@ -58,6 +64,12 @@ func TestYU25AdministratorResetInvalidatesOldSessionAndJWTByCredentialRevision(t
 	}
 	if session, err := fixture.manager.VerifySessionToken(t.Context(), oldLogin.SessionToken); !errors.Is(err, ErrSessionInvalid) || session.SessionID != "" {
 		t.Fatalf("reset user old session=%#v error=%v", session, err)
+	}
+	if _, err := fixture.manager.IssueAccessTokenFromSession(t.Context(), oldLogin.SessionToken); !errors.Is(err, ErrSessionInvalid) {
+		t.Fatalf("reset user old session minted access token error=%v", err)
+	}
+	if _, err := fixture.manager.CurrentMember(t.Context(), CurrentMemberInput{AccessToken: oldLogin.AccessToken}); !errors.Is(err, ErrAccessTokenInvalid) {
+		t.Fatalf("reset user old JWT resolved current member error=%v", err)
 	}
 	// YU-20 reset does not need a second session mutation to achieve fail-closed
 	// behavior. The stale row remains active, but its captured credential revision
