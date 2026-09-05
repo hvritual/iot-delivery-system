@@ -53,14 +53,14 @@
 
 ## 下一原子任务派发说明
 
-**建议下一侧边栏任务：YU-26「新增本地 auth BFF routes：login/current/logout/change-password/admin members 与项目角色管理」**。
+**建议下一侧边栏任务：YU-27「前端 API client 自动发送 CSRF；Origin 与 OIDC 解耦」**。
 
-- 固定 parent：使用 YU-25 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
-- 输入：YU-22 login/current/logout/change-password in-process capability、YU-20 member administration、YU-24 project RoleBinding administration、YU-25 centralized session validity，以及现有 BFF assertion/cookie/CSRF/HTTP error/no-store 基础设施。
-- 允许：消费者侧 local-auth BFF login/current/logout/change-password、管理员 member create/disable/reset 与 project-role assign/revoke routes；服务端 opaque session cookie、短期 access-token renewal/response、正确的 cache/no-store 与稳定错误映射；local-auth 与保留 OIDC/BFF assertion 路径的显式选择；必要的 HTTP adapter tests 与 YU-26 evidence。
-- 禁止：修改 Yunka 源码、手改 generated 文件、把 role/permission 快照写入 cookie/JWT、前端 API client CSRF 自动注入（YU-27）、登录/成员/项目角色 UI（YU-28）、改变 YU-20/YU-24 durable 管理语义或绕过 YU-25 validity policy。
-- RED：必须由真实 HTTP 边界证明无 OIDC 配置时本地登录不可用、local/OIDC credential family 被隐式混用、session cookie 缺少必要安全属性、current/logout/change-password 或管理员写操作绕过 verified session/CSRF/OperationGuard、错误泄漏账号/credential 细节、认证响应可被缓存，或管理员/项目角色 route 直接写 SQLite 绕开应用操作；环境缺工具不算 RED。
-- GREEN：local login 不依赖 OIDC 配置；成功登录仅通过 YU-21/25 manager 建立 server-side opaque session，并用明确 cookie 属性交付；current/logout/change-password 从 verified session/current JWT 事实构造；管理员 member 与 project-role routes 调用既有 YU-20/YU-24 application ports并继续经过 durable authorization/Guard/CAS/audit/Outbox；unsafe route 的服务端 CSRF/Origin 契约明确，前端自动发送留给 YU-27；认证/成员响应 `Cache-Control: no-store`，错误稳定且不区分敏感失败原因。
-- 边界说明：YU-26 只新增 BFF transport adapter，不复制身份、密码、session、RoleBinding 或 authorization 业务逻辑。YU-25 centralized validity 必须仍是本地 session/JWT 的唯一身份有效性判定；OIDC 若保留必须与 local-auth 显式分流而非 fallback 猜测。
-- 框架问题：如复现 Yunka 缺陷，只创建/更新框架 Issue，不修改框架源码；BFF adapter 缺口不得表述为框架修复。
-- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-27。
+- 固定 parent：使用 YU-26 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
+- 输入：YU-26 `/auth/local/login`、`/auth/local/current` 的 CSRF/access-token 响应与 opaque session cookie，现有 `web/app/api/[...path]` session guard/runtime proxy，以及现有前端 API client 调用路径。
+- 允许：前端/API-proxy 自动获取并为 unsafe method 发送 `X-CSRF-Token`；将可信应用 Origin 从 `OIDC_REDIRECT_URI` 配置中解耦为独立 same-origin 配置/推导；local-auth 与保留 OIDC session 的显式来源选择；安全方法不强制 CSRF；必要的 web tests、错误状态与 YU-27 evidence。
+- 禁止：修改 Yunka 源码、手改 generated 文件、改变 YU-26 cookie/session/CSRF 服务端语义、把 session/JWT/role 快照写入浏览器持久存储、登录/成员/项目角色 UI（YU-28）、E2E 双浏览器场景（YU-29）或无关前端重构。
+- RED：必须由真实现有 web 路径证明 unsafe API 仍从 `readOidcConfiguration().redirectUri.origin` 取得 Origin，导致无 OIDC 配置的 local-auth 前端写请求不可用；或前端 client 未自动携带当前 CSRF token、safe method 被误要求 CSRF、错误/过期 token 未稳定得到 403；环境缺工具不算 RED。
+- GREEN：local-auth 模式无需 OIDC 配置即可完成 unsafe API request 的 same-origin + CSRF 契约；frontend/API client 对 POST/PUT/PATCH/DELETE 等 unsafe method 自动发送当前 `X-CSRF-Token`，GET/HEAD/OPTIONS 不误发为强制条件；CSRF 来源只来自当前 verified BFF session/current response，不从 localStorage 或角色快照恢复；Origin 独立配置或 same-origin 推导 fail-closed；现有 OIDC 路径若保留则显式分流且不作为 local-auth Origin 的隐式依赖。
+- 边界说明：YU-27 只完成客户端/代理的 CSRF 与 Origin 传递，不实现登录、成员或项目角色 UI。YU-26 的 Go local-auth BFF 与 YU-25 centralized validity 继续是服务端身份/session truth。
+- 框架问题：如复现 Yunka 缺陷，只创建/更新框架 Issue，不修改框架源码；web/BFF 配置耦合不得表述为框架修复。
+- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-28。
