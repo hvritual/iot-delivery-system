@@ -3,6 +3,7 @@ package locallogin
 import (
 	"errors"
 	"testing"
+	"time"
 )
 
 func TestYU21SessionCannotIssueAccessTokenPastItsRemainingLifetime(t *testing.T) {
