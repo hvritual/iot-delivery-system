@@ -1303,3 +1303,64 @@ func TestProductionServiceGrantResolverAllowsOnlyItsGrantedProjectOverGRPC(t *te
 		t.Fatalf("service wrong project scope created a work item: before=%#v after=%#v err=%v", itemsBeforeDenied, itemsAfterDenied, err)
 	}
 }
+
+func TestProductionServicePlanningListGrantsRemainPerOperationAndProject(t *testing.T) {
+	fixture := newAuthorizationMatrixFixture(t)
+	admin := identity.WithPrincipal(t.Context(), matrixPrincipal("admin"))
+	grantedProject, err := fixture.operations.CreateProject(admin, delivery.ProjectInput{Name: "Planning service granted", Board: delivery.BoardResearchDelivery, Owner: "admin"})
+	if err != nil {
+		t.Fatalf("create granted planning project: %v", err)
+	}
+	otherProject, err := fixture.operations.CreateProject(admin, delivery.ProjectInput{Name: "Planning service other", Board: delivery.BoardResearchDelivery, Owner: "admin"})
+	if err != nil {
+		t.Fatalf("create other planning project: %v", err)
+	}
+	now := time.Now().UTC()
+	if err := fixture.repository.CreateRelease(t.Context(), delivery.Release{ID: "service-release", ProjectID: grantedProject.ID, Name: "R", CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatalf("seed service release: %v", err)
+	}
+	if err := fixture.repository.CreateSprint(t.Context(), delivery.Sprint{ID: "service-sprint", ProjectID: grantedProject.ID, Name: "S", CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatalf("seed service sprint: %v", err)
+	}
+	if err := fixture.repository.CreateMilestone(t.Context(), delivery.Milestone{ID: "service-milestone", ProjectID: grantedProject.ID, Name: "M", CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatalf("seed service milestone: %v", err)
+	}
+	if _, err := fixture.repository.Database().Exec(`INSERT INTO service_accounts (id, organization_id, name) VALUES ('planning-list-service', 'org-a', 'Planning list service')`); err != nil {
+		t.Fatalf("create planning-list service account: %v", err)
+	}
+	manager, err := serviceauthz.NewManager(fixture.repository.Database(), fixture.repository)
+	if err != nil {
+		t.Fatalf("create planning-list service grant manager: %v", err)
+	}
+	principal := identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodServiceToken, TenantID: "org-a", Subject: "service-account/planning-list-service"}
+	beforeOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil {
+		t.Fatalf("snapshot Outbox before planning service reads: %v", err)
+	}
+	for _, specification := range []struct {
+		kind       string
+		operation  string
+		permission string
+	}{
+		{kind: "releases", operation: "delivery.releases.list", permission: "delivery.releases.read"},
+		{kind: "sprints", operation: "delivery.sprints.list", permission: "delivery.sprints.read"},
+		{kind: "milestones", operation: "delivery.milestones.list", permission: "delivery.milestones.read"},
+	} {
+		if _, code := fixture.grpcPlanningList(t, principal, specification.kind, grantedProject.ID); code != codes.PermissionDenied {
+			t.Fatalf("ungranted service %s list = %s, want PermissionDenied", specification.kind, code)
+		}
+		if err := manager.Grant(t.Context(), serviceauthz.GrantInput{ID: "service-" + specification.kind + "-list", ServiceAccountID: "planning-list-service", OperationID: specification.operation, Permission: specification.permission, ProjectID: grantedProject.ID}); err != nil {
+			t.Fatalf("grant service %s list: %v", specification.kind, err)
+		}
+		if count, code := fixture.grpcPlanningList(t, principal, specification.kind, grantedProject.ID); code != codes.OK || count != 1 {
+			t.Fatalf("granted service %s list = code %s count %d, want OK/1", specification.kind, code, count)
+		}
+		if _, code := fixture.grpcPlanningList(t, principal, specification.kind, otherProject.ID); code != codes.PermissionDenied {
+			t.Fatalf("wrong-project service %s list = %s, want PermissionDenied", specification.kind, code)
+		}
+	}
+	afterOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil || !reflect.DeepEqual(afterOutbox, beforeOutbox) {
+		t.Fatalf("planning service reads changed Outbox: before=%#v after=%#v err=%v", beforeOutbox, afterOutbox, err)
+	}
+}
