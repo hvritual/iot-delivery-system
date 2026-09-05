@@ -68,6 +68,9 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	} else if applied != 1 {
 		return errors.New("local login migration ledger is invalid")
 	}
+	if err := applySessionControlMigration(ctx, tx); err != nil {
+		return err
+	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit local login migration: %w", err)
 	}
@@ -87,7 +90,7 @@ func verifySessionSchema(ctx context.Context, tx *sql.Tx) error {
 		return fmt.Errorf("inspect local session schema: %w", err)
 	}
 	defer rows.Close()
-	columns := make([]sessionColumn, 0, 9)
+	columns := make([]sessionColumn, 0, 10)
 	for rows.Next() {
 		var cid, notNull, pk int
 		var name, typeName string
@@ -111,12 +114,18 @@ func verifySessionSchema(ctx context.Context, tx *sql.Tx) error {
 		{name: "expires_at", typeName: "TEXT", notNull: 1},
 		{name: "revoked_at", typeName: "TEXT"},
 	}
-	if len(columns) != len(want) {
-		return fmt.Errorf("local session column count = %d, want %d", len(columns), len(want))
+	if len(columns) != len(want) && len(columns) != len(want)+1 {
+		return fmt.Errorf("local session column count = %d, want %d or %d", len(columns), len(want), len(want)+1)
 	}
 	for index := range want {
 		if columns[index] != want[index] {
 			return fmt.Errorf("local session column %d = %#v, want %#v", index, columns[index], want[index])
+		}
+	}
+	if len(columns) == len(want)+1 {
+		revision := sessionColumn{name: "revision", typeName: "INTEGER", notNull: 1}
+		if columns[len(want)] != revision {
+			return fmt.Errorf("local session revision column = %#v, want %#v", columns[len(want)], revision)
 		}
 	}
 	var tableSQL string
