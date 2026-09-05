@@ -201,8 +201,8 @@ func TestYU20CannotDisableLastSystemAdministratorEvenThroughDirectSQL(t *testing
 	if status != "active" || revision != 1 || fixture.outboxCount(t) != beforeOutbox {
 		t.Fatalf("last administrator changed through manager status=%q revision=%d outbox=%d", status, revision, fixture.outboxCount(t))
 	}
-	if _, err := fixture.database.Exec(`UPDATE users SET status = 'disabled' WHERE organization_id = 'org-a' AND id = ?`, fixture.adminID); err == nil || !strings.Contains(strings.ToLower(err.Error()), lastAdministratorAbort) {
-		t.Fatalf("direct SQL last administrator disable error=%v", err)
+	if _, err := fixture.database.Exec(`UPDATE users SET status = 'disabled', revision = revision + 1 WHERE organization_id = 'org-a' AND id = ?`, fixture.adminID); err == nil || !strings.Contains(strings.ToLower(err.Error()), lastAdministratorAbort) {
+		t.Fatalf("CAS-correct direct SQL last administrator disable error=%v", err)
 	}
 	status, revision = fixture.userState(t, "org-a", fixture.adminID)
 	if status != "active" || revision != 1 {
