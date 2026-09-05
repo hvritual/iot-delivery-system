@@ -1,4 +1,4 @@
-import { createRuntimeRequest, type RuntimeEnvironment } from "./runtime-proxy";
+import { createLocalRuntimeRequest, createRuntimeRequest, type RuntimeEnvironment } from "./runtime-proxy";
 import type { VerifiedLogin } from "./oidc";
 
 export async function forwardRuntimeRequest(
@@ -10,5 +10,15 @@ export async function forwardRuntimeRequest(
 ): Promise<Response> {
   if (login && !environment.IOT_DELIVERY_LOCAL_API_KEY?.trim()) throw new Error("missing BFF channel credential");
   const upstreamRequest = await createRuntimeRequest(request, pathSegments, environment, login, traceId);
+  return fetch(upstreamRequest, { cache: "no-store" });
+}
+
+export async function forwardLocalRuntimeRequest(
+  request: Request,
+  pathSegments: readonly string[],
+  accessToken: string,
+  environment: RuntimeEnvironment = process.env,
+): Promise<Response> {
+  const upstreamRequest = await createLocalRuntimeRequest(request, pathSegments, accessToken, environment);
   return fetch(upstreamRequest, { cache: "no-store" });
 }
