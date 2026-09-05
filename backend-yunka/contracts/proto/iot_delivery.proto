@@ -80,10 +80,12 @@ service DeliveryService {
       id: "delivery.items.update"
       use_case: "update_item"
       permissions: "delivery.work-items.update"
+      permissions: "delivery.work-items.context.update"
       permission_mode: PERMISSION_ALL
       authentication: AUTHENTICATION_API_KEY
       authentication: AUTHENTICATION_JWT
       authentication: AUTHENTICATION_SERVICE
+      requires_operations: "delivery.items.update-context"
       composition: COMPOSITION_LOCAL
       execution: { transaction: TRANSACTION_LOCAL idempotency: IDEMPOTENCY_NONE }
     };

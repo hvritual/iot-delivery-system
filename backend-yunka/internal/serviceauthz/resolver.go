@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hvritual/iot-delivery-system/backend-yunka/contracts/authorization"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/yunka.io/framework/core/identity"
@@ -189,52 +190,107 @@ func (resolver *Resolver) ResolveGrants(ctx context.Context, request authz.Grant
 		return nil, ErrDatabaseRequired
 	}
 	serviceAccountID, ok := serviceAccountIDFromPrincipal(request.Principal)
-	if !ok || !canonicalID(string(request.Operation)) || len(request.Permissions) != 1 || !canonicalID(string(request.Permissions[0])) {
+	if !ok || !canonicalID(string(request.Operation)) || len(request.Permissions) == 0 {
 		return nil, nil
 	}
-	rows, err := resolver.database.QueryContext(ctx, activeServiceGrantsQuery, request.Principal.TenantID, serviceAccountID, string(request.Operation), string(request.Permissions[0]))
+	operationByPermission, valid, err := serviceGrantOperations(request)
 	if err != nil {
-		return nil, fmt.Errorf("resolve service grants: %w", err)
+		return nil, err
 	}
-	defer rows.Close()
+	if !valid {
+		return nil, nil
+	}
 	grants := make([]authz.Grant, 0)
-	for rows.Next() {
-		var projectID string
-		if err := rows.Scan(&projectID); err != nil {
-			return nil, fmt.Errorf("scan service grant: %w", err)
+	for _, permission := range request.Permissions {
+		operationID := operationByPermission[permission]
+		rows, queryErr := resolver.database.QueryContext(ctx, activeServiceGrantsQuery, request.Principal.TenantID, serviceAccountID, operationID, string(permission))
+		if queryErr != nil {
+			return nil, fmt.Errorf("resolve service grants: %w", queryErr)
 		}
-		if !canonicalID(projectID) {
-			return nil, nil
+		for rows.Next() {
+			var projectID string
+			if scanErr := rows.Scan(&projectID); scanErr != nil {
+				rows.Close()
+				return nil, fmt.Errorf("scan service grant: %w", scanErr)
+			}
+			if !canonicalID(projectID) {
+				rows.Close()
+				return nil, nil
+			}
+			grants = append(grants, authz.Grant{Permission: permission, RoleID: "service-account:" + serviceAccountID, Scope: "project:" + projectID})
 		}
-		grants = append(grants, authz.Grant{Permission: request.Permissions[0], RoleID: "service-account:" + serviceAccountID, Scope: "project:" + projectID})
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate service grants: %w", err)
-	}
-	configRows, err := resolver.database.QueryContext(ctx, activeConfigServiceGrantsQuery, request.Principal.TenantID, serviceAccountID, string(request.Operation), string(request.Permissions[0]))
-	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "no such table") {
-			slices.SortFunc(grants, func(left, right authz.Grant) int { return cmp.Compare(left.Scope, right.Scope) })
-			return grants, nil
+		if rowsErr := rows.Err(); rowsErr != nil {
+			rows.Close()
+			return nil, fmt.Errorf("iterate service grants: %w", rowsErr)
 		}
-		return nil, fmt.Errorf("resolve config service grants: %w", err)
-	}
-	defer configRows.Close()
-	for configRows.Next() {
-		var organizationID string
-		if err := configRows.Scan(&organizationID); err != nil {
-			return nil, fmt.Errorf("scan config service grant: %w", err)
+		if closeErr := rows.Close(); closeErr != nil {
+			return nil, fmt.Errorf("close service grants: %w", closeErr)
 		}
-		if !canonicalID(organizationID) {
-			return nil, nil
+		configRows, queryErr := resolver.database.QueryContext(ctx, activeConfigServiceGrantsQuery, request.Principal.TenantID, serviceAccountID, operationID, string(permission))
+		if queryErr != nil {
+			if strings.Contains(strings.ToLower(queryErr.Error()), "no such table") {
+				continue
+			}
+			return nil, fmt.Errorf("resolve config service grants: %w", queryErr)
 		}
-		grants = append(grants, authz.Grant{Permission: request.Permissions[0], RoleID: "service-account:" + serviceAccountID, Scope: "organization:" + organizationID})
+		for configRows.Next() {
+			var organizationID string
+			if scanErr := configRows.Scan(&organizationID); scanErr != nil {
+				configRows.Close()
+				return nil, fmt.Errorf("scan config service grant: %w", scanErr)
+			}
+			if !canonicalID(organizationID) {
+				configRows.Close()
+				return nil, nil
+			}
+			grants = append(grants, authz.Grant{Permission: permission, RoleID: "service-account:" + serviceAccountID, Scope: "organization:" + organizationID})
+		}
+		if rowsErr := configRows.Err(); rowsErr != nil {
+			configRows.Close()
+			return nil, fmt.Errorf("iterate config service grants: %w", rowsErr)
+		}
+		if closeErr := configRows.Close(); closeErr != nil {
+			return nil, fmt.Errorf("close config service grants: %w", closeErr)
+		}
 	}
-	if err := configRows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate config service grants: %w", err)
-	}
-	slices.SortFunc(grants, func(left, right authz.Grant) int { return cmp.Compare(left.Scope, right.Scope) })
+	slices.SortFunc(grants, func(left, right authz.Grant) int {
+		return cmp.Or(cmp.Compare(left.Permission, right.Permission), cmp.Compare(left.Scope, right.Scope))
+	})
 	return grants, nil
+}
+
+func serviceGrantOperations(request authz.GrantRequest) (map[authz.PermissionKey]string, bool, error) {
+	dictionary, err := authorization.LoadPermissionDictionary()
+	if err != nil {
+		return nil, false, fmt.Errorf("load service authorization dictionary: %w", err)
+	}
+	operations := make(map[string]authorization.Operation, len(dictionary.Operations))
+	for _, operation := range dictionary.Operations {
+		operations[operation.ID] = operation
+	}
+	root, exists := operations[string(request.Operation)]
+	if !exists {
+		return nil, false, nil
+	}
+	expected := map[authz.PermissionKey]string{authz.PermissionKey(root.Permission): root.ID}
+	for _, requiredID := range root.RequiresOperations {
+		required, exists := operations[requiredID]
+		if !exists {
+			return nil, false, nil
+		}
+		expected[authz.PermissionKey(required.Permission)] = required.ID
+	}
+	if len(expected) != len(request.Permissions) {
+		return nil, false, nil
+	}
+	seen := make(map[authz.PermissionKey]bool, len(request.Permissions))
+	for _, permission := range request.Permissions {
+		if !canonicalID(string(permission)) || seen[permission] || expected[permission] == "" {
+			return nil, false, nil
+		}
+		seen[permission] = true
+	}
+	return expected, true, nil
 }
 
 const activeServiceGrantsQuery = `

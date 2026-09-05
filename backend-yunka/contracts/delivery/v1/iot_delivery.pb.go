@@ -3823,7 +3823,7 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\x13SimilarityCandidate\x12-\n" +
 	"\x04item\x18\x01 \x01(\v2\x19.iot.delivery.v1.WorkItemR\x04item\x12\x14\n" +
 	"\x05score\x18\x02 \x01(\x01R\x05score\x12\x14\n" +
-	"\x05exact\x18\x03 \x01(\bR\x05exact:\x06\xd2\xf3\x18\x02\b\x032\xb4\x1e\n" +
+	"\x05exact\x18\x03 \x01(\bR\x05exact:\x06\xd2\xf3\x18\x02\b\x032\xf9\x1e\n" +
 	"\x0fDeliveryService\x12\xae\x01\n" +
 	"\fGetDashboard\x12$.iot.delivery.v1.GetDashboardRequest\x1a%.iot.delivery.v1.GetDashboardResponse\"Q\xe2\xf3\x18M\n" +
 	"\x16delivery.dashboard.get\x12\rget_dashboard\x1a\x17delivery.dashboard.read2\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\xa0\x01\n" +
@@ -3832,10 +3832,10 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"list_items\x1a\x18delivery.work-items.read2\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\xa6\x01\n" +
 	"\n" +
 	"CreateItem\x12\".iot.delivery.v1.CreateItemRequest\x1a!.iot.delivery.v1.WorkItemResponse\"Q\xe2\xf3\x18M\n" +
-	"\x15delivery.items.create\x12\vcreate_item\x1a\x1adelivery.work-items.create2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xa6\x01\n" +
+	"\x15delivery.items.create\x12\vcreate_item\x1a\x1adelivery.work-items.create2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xeb\x01\n" +
 	"\n" +
-	"UpdateItem\x12\".iot.delivery.v1.UpdateItemRequest\x1a!.iot.delivery.v1.WorkItemResponse\"Q\xe2\xf3\x18M\n" +
-	"\x15delivery.items.update\x12\vupdate_item\x1a\x1adelivery.work-items.update2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xc3\x01\n" +
+	"UpdateItem\x12\".iot.delivery.v1.UpdateItemRequest\x1a!.iot.delivery.v1.WorkItemResponse\"\x95\x01\xe2\xf3\x18\x90\x01\n" +
+	"\x15delivery.items.update\x12\vupdate_item\x1a\x1adelivery.work-items.update\x1a\"delivery.work-items.context.update2\x03\x02\x01\x03B\x1ddelivery.items.update-contextH\x01R\x04\b\x03\x10\x01\x12\xc3\x01\n" +
 	"\x11CreateItemComment\x12).iot.delivery.v1.CreateItemCommentRequest\x1a .iot.delivery.v1.CommentResponse\"a\xe2\xf3\x18]\n" +
 	"\x1ddelivery.items.comment.create\x12\vadd_comment\x1a\"delivery.work-items.comment.create2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xcc\x01\n" +
 	"\x11UpdateItemContext\x12).iot.delivery.v1.UpdateItemContextRequest\x1a!.iot.delivery.v1.WorkItemResponse\"i\xe2\xf3\x18e\n" +

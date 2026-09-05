@@ -279,6 +279,7 @@
           "service-token"
         ],
         "permissions": [
+          "delivery.work-items.context.update",
           "delivery.work-items.update"
         ],
         "permissionMode": "all"
@@ -288,7 +289,13 @@
         "idempotency": "none"
       },
       "composition": {
-        "boundary": "local"
+        "boundary": "local",
+        "requiresOperations": [
+          "delivery.items.update-context"
+        ],
+        "permissionClosure": [
+          "delivery.work-items.context.update"
+        ]
       },
       "bindings": {
         "rpc": "/iot.delivery.v1.DeliveryService/UpdateItem"

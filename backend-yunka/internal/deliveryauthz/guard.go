@@ -92,6 +92,14 @@ func NewOperationGuardWithDictionary(lookup resourceLookup, database *sql.DB, di
 		}
 		operations[authz.OperationID(operation.ID)] = operation
 	}
+	for _, operation := range operations {
+		for _, requiredID := range operation.RequiresOperations {
+			required, exists := operations[authz.OperationID(requiredID)]
+			if !exists || required.RequiredScope != operation.RequiredScope {
+				return nil, errors.New("delivery authorization dictionary operation dependency is unsupported")
+			}
+		}
+	}
 	return &OperationGuard{lookup: lookup, database: database, operations: operations}, nil
 }
 
@@ -133,23 +141,23 @@ func (guard *OperationGuard) Prepare(ctx context.Context, authorized authz.Autho
 		return nil, denied()
 	}
 	operation, ok := guard.operations[authorized.Policy.Operation]
-	if !ok || !authorized.Decision.Allowed ||
+	permissions, permissionsOK := authorizedPermissions(authorized, operationPermissions(operation, guard.operations))
+	if !ok || !permissionsOK || !authorized.Decision.Allowed ||
 		authorized.Decision.Operation != authorized.Policy.Operation ||
-		operation.Permission != string(singlePermission(authorized.Policy)) ||
-		!singlePermissionMatches(authorized.Decision.Permissions, operation.Permission) {
+		!samePermissions(authorized.Decision.Permissions, permissions) {
 		return nil, denied()
 	}
 	tenantID := authorized.Principal.TenantID
 	if tenantID == "" || tenantID != strings.TrimSpace(tenantID) {
 		return nil, denied()
 	}
-	grants, err := guard.verifyGrants(ctx, authorized.Principal, authorized.Decision.Grants, operation)
+	grants, err := guard.verifyGrants(ctx, authorized.Principal, authorized.Decision.Grants, operation, permissions)
 	if err != nil {
 		return nil, err
 	}
 	secured := organizationKey.With(ctx, tenantID)
 	if operation.RequiredScope == "organization" {
-		if !guard.allowsOrganization(grants, operation, tenantID) {
+		if !allowsOrganization(grants, permissions, tenantID) {
 			return nil, denied()
 		}
 		if authorized.Policy.Operation == "delivery.dashboard.get" {
@@ -166,7 +174,7 @@ func (guard *OperationGuard) Prepare(ctx context.Context, authorized authz.Autho
 	// application boundary, so every adapter can filter the same trusted set.
 	if authorized.Policy.Operation == "delivery.items.list" || authorized.Policy.Operation == "delivery.projects.list" ||
 		((authorized.Policy.Operation == "delivery.items.search" || authorized.Policy.Operation == "delivery.items.similarity") && itemReadProjectID(input) == "") {
-		projects, err := guard.allowedProjects(ctx, grants, operation, tenantID)
+		projects, err := guard.allowedProjects(ctx, grants, permissions, operation, tenantID)
 		if err != nil {
 			return nil, err
 		}
@@ -180,26 +188,58 @@ func (guard *OperationGuard) Prepare(ctx context.Context, authorized authz.Autho
 	if err != nil {
 		return nil, err
 	}
-	if !guard.allowsProject(grants, operation, tenantID, project.ID, objectID) {
+	if !allowsProject(grants, permissions, tenantID, project.ID, objectID) {
 		return nil, denied()
 	}
 	return secured, nil
 }
 
-func singlePermission(policy authz.Policy) authz.PermissionKey {
-	if len(policy.Permissions) != 1 {
-		return ""
+func operationPermissions(operation authorization.Operation, operations map[authz.OperationID]authorization.Operation) []authz.PermissionKey {
+	permissions := []authz.PermissionKey{authz.PermissionKey(operation.Permission)}
+	for _, requiredID := range operation.RequiresOperations {
+		permissions = append(permissions, authz.PermissionKey(operations[authz.OperationID(requiredID)].Permission))
 	}
-	return policy.Permissions[0]
+	return permissions
 }
 
-func singlePermissionMatches(permissions []authz.PermissionKey, expected string) bool {
-	return len(permissions) == 1 && string(permissions[0]) == expected
+func authorizedPermissions(authorized authz.AuthorizedOperation, expected []authz.PermissionKey) ([]authz.PermissionKey, bool) {
+	if len(authorized.Policy.Permissions) == 0 {
+		return nil, false
+	}
+	permissions := make([]authz.PermissionKey, 0, len(authorized.Policy.Permissions))
+	seen := make(map[authz.PermissionKey]bool, len(authorized.Policy.Permissions))
+	for _, permission := range authorized.Policy.Permissions {
+		if !canonicalID(string(permission)) || seen[permission] {
+			return nil, false
+		}
+		seen[permission] = true
+		permissions = append(permissions, permission)
+	}
+	return permissions, samePermissions(permissions, expected)
 }
 
-func (guard *OperationGuard) verifyGrants(ctx context.Context, principal identity.Principal, grants []authz.Grant, operation authorization.Operation) ([]authz.Grant, error) {
+func samePermissions(got, want []authz.PermissionKey) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	seen := make(map[authz.PermissionKey]bool, len(got))
+	for _, permission := range got {
+		if !canonicalID(string(permission)) || seen[permission] {
+			return false
+		}
+		seen[permission] = true
+	}
+	for _, permission := range want {
+		if !seen[permission] {
+			return false
+		}
+	}
+	return true
+}
+
+func (guard *OperationGuard) verifyGrants(ctx context.Context, principal identity.Principal, grants []authz.Grant, operation authorization.Operation, permissions []authz.PermissionKey) ([]authz.Grant, error) {
 	if serviceAccountID, ok := serviceAccountIDFromPrincipal(principal); ok {
-		return guard.verifyServiceGrants(ctx, principal, serviceAccountID, grants, operation)
+		return guard.verifyServiceGrants(ctx, principal, serviceAccountID, grants, operation, permissions)
 	}
 	if !isHumanJWTPrincipal(principal) {
 		return nil, denied()
@@ -211,7 +251,7 @@ func (guard *OperationGuard) verifyGrants(ctx context.Context, principal identit
 	seen := make(map[authz.Grant]struct{}, len(grants))
 	for _, grant := range grants {
 		scopeType, scopeID, ok := bindingScope(grant.Scope, principal.TenantID)
-		if !ok || string(grant.Permission) != operation.Permission || !canonicalID(grant.RoleID) {
+		if !ok || !containsPermission(permissions, grant.Permission) || !canonicalID(grant.RoleID) {
 			return nil, denied()
 		}
 		if _, exists := seen[grant]; exists {
@@ -219,7 +259,7 @@ func (guard *OperationGuard) verifyGrants(ctx context.Context, principal identit
 		}
 		seen[grant] = struct{}{}
 		var found int
-		err := guard.database.QueryRowContext(ctx, activeBindingGrantQuery, principal.UserID, grant.RoleID, scopeType, scopeID, operation.Permission, operation.RequiredScope, principal.TenantID, principal.UserID).Scan(&found)
+		err := guard.database.QueryRowContext(ctx, activeBindingGrantQuery, principal.UserID, grant.RoleID, scopeType, scopeID, string(grant.Permission), operation.RequiredScope, principal.TenantID, principal.UserID).Scan(&found)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("verify delivery grant: %w", err)
 		}
@@ -231,14 +271,14 @@ func (guard *OperationGuard) verifyGrants(ctx context.Context, principal identit
 	return verified, nil
 }
 
-func (guard *OperationGuard) verifyServiceGrants(ctx context.Context, principal identity.Principal, serviceAccountID string, grants []authz.Grant, operation authorization.Operation) ([]authz.Grant, error) {
+func (guard *OperationGuard) verifyServiceGrants(ctx context.Context, principal identity.Principal, serviceAccountID string, grants []authz.Grant, operation authorization.Operation, permissions []authz.PermissionKey) ([]authz.Grant, error) {
 	if len(grants) == 0 {
 		return nil, denied()
 	}
 	verified := make([]authz.Grant, 0, len(grants))
 	seen := make(map[authz.Grant]struct{}, len(grants))
 	for _, grant := range grants {
-		if string(grant.Permission) != operation.Permission || grant.RoleID != "service-account:"+serviceAccountID {
+		if !containsPermission(permissions, grant.Permission) || grant.RoleID != "service-account:"+serviceAccountID {
 			return nil, denied()
 		}
 		if _, exists := seen[grant]; exists {
@@ -247,17 +287,21 @@ func (guard *OperationGuard) verifyServiceGrants(ctx context.Context, principal 
 		seen[grant] = struct{}{}
 		var found int
 		var err error
+		grantOperationID := operationIDForPermission(operation, guard.operations, grant.Permission)
+		if grantOperationID == "" {
+			return nil, denied()
+		}
 		if operation.RequiredScope == "organization" && strings.HasPrefix(operation.ID, "config.revisions.") {
 			if grant.Scope != "organization:"+principal.TenantID {
 				return nil, denied()
 			}
-			err = guard.database.QueryRowContext(ctx, activeConfigServiceGrantQuery, principal.TenantID, serviceAccountID, operation.ID, operation.Permission).Scan(&found)
+			err = guard.database.QueryRowContext(ctx, activeConfigServiceGrantQuery, principal.TenantID, serviceAccountID, grantOperationID, string(grant.Permission)).Scan(&found)
 		} else {
 			projectID, ok := serviceProjectScope(grant.Scope)
 			if !ok {
 				return nil, denied()
 			}
-			err = guard.database.QueryRowContext(ctx, activeServiceGrantQuery, principal.TenantID, serviceAccountID, operation.ID, operation.Permission, projectID).Scan(&found)
+			err = guard.database.QueryRowContext(ctx, activeServiceGrantQuery, principal.TenantID, serviceAccountID, grantOperationID, string(grant.Permission), projectID).Scan(&found)
 		}
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("verify delivery service grant: %w", err)
@@ -268,6 +312,18 @@ func (guard *OperationGuard) verifyServiceGrants(ctx context.Context, principal 
 		verified = append(verified, grant)
 	}
 	return verified, nil
+}
+
+func operationIDForPermission(operation authorization.Operation, operations map[authz.OperationID]authorization.Operation, permission authz.PermissionKey) string {
+	if operation.Permission == string(permission) {
+		return operation.ID
+	}
+	for _, requiredID := range operation.RequiresOperations {
+		if operations[authz.OperationID(requiredID)].Permission == string(permission) {
+			return requiredID
+		}
+	}
+	return ""
 }
 
 const activeBindingGrantQuery = `
@@ -390,13 +446,13 @@ func (guard *OperationGuard) organizationProjects(ctx context.Context, tenantID 
 	return allowed, nil
 }
 
-func (guard *OperationGuard) allowedProjects(ctx context.Context, grants []authz.Grant, operation authorization.Operation, tenantID string) (map[string]bool, error) {
+func (guard *OperationGuard) allowedProjects(ctx context.Context, grants []authz.Grant, permissions []authz.PermissionKey, operation authorization.Operation, tenantID string) (map[string]bool, error) {
 	projects, err := guard.organizationProjects(ctx, tenantID)
 	if err != nil {
 		return nil, err
 	}
 	for id := range projects {
-		if !guard.allowsProject(grants, operation, tenantID, id, "") {
+		if !allowsProject(grants, permissions, tenantID, id, "") {
 			delete(projects, id)
 		}
 	}
@@ -411,27 +467,36 @@ func (guard *OperationGuard) ownedProject(ctx context.Context, projectID, tenant
 	return project, nil
 }
 
-func (guard *OperationGuard) allowsOrganization(grants []authz.Grant, operation authorization.Operation, tenantID string) bool {
-	for _, grant := range grants {
-		if string(grant.Permission) == operation.Permission && grant.Scope == "organization:"+tenantID {
-			return true
-		}
-	}
-	return false
+func allowsOrganization(grants []authz.Grant, permissions []authz.PermissionKey, tenantID string) bool {
+	return permissionsAllow(grants, permissions, func(grant authz.Grant) bool { return grant.Scope == "organization:"+tenantID })
 }
 
-func (guard *OperationGuard) allowsProject(grants []authz.Grant, operation authorization.Operation, tenantID, projectID, objectID string) bool {
-	for _, grant := range grants {
-		if string(grant.Permission) != operation.Permission {
-			continue
+func allowsProject(grants []authz.Grant, permissions []authz.PermissionKey, tenantID, projectID, objectID string) bool {
+	return permissionsAllow(grants, permissions, func(grant authz.Grant) bool {
+		return grant.Scope == "organization:"+tenantID || grant.Scope == "project:"+projectID || (objectID != "" && grant.Scope == "object:work-item:"+objectID)
+	})
+}
+
+func permissionsAllow(grants []authz.Grant, permissions []authz.PermissionKey, allowed func(authz.Grant) bool) bool {
+	for _, permission := range permissions {
+		matched := false
+		for _, grant := range grants {
+			if grant.Permission == permission && allowed(grant) {
+				matched = true
+				break
+			}
 		}
-		switch grant.Scope {
-		case "organization:" + tenantID:
+		if !matched {
+			return false
+		}
+	}
+	return len(permissions) > 0
+}
+
+func containsPermission(permissions []authz.PermissionKey, expected authz.PermissionKey) bool {
+	for _, permission := range permissions {
+		if permission == expected {
 			return true
-		case "project:" + projectID:
-			return true
-		case "object:work-item:" + objectID:
-			return objectID != ""
 		}
 	}
 	return false

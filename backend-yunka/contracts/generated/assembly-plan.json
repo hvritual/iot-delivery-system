@@ -456,6 +456,17 @@
       }
     }
   ],
+  "operationDependencies": [
+    {
+      "from": "delivery.items.update",
+      "to": "delivery.items.update-context",
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.items.update/requiresOperations/delivery.items.update-context"
+      }
+    }
+  ],
   "modules": [
     {
       "name": "delivery",

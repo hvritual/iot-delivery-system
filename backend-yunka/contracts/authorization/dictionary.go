@@ -23,9 +23,10 @@ type Dictionary struct {
 }
 
 type Operation struct {
-	ID            string `json:"id"`
-	Permission    string `json:"permission"`
-	RequiredScope string `json:"requiredScope"`
+	ID                 string   `json:"id"`
+	Permission         string   `json:"permission"`
+	RequiredScope      string   `json:"requiredScope"`
+	RequiresOperations []string `json:"requiresOperations,omitempty"`
 }
 
 type Permission struct {

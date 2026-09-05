@@ -44,9 +44,6 @@ func (operations *Operations) WithNotificationReader(reader notification.Reader)
 }
 
 func (operations *Operations) Dashboard(ctx context.Context) ([]delivery.WorkItem, error) {
-	if operations != nil && operations.service != nil {
-		return operations.listExtendedWorkItems(ctx, "delivery.dashboard.get", "get_dashboard")
-	}
 	if err := operations.ready(); err != nil {
 		return nil, err
 	}
@@ -61,9 +58,6 @@ func (operations *Operations) Dashboard(ctx context.Context) ([]delivery.WorkIte
 }
 
 func (operations *Operations) List(ctx context.Context) ([]delivery.WorkItem, error) {
-	if operations != nil && operations.service != nil {
-		return operations.listExtendedWorkItems(ctx, "delivery.items.list", "list_items")
-	}
 	if err := operations.ready(); err != nil {
 		return nil, err
 	}
@@ -75,23 +69,6 @@ func (operations *Operations) List(ctx context.Context) ([]delivery.WorkItem, er
 		return nil, nil
 	}
 	return workItemsFromProto(response.GetItems()), nil
-}
-
-func (operations *Operations) listExtendedWorkItems(ctx context.Context, operationID, useCase string) ([]delivery.WorkItem, error) {
-	if err := operations.extensionReady(); err != nil {
-		return nil, err
-	}
-	value, err := operations.executor.Execute(ctx, extensionPlan(operationID, useCase, "delivery.items.read", "read_only"), nil, func(callContext context.Context) (any, error) {
-		return operations.service.List(callContext)
-	})
-	if err != nil {
-		return nil, err
-	}
-	items, ok := value.([]delivery.WorkItem)
-	if !ok {
-		return nil, errors.New("delivery work item list operation returned an unexpected result")
-	}
-	return filterAuthorizedWorkItems(ctx, items), nil
 }
 
 func filterAuthorizedWorkItems(ctx context.Context, items []delivery.WorkItem) []delivery.WorkItem {
@@ -264,10 +241,9 @@ func (operations *Operations) UpdateWorkItem(ctx context.Context, id string, exp
 }
 
 // UpdateWorkItemAndContext composes the two established write operations into
-// one local unit of work for the REST compatibility endpoint. The context
-// operation is authorized first with its registered plan; the update operation
-// remains the transaction root and both generated child plans retain their
-// own metadata and audit behavior.
+// one local unit of work for the REST compatibility endpoint. The generated
+// root plan declares the context operation and its permission closure; the
+// child joins that root transaction without a second authorization decision.
 func (operations *Operations) UpdateWorkItemAndContext(ctx context.Context, id string, expectedRevision int64, update delivery.WorkItemUpdate, contextUpdate delivery.ContextUpdate) (delivery.WorkItem, error) {
 	if err := operations.ready(); err != nil {
 		return delivery.WorkItem{}, err
@@ -280,13 +256,7 @@ func (operations *Operations) UpdateWorkItemAndContext(ctx context.Context, id s
 	if contextUpdate.Decision != nil {
 		contextRequest.Decision = &deliveryv1.Decision{Id: contextUpdate.Decision.ID, Title: contextUpdate.Decision.Title, Context: contextUpdate.Decision.Context, Outcome: contextUpdate.Decision.Outcome, Consequences: contextUpdate.Decision.Consequences, CreatedAt: timestamp(contextUpdate.Decision.CreatedAt)}
 	}
-	if _, err := operations.executor.Execute(ctx, policy.OperationPlanUpdateItemContext(), contextRequest, func(context.Context) (any, error) {
-		return nil, nil
-	}); err != nil {
-		return delivery.WorkItem{}, err
-	}
 	rootPlan := policy.OperationPlanUpdateItem()
-	rootPlan.Composition.RequiresOperations = append(rootPlan.Composition.RequiresOperations, policy.OperationPlanUpdateItemContext().OperationID)
 	value, err := operations.executor.Execute(ctx, rootPlan, request, func(callContext context.Context) (any, error) {
 		updated, err := operations.application.UpdateItem(callContext, request)
 		if err != nil {

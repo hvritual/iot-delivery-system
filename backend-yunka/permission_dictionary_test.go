@@ -61,13 +61,14 @@ type permissionDefinition struct {
 }
 
 type operationDefinition struct {
-	ID            string              `json:"id"`
-	Resource      string              `json:"resource"`
-	Permission    string              `json:"permission"`
-	RequiredScope string              `json:"requiredScope"`
-	Risk          string              `json:"risk"`
-	Writes        bool                `json:"writes"`
-	Transports    operationTransports `json:"transports"`
+	ID                 string              `json:"id"`
+	Resource           string              `json:"resource"`
+	Permission         string              `json:"permission"`
+	RequiredScope      string              `json:"requiredScope"`
+	RequiresOperations []string            `json:"requiresOperations,omitempty"`
+	Risk               string              `json:"risk"`
+	Writes             bool                `json:"writes"`
+	Transports         operationTransports `json:"transports"`
 }
 
 type operationTransports struct {
@@ -532,11 +533,12 @@ func indexPermissions(definitions []permissionDefinition, resources map[string]r
 }
 
 type operationContract struct {
-	resource      string
-	permission    string
-	requiredScope string
-	risk          string
-	writes        bool
+	resource           string
+	permission         string
+	requiredScope      string
+	requiresOperations []string
+	risk               string
+	writes             bool
 }
 
 var expectedOperations = map[string]operationContract{
@@ -546,7 +548,7 @@ var expectedOperations = map[string]operationContract{
 	"delivery.items.search":         {resource: "delivery.work-items", permission: "delivery.work-items.read", requiredScope: "project", risk: "low", writes: false},
 	"delivery.items.similarity":     {resource: "delivery.work-items", permission: "delivery.work-items.read", requiredScope: "project", risk: "low", writes: false},
 	"delivery.items.create":         {resource: "delivery.work-items", permission: "delivery.work-items.create", requiredScope: "project", risk: "medium", writes: true},
-	"delivery.items.update":         {resource: "delivery.work-items", permission: "delivery.work-items.update", requiredScope: "object", risk: "medium", writes: true},
+	"delivery.items.update":         {resource: "delivery.work-items", permission: "delivery.work-items.update", requiredScope: "object", requiresOperations: []string{"delivery.items.update-context"}, risk: "medium", writes: true},
 	"delivery.items.comment.create": {resource: "delivery.work-items", permission: "delivery.work-items.comment.create", requiredScope: "object", risk: "low", writes: true},
 	"delivery.items.update-context": {resource: "delivery.work-items", permission: "delivery.work-items.context.update", requiredScope: "object", risk: "medium", writes: true},
 	"delivery.items.advance-gate":   {resource: "delivery.work-items", permission: "delivery.work-items.gate.advance", requiredScope: "object", risk: "high", writes: true},
@@ -587,7 +589,7 @@ func validateOperations(definitions []operationDefinition, plans operationplan.S
 			return fmt.Errorf("dictionary operation %q is not generated", definition.ID)
 		}
 		expected, exists := expectedOperations[definition.ID]
-		if !exists || definition.Resource != expected.resource || definition.Permission != expected.permission || definition.RequiredScope != expected.requiredScope || definition.Risk != expected.risk || definition.Writes != expected.writes {
+		if !exists || definition.Resource != expected.resource || definition.Permission != expected.permission || definition.RequiredScope != expected.requiredScope || !slices.Equal(definition.RequiresOperations, expected.requiresOperations) || definition.Risk != expected.risk || definition.Writes != expected.writes {
 			return fmt.Errorf("operation %q does not match the versioned operation contract", definition.ID)
 		}
 		if _, exists := resources[definition.Resource]; !exists {
@@ -597,7 +599,16 @@ func validateOperations(definitions []operationDefinition, plans operationplan.S
 		if !exists || permission.Status != "active" {
 			return fmt.Errorf("operation %q references unavailable permission %q", definition.ID, definition.Permission)
 		}
-		if len(plan.Security.Permissions) != 1 || string(plan.Security.Permissions[0]) != definition.Permission {
+		expectedPlanPermissions := []string{definition.Permission}
+		for _, requiredID := range definition.RequiresOperations {
+			required, exists := expectedOperations[requiredID]
+			if !exists || required.requiredScope != definition.RequiredScope {
+				return fmt.Errorf("operation %q has unsupported required operation %q", definition.ID, requiredID)
+			}
+			expectedPlanPermissions = append(expectedPlanPermissions, required.permission)
+		}
+		slices.Sort(expectedPlanPermissions)
+		if !slices.Equal(plan.Security.Permissions, expectedPlanPermissions) || !slices.Equal(plan.Composition.RequiresOperations, definition.RequiresOperations) {
 			return fmt.Errorf("operation %q permission does not match generated plan", definition.ID)
 		}
 		if strings.HasPrefix(definition.ID, "config.revisions.") && (plan.Security.PermissionMode != "all" || !slices.Equal(plan.Security.Authentication, []string{"jwt", "service-token"}) || plan.Execution.Idempotency != "none" || plan.Composition.Boundary != "local" || plan.Bindings.RPC != "" || len(plan.Bindings.HTTP) != 0) {

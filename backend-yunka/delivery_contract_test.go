@@ -3,6 +3,7 @@ package backendyunka
 import (
 	"encoding/json"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -81,6 +82,7 @@ func TestGeneratedOperationPlansDeclareLocalAPIKeyAuthorizationAndTransactions(t
 	}
 	want := map[string]struct {
 		permission  string
+		permissions []string
 		transaction string
 	}{
 		"delivery.dashboard.get":        {permission: "delivery.dashboard.read", transaction: "read_only"},
@@ -89,7 +91,7 @@ func TestGeneratedOperationPlansDeclareLocalAPIKeyAuthorizationAndTransactions(t
 		"delivery.items.search":         {permission: "delivery.work-items.read", transaction: "read_only"},
 		"delivery.items.similarity":     {permission: "delivery.work-items.read", transaction: "read_only"},
 		"delivery.items.create":         {permission: "delivery.work-items.create", transaction: "local"},
-		"delivery.items.update":         {permission: "delivery.work-items.update", transaction: "local"},
+		"delivery.items.update":         {permissions: []string{"delivery.work-items.context.update", "delivery.work-items.update"}, transaction: "local"},
 		"delivery.items.comment.create": {permission: "delivery.work-items.comment.create", transaction: "local"},
 		"delivery.items.update-context": {permission: "delivery.work-items.context.update", transaction: "local"},
 		"delivery.items.advance-gate":   {permission: "delivery.work-items.gate.advance", transaction: "local"},
@@ -117,8 +119,12 @@ func TestGeneratedOperationPlansDeclareLocalAPIKeyAuthorizationAndTransactions(t
 		if plan.Security.Public || len(plan.Security.Authentication) != 3 || plan.Security.Authentication[0] != "api-key" || plan.Security.Authentication[1] != "jwt" || plan.Security.Authentication[2] != "service-token" {
 			t.Fatalf("operation %s security = %#v, want API key, JWT, and service-token protection", plan.OperationID, plan.Security)
 		}
-		if len(plan.Security.Permissions) != 1 || plan.Security.Permissions[0] != expected.permission {
-			t.Fatalf("operation %s permissions = %#v, want %q", plan.OperationID, plan.Security.Permissions, expected.permission)
+		expectedPermissions := expected.permissions
+		if expectedPermissions == nil {
+			expectedPermissions = []string{expected.permission}
+		}
+		if !slices.Equal(plan.Security.Permissions, expectedPermissions) {
+			t.Fatalf("operation %s permissions = %#v, want %#v", plan.OperationID, plan.Security.Permissions, expectedPermissions)
 		}
 	}
 }

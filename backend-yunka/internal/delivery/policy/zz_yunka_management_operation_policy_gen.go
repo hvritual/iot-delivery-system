@@ -47,7 +47,7 @@ func Resolver() authz.StaticResolver {
 		"/iot.delivery.v1.DeliveryService/ListReleases":      {Operation: OperationListReleases, Permissions: []authz.PermissionKey{"delivery.releases.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/ListSprints":       {Operation: OperationListSprints, Permissions: []authz.PermissionKey{"delivery.sprints.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/SearchItems":       {Operation: OperationSearchItems, Permissions: []authz.PermissionKey{"delivery.work-items.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
-		"/iot.delivery.v1.DeliveryService/UpdateItem":        {Operation: OperationUpdateItem, Permissions: []authz.PermissionKey{"delivery.work-items.update"}, Mode: authz.PermissionAll, Authentication: []string{"api-key", "jwt", "service-token"}},
+		"/iot.delivery.v1.DeliveryService/UpdateItem":        {Operation: OperationUpdateItem, Permissions: []authz.PermissionKey{"delivery.work-items.context.update", "delivery.work-items.update"}, Mode: authz.PermissionAll, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/UpdateItemContext": {Operation: OperationUpdateItemContext, Permissions: []authz.PermissionKey{"delivery.work-items.context.update"}, Mode: authz.PermissionAll, Authentication: []string{"api-key", "jwt", "service-token"}},
 	})
 }

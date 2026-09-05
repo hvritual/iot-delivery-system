@@ -2673,6 +2673,7 @@
             "id": "delivery.items.update",
             "useCase": "update_item",
             "permissions": [
+              "delivery.work-items.context.update",
               "delivery.work-items.update"
             ],
             "permissionMode": "all",
@@ -2680,6 +2681,9 @@
               "api-key",
               "jwt",
               "service-token"
+            ],
+            "requiresOperations": [
+              "delivery.items.update-context"
             ],
             "composition": "local",
             "execution": {
@@ -2690,6 +2694,7 @@
           "authorization": {
             "operationId": "delivery.items.update",
             "permissions": [
+              "delivery.work-items.context.update",
               "delivery.work-items.update"
             ],
             "permissionMode": "all",

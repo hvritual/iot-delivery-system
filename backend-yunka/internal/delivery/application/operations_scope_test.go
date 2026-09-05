@@ -3,6 +3,7 @@ package application_test
 import (
 	"context"
 	"database/sql"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitycore"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
 	"github.com/hvritual/yunka.io/framework/core/identity"
+	"github.com/hvritual/yunka.io/framework/execution"
 	"github.com/hvritual/yunka.io/framework/operation"
 	"github.com/hvritual/yunka.io/gateway/authz"
 	"github.com/hvritual/yunka.io/pkg/operationplan"
@@ -33,6 +35,32 @@ type recordingSecurity struct {
 func (security *recordingSecurity) Prepare(ctx context.Context, plan operationplan.Plan, _ any) (context.Context, error) {
 	security.plans = append(security.plans, plan)
 	return ctx, nil
+}
+
+type countingTransactionFactory struct {
+	delegate execution.TransactionFactory
+	begins   atomic.Int64
+}
+
+func (factory *countingTransactionFactory) Begin(ctx context.Context, mode execution.TransactionMode) (execution.UnitOfWork, error) {
+	factory.begins.Add(1)
+	return factory.delegate.Begin(ctx, mode)
+}
+
+type compositionObserver struct {
+	roots    atomic.Int64
+	children atomic.Int64
+}
+
+func (observer *compositionObserver) Observe(_ context.Context, event operation.Event) {
+	if event.Phase != operation.PhasePlan || event.Outcome != operation.OutcomeStarted {
+		return
+	}
+	if event.Kind == operation.InvocationRoot {
+		observer.roots.Add(1)
+	} else if event.Kind == operation.InvocationChild {
+		observer.children.Add(1)
+	}
 }
 
 func TestDashboardAndListUseCanonicalPlansWhenLegacyServiceIsAttached(t *testing.T) {
@@ -61,6 +89,46 @@ func TestDashboardAndListUseCanonicalPlansWhenLegacyServiceIsAttached(t *testing
 		if got.OperationID != want.OperationID || got.UseCase != want.UseCase || got.Security.Permissions[0] != want.Security.Permissions[0] {
 			t.Errorf("prepared plan[%d] = id %q use case %q permissions %v, want canonical id %q use case %q permissions %v", index, got.OperationID, got.UseCase, got.Security.Permissions, want.OperationID, want.UseCase, want.Security.Permissions)
 		}
+	}
+}
+
+func TestCombinedUpdateUsesOneCanonicalRootAuthorizationAndUnitOfWork(t *testing.T) {
+	repository := delivery.NewMemoryRepository()
+	now := time.Now().UTC()
+	if err := repository.CreateProject(t.Context(), delivery.Project{ID: "project-a", OrganizationID: "org-a", Name: "A", Board: delivery.BoardResearchDelivery, Owner: "owner", CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.Create(t.Context(), delivery.WorkItem{ID: "item-a", ProjectID: "project-a", Board: delivery.BoardResearchDelivery, Revision: 1, UpdatedAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	database, err := sql.Open("sqlite", "file:"+t.Name()+"?mode=memory&cache=shared")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	security := &recordingSecurity{}
+	factory := &countingTransactionFactory{delegate: localtx.NewSQLiteFactory(database)}
+	observer := &compositionObserver{}
+	service := delivery.NewService(repository, nil)
+	operations := application.NewOperations(application.NewAdapter(service), operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: factory}, observer), service)
+	progress := 40
+	plan := "one root"
+
+	item, err := operations.UpdateWorkItemAndContext(t.Context(), "item-a", 1, delivery.WorkItemUpdate{ProgressPercent: &progress}, delivery.ContextUpdate{Plan: &plan})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if item.Revision != 3 || item.ProgressPercent != progress || item.Plan != "one root" {
+		t.Fatalf("combined item = %#v, want both updates at revision 3", item)
+	}
+	if len(security.plans) != 1 || security.plans[0].OperationID != policy.OperationPlanUpdateItem().OperationID {
+		t.Fatalf("security plans = %#v, want one canonical update root", security.plans)
+	}
+	if got := factory.begins.Load(); got != 1 {
+		t.Fatalf("root UnitOfWork begins = %d, want 1", got)
+	}
+	if roots, children := observer.roots.Load(), observer.children.Load(); roots != 1 || children != 1 {
+		t.Fatalf("execution plans = roots %d children %d, want 1/1", roots, children)
 	}
 }
 

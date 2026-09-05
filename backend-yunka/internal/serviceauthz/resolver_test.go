@@ -13,10 +13,10 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/configrevision"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitycore"
-	_ "modernc.org/sqlite"
 	"github.com/hvritual/yunka.io/framework/core/identity"
 	"github.com/hvritual/yunka.io/framework/core/runtimecontext"
 	"github.com/hvritual/yunka.io/gateway/authz"
+	_ "modernc.org/sqlite"
 )
 
 func TestServiceGrantsDefaultDenyExactScopeAndImmediateRevocation(t *testing.T) {
@@ -60,6 +60,39 @@ func TestServiceGrantsDefaultDenyExactScopeAndImmediateRevocation(t *testing.T) 
 		t.Fatalf("revoke service grant: %v", err)
 	}
 	assertGrants(t, resolve(t, resolver, request), nil)
+}
+
+func TestServiceResolverMapsCompositePermissionsToDeclaredOperationGrants(t *testing.T) {
+	database := migratedDatabase(t)
+	projects := delivery.NewMemoryRepository()
+	seedOrganization(t, database, "org-a")
+	seedServiceAccount(t, database, "service-a", "org-a")
+	seedProject(t, projects, "project-a", "org-a")
+	manager, err := NewManager(database, projects)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolver, err := NewGrantResolver(database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := authz.GrantRequest{
+		Principal:   servicePrincipal("org-a", "service-a"),
+		Operation:   "delivery.items.update",
+		Permissions: []authz.PermissionKey{"delivery.work-items.context.update", "delivery.work-items.update"},
+		TenantBound: false,
+	}
+	if err := manager.Grant(t.Context(), GrantInput{ID: "grant-update", ServiceAccountID: "service-a", OperationID: "delivery.items.update", Permission: "delivery.work-items.update", ProjectID: "project-a"}); err != nil {
+		t.Fatal(err)
+	}
+	assertGrants(t, resolve(t, resolver, request), []authz.Grant{{Permission: "delivery.work-items.update", RoleID: "service-account:service-a", Scope: "project:project-a"}})
+	if err := manager.Grant(t.Context(), GrantInput{ID: "grant-context", ServiceAccountID: "service-a", OperationID: "delivery.items.update-context", Permission: "delivery.work-items.context.update", ProjectID: "project-a"}); err != nil {
+		t.Fatal(err)
+	}
+	assertGrants(t, resolve(t, resolver, request), []authz.Grant{
+		{Permission: "delivery.work-items.context.update", RoleID: "service-account:service-a", Scope: "project:project-a"},
+		{Permission: "delivery.work-items.update", RoleID: "service-account:service-a", Scope: "project:project-a"},
+	})
 }
 
 func TestGrantRevocationCommitsWithItsAuditEntry(t *testing.T) {
