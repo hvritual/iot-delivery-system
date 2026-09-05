@@ -44,10 +44,13 @@ export function canonicalApplicationOrigin(value: string): string {
 }
 
 function isLoopbackHostname(hostname: string): boolean {
-  if (hostname.toLowerCase() === "localhost") return true;
-  if (hostname === "127.0.0.1" || hostname === "::1") return true;
-  if (/^127(?:\.\d{1,3}){3}$/.test(hostname)) {
-    return hostname.split(".").every((part) => Number(part) >= 0 && Number(part) <= 255);
+  const normalized = hostname.startsWith("[") && hostname.endsWith("]")
+    ? hostname.slice(1, -1)
+    : hostname;
+  if (normalized.toLowerCase() === "localhost") return true;
+  if (normalized === "127.0.0.1" || normalized === "::1") return true;
+  if (/^127(?:\.\d{1,3}){3}$/.test(normalized)) {
+    return normalized.split(".").every((part) => Number(part) >= 0 && Number(part) <= 255);
   }
   return false;
 }
