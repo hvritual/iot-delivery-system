@@ -15,7 +15,8 @@ func TestApplyMigrationsAddsProjectReadAuthorizationToOldFourLedgerDatabase(t *t
 		t.Fatalf("upgrade old four-ledger authorization database: %v", err)
 	}
 	assertProjectReadAuthorizationRows(t, database)
-	assertProjectReadMigrationLedger(t, database, 5)
+	assertPlanningListAuthorizationRows(t, database)
+	assertProjectReadMigrationLedger(t, database, 6)
 	var serviceGrantCount int
 	if err := database.QueryRow(`SELECT COUNT(*) FROM service_operation_grants WHERE operation_id = 'delivery.projects.list'`).Scan(&serviceGrantCount); err != nil || serviceGrantCount != 0 {
 		t.Fatalf("project list service grants = %d error=%v, want no default grants", serviceGrantCount, err)
@@ -27,7 +28,8 @@ func TestApplyMigrationsAddsProjectReadAuthorizationToOldFourLedgerDatabase(t *t
 		t.Fatalf("repeat upgraded project read migration: %v", err)
 	}
 	assertProjectReadAuthorizationRows(t, database)
-	assertProjectReadMigrationLedger(t, database, 5)
+	assertPlanningListAuthorizationRows(t, database)
+	assertProjectReadMigrationLedger(t, database, 6)
 }
 
 func TestApplyMigrationsAddsProjectReadAuthorizationBeforeServiceGrantSeed(t *testing.T) {
@@ -37,7 +39,8 @@ func TestApplyMigrationsAddsProjectReadAuthorizationBeforeServiceGrantSeed(t *te
 		t.Fatalf("upgrade authorization-only ledger before service grant schema: %v", err)
 	}
 	assertProjectReadAuthorizationRows(t, database)
-	assertProjectReadMigrationLedger(t, database, 5)
+	assertPlanningListAuthorizationRows(t, database)
+	assertProjectReadMigrationLedger(t, database, 6)
 }
 
 func TestApplyMigrationsRejectsProjectReadConflictAndForgedLedger(t *testing.T) {
@@ -108,12 +111,13 @@ func legacyProjectReadAuthorizationDatabase(t *testing.T, includeServiceGrantSch
 		t.Fatalf("commit legacy authorization seed: %v", err)
 	}
 	removeProjectReadAuthorization(t, database)
+	removePlanningListAuthorization(t, database)
 	if includeServiceGrantSchema {
 		if _, err := database.Exec(serviceGrantSchema); err != nil {
 			t.Fatalf("create legacy service grant schema: %v", err)
 		}
 		for _, operation := range dictionary.Operations {
-			if operation.ID == "delivery.projects.list" {
+			if operation.ID == "delivery.projects.list" || operation.ID == "delivery.releases.list" || operation.ID == "delivery.sprints.list" || operation.ID == "delivery.milestones.list" {
 				continue
 			}
 			if _, err := database.Exec(`INSERT INTO service_operations (id, permission_id, required_scope, status) VALUES (?, ?, ?, 'active')`, operation.ID, operation.Permission, operation.RequiredScope); err != nil {
@@ -147,6 +151,55 @@ func removeProjectReadAuthorization(t *testing.T, database *sql.DB) {
 		if _, err := database.Exec(statement); err != nil {
 			t.Fatalf("remove current project read authorization from legacy fixture: %v", err)
 		}
+	}
+}
+
+func removePlanningListAuthorization(t *testing.T, database *sql.DB) {
+	t.Helper()
+	for _, permissionID := range []string{"delivery.releases.read", "delivery.sprints.read", "delivery.milestones.read"} {
+		for _, statement := range []string{
+			`DELETE FROM role_permission_grant_allowed_scopes WHERE permission_id = ?`,
+			`DELETE FROM role_permission_grants WHERE permission_id = ?`,
+			`DELETE FROM permission_allowed_scopes WHERE permission_id = ?`,
+			`DELETE FROM permissions WHERE id = ?`,
+		} {
+			if _, err := database.Exec(statement, permissionID); err != nil {
+				t.Fatalf("remove planning-list authorization %q from legacy fixture: %v", permissionID, err)
+			}
+		}
+	}
+}
+
+func assertPlanningListAuthorizationRows(t *testing.T, database *sql.DB) {
+	t.Helper()
+	for _, specification := range []struct {
+		permission string
+		resource   string
+		operation  string
+	}{
+		{permission: "delivery.releases.read", resource: "delivery.releases", operation: "delivery.releases.list"},
+		{permission: "delivery.sprints.read", resource: "delivery.sprints", operation: "delivery.sprints.list"},
+		{permission: "delivery.milestones.read", resource: "delivery.milestones", operation: "delivery.milestones.list"},
+	} {
+		var resource, action, status string
+		if err := database.QueryRow(`SELECT resource, action, status FROM permissions WHERE id = ?`, specification.permission).Scan(&resource, &action, &status); err != nil || resource != specification.resource || action != "read" || status != "active" {
+			t.Fatalf("planning permission %q = (%q, %q, %q) error=%v", specification.permission, resource, action, status, err)
+		}
+		assertExactKeyRows(t, database, `SELECT scope_type FROM permission_allowed_scopes WHERE permission_id = '`+specification.permission+`'`, map[string]bool{"project": true}, specification.permission+" scopes")
+		for _, roleID := range []string{"system-administrator", "project-administrator", "release-approver", "contributor", "viewer", "auditor"} {
+			var count int
+			if err := database.QueryRow(`SELECT COUNT(*) FROM role_permission_grants WHERE role_id = ? AND permission_id = ?`, roleID, specification.permission).Scan(&count); err != nil || count != 1 {
+				t.Fatalf("planning permission %q role=%q count=%d error=%v, want 1", specification.permission, roleID, count, err)
+			}
+		}
+		var permissionID, requiredScope, operationStatus string
+		if err := database.QueryRow(`SELECT permission_id, required_scope, status FROM service_operations WHERE id = ?`, specification.operation).Scan(&permissionID, &requiredScope, &operationStatus); err != nil || permissionID != specification.permission || requiredScope != "project" || operationStatus != "active" {
+			t.Fatalf("planning operation %q = (%q, %q, %q) error=%v", specification.operation, permissionID, requiredScope, operationStatus, err)
+		}
+	}
+	var migrationCount int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, PlanningListAuthorizationMigrationID).Scan(&migrationCount); err != nil || migrationCount != 1 {
+		t.Fatalf("planning list migration ledger count = %d error=%v, want 1", migrationCount, err)
 	}
 }
 

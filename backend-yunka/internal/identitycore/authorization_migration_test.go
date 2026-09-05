@@ -29,8 +29,8 @@ func TestApplyMigrationsSeedsExactAuthorizationDictionary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load authoritative permission dictionary: %v", err)
 	}
-	if len(dictionary.Roles) != 6 || len(dictionary.Permissions) != 21 {
-		t.Fatalf("authoritative permission dictionary has %d roles and %d permissions, want 6 and 21", len(dictionary.Roles), len(dictionary.Permissions))
+	if len(dictionary.Roles) != 6 || len(dictionary.Permissions) != 24 {
+		t.Fatalf("authoritative permission dictionary has %d roles and %d permissions, want 6 and 24", len(dictionary.Roles), len(dictionary.Permissions))
 	}
 	database := openAuthorizationTestDatabase(t)
 	if err := ApplyMigrations(t.Context(), database); err != nil {

@@ -10,10 +10,10 @@ import (
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/hvritual/yunka.io/framework/core/identity"
 	"github.com/hvritual/yunka.io/framework/core/runtimecontext"
 	"github.com/hvritual/yunka.io/gateway/authz"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 var errMCPUnauthenticated = errors.New("MCP principal is not authenticated")
@@ -49,8 +49,11 @@ func (server *server) addTools(target *mcp.Server) {
 	addTool(target, writeTool("delivery.advance_gate", "推进交付关卡", "提交证据并推进交付关卡。"), server.advanceGate)
 	addTool(target, writeTool("delivery.close_work_item", "关闭交付事项", "在生产验证后记录复盘并关闭事项。"), server.closeWorkItem)
 	addTool(target, writeTool("delivery.create_release", "创建发布版本", "为项目创建发布版本。"), server.createRelease)
+	addTool(target, readTool("delivery.list_releases", "列出发布版本", "列出项目的发布版本。"), server.listReleases)
 	addTool(target, writeTool("delivery.create_sprint", "创建 Sprint", "为项目创建 Sprint。"), server.createSprint)
+	addTool(target, readTool("delivery.list_sprints", "列出 Sprint", "列出项目的 Sprint。"), server.listSprints)
 	addTool(target, writeTool("delivery.create_milestone", "创建里程碑", "为项目创建里程碑。"), server.createMilestone)
+	addTool(target, readTool("delivery.list_milestones", "列出里程碑", "列出项目的里程碑。"), server.listMilestones)
 	addTool(target, readTool("delivery.get_member_week", "查看成员周任务", "查看成员在指定自然周的任务事项。"), server.memberWeek)
 	addTool(target, readTool("delivery.get_project_progress", "查看项目进度", "按估算权重汇总项目任务进度。"), server.projectProgress)
 	addTool(target, readTool("delivery.get_project_schedule", "查看项目交付健康", "查看依赖阻塞、逾期、未排期和成员剩余估算。"), server.projectSchedule)
@@ -372,6 +375,14 @@ type releaseOutput struct {
 	Release delivery.Release `json:"release"`
 }
 
+type planningListArgs struct {
+	ProjectID string `json:"projectId"`
+}
+
+type releasesOutput struct {
+	Releases []delivery.Release `json:"releases"`
+}
+
 func (server *server) createRelease(ctx context.Context, _ *mcp.CallToolRequest, args createReleaseArgs) (*mcp.CallToolResult, releaseOutput, error) {
 	ctx, err := server.toolContext(ctx)
 	if err != nil {
@@ -381,9 +392,22 @@ func (server *server) createRelease(ctx context.Context, _ *mcp.CallToolRequest,
 	return nil, releaseOutput{Release: release}, err
 }
 
+func (server *server) listReleases(ctx context.Context, _ *mcp.CallToolRequest, args planningListArgs) (*mcp.CallToolResult, releasesOutput, error) {
+	ctx, err := server.toolContext(ctx)
+	if err != nil {
+		return nil, releasesOutput{}, err
+	}
+	values, err := server.operations.ListReleases(ctx, args.ProjectID)
+	return nil, releasesOutput{Releases: values}, err
+}
+
 type createSprintArgs delivery.SprintInput
 type sprintOutput struct {
 	Sprint delivery.Sprint `json:"sprint"`
+}
+
+type sprintsOutput struct {
+	Sprints []delivery.Sprint `json:"sprints"`
 }
 
 func (server *server) createSprint(ctx context.Context, _ *mcp.CallToolRequest, args createSprintArgs) (*mcp.CallToolResult, sprintOutput, error) {
@@ -395,9 +419,22 @@ func (server *server) createSprint(ctx context.Context, _ *mcp.CallToolRequest, 
 	return nil, sprintOutput{Sprint: sprint}, err
 }
 
+func (server *server) listSprints(ctx context.Context, _ *mcp.CallToolRequest, args planningListArgs) (*mcp.CallToolResult, sprintsOutput, error) {
+	ctx, err := server.toolContext(ctx)
+	if err != nil {
+		return nil, sprintsOutput{}, err
+	}
+	values, err := server.operations.ListSprints(ctx, args.ProjectID)
+	return nil, sprintsOutput{Sprints: values}, err
+}
+
 type createMilestoneArgs delivery.MilestoneInput
 type milestoneOutput struct {
 	Milestone delivery.Milestone `json:"milestone"`
+}
+
+type milestonesOutput struct {
+	Milestones []delivery.Milestone `json:"milestones"`
 }
 
 func (server *server) createMilestone(ctx context.Context, _ *mcp.CallToolRequest, args createMilestoneArgs) (*mcp.CallToolResult, milestoneOutput, error) {
@@ -407,6 +444,15 @@ func (server *server) createMilestone(ctx context.Context, _ *mcp.CallToolReques
 	}
 	milestone, err := server.operations.CreateMilestone(ctx, delivery.MilestoneInput(args))
 	return nil, milestoneOutput{Milestone: milestone}, err
+}
+
+func (server *server) listMilestones(ctx context.Context, _ *mcp.CallToolRequest, args planningListArgs) (*mcp.CallToolResult, milestonesOutput, error) {
+	ctx, err := server.toolContext(ctx)
+	if err != nil {
+		return nil, milestonesOutput{}, err
+	}
+	values, err := server.operations.ListMilestones(ctx, args.ProjectID)
+	return nil, milestonesOutput{Milestones: values}, err
 }
 
 type memberWeekArgs struct {

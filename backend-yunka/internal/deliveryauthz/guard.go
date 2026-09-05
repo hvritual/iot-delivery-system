@@ -444,9 +444,15 @@ func (guard *OperationGuard) projectAndObjectID(ctx context.Context, operation a
 		projectID = request.GetProjectId()
 	case *deliveryv1.CreateReleaseRequest:
 		projectID = request.GetProjectId()
+	case *deliveryv1.ListReleasesRequest:
+		projectID = request.GetProjectId()
 	case *deliveryv1.CreateSprintRequest:
 		projectID = request.GetProjectId()
+	case *deliveryv1.ListSprintsRequest:
+		projectID = request.GetProjectId()
 	case *deliveryv1.CreateMilestoneRequest:
+		projectID = request.GetProjectId()
+	case *deliveryv1.ListMilestonesRequest:
 		projectID = request.GetProjectId()
 	case *deliveryv1.UpdateItemRequest:
 		objectID = request.GetId()
@@ -515,11 +521,20 @@ func validInput(operation authz.OperationID, input any) bool {
 	case "delivery.releases.create":
 		request, ok := input.(*deliveryv1.CreateReleaseRequest)
 		return ok && request != nil
+	case "delivery.releases.list":
+		request, ok := input.(*deliveryv1.ListReleasesRequest)
+		return ok && request != nil
 	case "delivery.sprints.create":
 		request, ok := input.(*deliveryv1.CreateSprintRequest)
 		return ok && request != nil
+	case "delivery.sprints.list":
+		request, ok := input.(*deliveryv1.ListSprintsRequest)
+		return ok && request != nil
 	case "delivery.milestones.create":
 		request, ok := input.(*deliveryv1.CreateMilestoneRequest)
+		return ok && request != nil
+	case "delivery.milestones.list":
+		request, ok := input.(*deliveryv1.ListMilestonesRequest)
 		return ok && request != nil
 	default:
 		return false

@@ -205,12 +205,18 @@ var permissionsByRole = map[string][]authz.PermissionKey{
 	RoleViewer: {
 		"delivery.dashboard.read",
 		"delivery.projects.read",
+		"delivery.releases.read",
+		"delivery.sprints.read",
+		"delivery.milestones.read",
 		"delivery.work-items.read",
 		"delivery.items.read", // Development-only alias for legacy extension operations.
 	},
 	RoleContributor: {
 		"delivery.dashboard.read",
 		"delivery.projects.read",
+		"delivery.releases.read",
+		"delivery.sprints.read",
+		"delivery.milestones.read",
 		"delivery.work-items.read",
 		"delivery.work-items.create",
 		"delivery.work-items.update",
@@ -222,6 +228,9 @@ var permissionsByRole = map[string][]authz.PermissionKey{
 	RoleReleaseManager: {
 		"delivery.dashboard.read",
 		"delivery.projects.read",
+		"delivery.releases.read",
+		"delivery.sprints.read",
+		"delivery.milestones.read",
 		"delivery.work-items.read",
 		"delivery.work-items.create",
 		"delivery.work-items.update",
@@ -235,6 +244,9 @@ var permissionsByRole = map[string][]authz.PermissionKey{
 	RoleLocalAdmin: {
 		"delivery.dashboard.read",
 		"delivery.projects.read",
+		"delivery.releases.read",
+		"delivery.sprints.read",
+		"delivery.milestones.read",
 		"delivery.work-items.read",
 		"delivery.work-items.create",
 		"delivery.work-items.update",

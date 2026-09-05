@@ -457,11 +457,31 @@ func TestMCPRetainsOperationsLifecycleAndSaveViewExtension(t *testing.T) {
 		{name: "delivery.update_work_item", args: map[string]any{"id": item.Created.ID, "expectedRevision": item.Created.Revision, "progressPercent": 30}},
 		{name: "delivery.add_comment", args: map[string]any{"id": item.Created.ID, "expectedRevision": item.Created.Revision + 1, "body": "MCP executor-backed comment"}},
 		{name: "delivery.create_release", args: map[string]any{"projectId": project.Project.ID, "name": "R1", "version": "1.0.0", "status": "planned", "targetDate": "2026-09-10", "description": "MCP lifecycle release"}},
+		{name: "delivery.create_sprint", args: map[string]any{"projectId": project.Project.ID, "name": "Sprint 1", "goal": "MCP lifecycle", "startDate": "2026-09-05", "endDate": "2026-09-12", "status": "active"}},
+		{name: "delivery.create_milestone", args: map[string]any{"projectId": project.Project.ID, "name": "M1", "targetDate": "2026-09-15", "status": "planned", "description": "MCP lifecycle milestone"}},
 		{name: "delivery.save_view", args: map[string]any{"name": "MCP lifecycle view", "filter": map[string]any{"projectId": project.Project.ID}}},
 	} {
 		result := callMCP(t, fixture.operations, admin, call.name, call.args)
 		if result.IsError {
 			t.Fatalf("%s through MCP = %#v: %s", call.name, result, mcpErrorText(result))
+		}
+	}
+	for _, call := range []struct {
+		name  string
+		field string
+	}{
+		{name: "delivery.list_releases", field: "releases"},
+		{name: "delivery.list_sprints", field: "sprints"},
+		{name: "delivery.list_milestones", field: "milestones"},
+	} {
+		result := callMCP(t, fixture.operations, admin, call.name, map[string]any{"projectId": project.Project.ID})
+		if result.IsError {
+			t.Fatalf("%s through MCP = %#v: %s", call.name, result, mcpErrorText(result))
+		}
+		var payload map[string][]json.RawMessage
+		decodeStructured(t, result, &payload)
+		if len(payload[call.field]) != 1 {
+			t.Fatalf("%s returned %d values, want 1", call.name, len(payload[call.field]))
 		}
 	}
 }

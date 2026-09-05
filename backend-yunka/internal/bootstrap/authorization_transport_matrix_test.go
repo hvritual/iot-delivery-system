@@ -248,6 +248,48 @@ func (fixture *authorizationMatrixFixture) grpcList(t *testing.T, principal iden
 	return response.GetProjects(), codes.OK
 }
 
+func (fixture *authorizationMatrixFixture) grpcPlanningList(t *testing.T, principal identity.Principal, kind, projectID string) (int, codes.Code) {
+	t.Helper()
+	listener := bufconn.Listen(1024 * 1024)
+	server := grpc.NewServer(grpc.UnaryInterceptor(func(ctx context.Context, request any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		return handler(identity.WithPrincipal(ctx, principal), request)
+	}))
+	if err := deliveryrpc.RegisterOperationExecutor(server, fixture.application, fixture.executor); err != nil {
+		t.Fatalf("register planning-list gRPC executor: %v", err)
+	}
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(server.Stop)
+	connection, err := grpc.DialContext(t.Context(), "passthrough:///planning-list-matrix", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("dial planning-list matrix gRPC server: %v", err)
+	}
+	t.Cleanup(func() { _ = connection.Close() })
+	client := deliveryv1.NewDeliveryServiceClient(connection)
+	switch kind {
+	case "releases":
+		response, callErr := client.ListReleases(t.Context(), &deliveryv1.ListReleasesRequest{ProjectId: projectID})
+		if callErr != nil {
+			return 0, status.Code(callErr)
+		}
+		return len(response.GetReleases()), codes.OK
+	case "sprints":
+		response, callErr := client.ListSprints(t.Context(), &deliveryv1.ListSprintsRequest{ProjectId: projectID})
+		if callErr != nil {
+			return 0, status.Code(callErr)
+		}
+		return len(response.GetSprints()), codes.OK
+	case "milestones":
+		response, callErr := client.ListMilestones(t.Context(), &deliveryv1.ListMilestonesRequest{ProjectId: projectID})
+		if callErr != nil {
+			return 0, status.Code(callErr)
+		}
+		return len(response.GetMilestones()), codes.OK
+	default:
+		t.Fatalf("unknown planning-list kind %q", kind)
+		return 0, codes.Internal
+	}
+}
+
 func (fixture *authorizationMatrixFixture) grpcUpdate(t *testing.T, principal identity.Principal, itemID string, expectedRevision int64, progress int32) (codes.Code, string) {
 	t.Helper()
 	listener := bufconn.Listen(1024 * 1024)
@@ -349,6 +391,24 @@ func (fixture *authorizationMatrixFixture) restListProjects(t *testing.T, princi
 		t.Fatalf("decode REST project list: %v", err)
 	}
 	return recorder.Code, "", projects
+}
+
+func (fixture *authorizationMatrixFixture) restPlanningList(t *testing.T, principal identity.Principal, kind, projectID string) (int, string, int) {
+	t.Helper()
+	request := httptest.NewRequest(http.MethodGet, "/api/"+kind+"?projectId="+projectID, nil).WithContext(identity.WithPrincipal(t.Context(), principal))
+	recorder := httptest.NewRecorder()
+	fixture.handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		var payload map[string]any
+		_ = json.NewDecoder(recorder.Body).Decode(&payload)
+		category, _ := payload["error"].(string)
+		return recorder.Code, category, 0
+	}
+	var values []json.RawMessage
+	if err := json.NewDecoder(recorder.Body).Decode(&values); err != nil {
+		t.Fatalf("decode REST %s list: %v", kind, err)
+	}
+	return recorder.Code, "", len(values)
 }
 
 func (fixture *authorizationMatrixFixture) restGateAtRevision(t *testing.T, principal identity.Principal, itemID string, expectedRevision int64, gate delivery.Gate) (int, string) {
@@ -476,6 +536,22 @@ func matrixMCPProjectIDs(t *testing.T, result *mcp.CallToolResult) map[string]bo
 	return matrixProjectIDs(output.Projects)
 }
 
+func matrixMCPPlanningCount(t *testing.T, result *mcp.CallToolResult, field string) int {
+	t.Helper()
+	if result == nil || result.IsError {
+		t.Fatalf("MCP planning list = %#v text=%q", result, matrixMCPError(result))
+	}
+	payload, err := json.Marshal(result.StructuredContent)
+	if err != nil {
+		t.Fatalf("marshal MCP planning list: %v", err)
+	}
+	var output map[string][]json.RawMessage
+	if err := json.Unmarshal(payload, &output); err != nil {
+		t.Fatalf("decode MCP planning list: %v; payload=%s", err, payload)
+	}
+	return len(output[field])
+}
+
 func TestProductionProjectListMatrixUsesOneDurableScopeAcrossRESTGRPCAndMCP(t *testing.T) {
 	fixture := newAuthorizationMatrixFixture(t)
 	admin := identity.WithPrincipal(t.Context(), matrixPrincipal("admin"))
@@ -586,6 +662,103 @@ func TestProductionProjectListDenialMatrixPreservesProjectsAndOutbox(t *testing.
 	afterOutbox, err := fixture.outbox.Snapshot(t.Context())
 	if err != nil || !reflect.DeepEqual(afterOutbox, beforeOutbox) {
 		t.Fatalf("denied project lists changed Outbox: before=%#v after=%#v err=%v", beforeOutbox, afterOutbox, err)
+	}
+}
+
+func TestProductionPlanningListsEnforceProjectAndTenantScopeAcrossRESTGRPCAndMCP(t *testing.T) {
+	fixture := newAuthorizationMatrixFixture(t)
+	now := time.Now().UTC()
+	for _, project := range []delivery.Project{
+		{ID: "planning-a", OrganizationID: "org-a", Name: "Planning A", Board: delivery.BoardResearchDelivery, Owner: "admin", CreatedAt: now, UpdatedAt: now},
+		{ID: "planning-a-other", OrganizationID: "org-a", Name: "Planning A Other", Board: delivery.BoardResearchDelivery, Owner: "admin", CreatedAt: now, UpdatedAt: now},
+		{ID: "planning-b", OrganizationID: "org-b", Name: "Planning B", Board: delivery.BoardResearchDelivery, Owner: "admin-b", CreatedAt: now, UpdatedAt: now},
+	} {
+		if err := fixture.repository.CreateProject(t.Context(), project); err != nil {
+			t.Fatalf("seed planning project %q: %v", project.ID, err)
+		}
+	}
+	for _, statement := range []string{
+		`INSERT INTO users (id, organization_id, display_name) VALUES ('admin-b', 'org-b', 'Organization B admin')`,
+		`INSERT INTO teams (id, organization_id, name, scope_type, scope_id) VALUES ('team-admin-b-planning', 'org-b', 'Organization B planning administrators', 'organization', 'org-b')`,
+		`INSERT INTO team_memberships (team_id, organization_id, user_id) VALUES ('team-admin-b-planning', 'org-b', 'admin-b')`,
+		`INSERT INTO role_bindings (id, organization_id, role_id, scope_type, scope_id, team_id) VALUES ('binding-admin-b-planning', 'org-b', 'system-administrator', 'organization', 'org-b', 'team-admin-b-planning')`,
+		`INSERT INTO teams (id, organization_id, name, scope_type, scope_id) VALUES ('team-viewer-planning', 'org-a', 'Planning viewers', 'project', 'planning-a')`,
+		`INSERT INTO team_memberships (team_id, organization_id, user_id) VALUES ('team-viewer-planning', 'org-a', 'viewer')`,
+		`INSERT INTO role_bindings (id, organization_id, role_id, scope_type, scope_id, team_id) VALUES ('binding-viewer-planning', 'org-a', 'viewer', 'project', 'planning-a', 'team-viewer-planning')`,
+	} {
+		if _, err := fixture.repository.Database().Exec(statement); err != nil {
+			t.Fatalf("seed planning authorization with %q: %v", statement, err)
+		}
+	}
+	for _, value := range []delivery.Release{{ID: "release-a", ProjectID: "planning-a", Name: "A", CreatedAt: now, UpdatedAt: now}, {ID: "release-b", ProjectID: "planning-b", Name: "B", CreatedAt: now, UpdatedAt: now}} {
+		if err := fixture.repository.CreateRelease(t.Context(), value); err != nil {
+			t.Fatalf("seed release %q: %v", value.ID, err)
+		}
+	}
+	for _, value := range []delivery.Sprint{{ID: "sprint-a", ProjectID: "planning-a", Name: "A", CreatedAt: now, UpdatedAt: now}, {ID: "sprint-b", ProjectID: "planning-b", Name: "B", CreatedAt: now, UpdatedAt: now}} {
+		if err := fixture.repository.CreateSprint(t.Context(), value); err != nil {
+			t.Fatalf("seed sprint %q: %v", value.ID, err)
+		}
+	}
+	for _, value := range []delivery.Milestone{{ID: "milestone-a", ProjectID: "planning-a", Name: "A", CreatedAt: now, UpdatedAt: now}, {ID: "milestone-b", ProjectID: "planning-b", Name: "B", CreatedAt: now, UpdatedAt: now}} {
+		if err := fixture.repository.CreateMilestone(t.Context(), value); err != nil {
+			t.Fatalf("seed milestone %q: %v", value.ID, err)
+		}
+	}
+	beforeOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil {
+		t.Fatalf("snapshot Outbox before planning lists: %v", err)
+	}
+	beforeReleases, err := fixture.repository.ListReleases(t.Context())
+	if err != nil {
+		t.Fatalf("snapshot releases before planning lists: %v", err)
+	}
+	beforeSprints, err := fixture.repository.ListSprints(t.Context())
+	if err != nil {
+		t.Fatalf("snapshot sprints before planning lists: %v", err)
+	}
+	beforeMilestones, err := fixture.repository.ListMilestones(t.Context())
+	if err != nil {
+		t.Fatalf("snapshot milestones before planning lists: %v", err)
+	}
+	for _, kind := range []string{"releases", "sprints", "milestones"} {
+		tool := "delivery.list_" + kind
+		for _, scenario := range []struct {
+			name      string
+			principal identity.Principal
+			projectID string
+			allowed   bool
+		}{
+			{name: "project viewer", principal: matrixPrincipal("viewer"), projectID: "planning-a", allowed: true},
+			{name: "second tenant administrator", principal: matrixTenantPrincipal("org-b", "admin-b"), projectID: "planning-b", allowed: true},
+			{name: "other project", principal: matrixPrincipal("viewer"), projectID: "planning-a-other"},
+			{name: "cross tenant", principal: matrixPrincipal("admin"), projectID: "planning-b"},
+		} {
+			t.Run(kind+"/"+scenario.name, func(t *testing.T) {
+				statusCode, category, restCount := fixture.restPlanningList(t, scenario.principal, kind, scenario.projectID)
+				grpcCount, grpcCode := fixture.grpcPlanningList(t, scenario.principal, kind, scenario.projectID)
+				mcpResult := callMatrixMCPContext(t, t.Context(), fixture.operations, scenario.principal, tool, map[string]any{"projectId": scenario.projectID})
+				if scenario.allowed {
+					if statusCode != http.StatusOK || category != "" || restCount != 1 || grpcCode != codes.OK || grpcCount != 1 || matrixMCPPlanningCount(t, mcpResult, kind) != 1 {
+						t.Fatalf("allowed planning list = REST(%d,%q,%d) gRPC(%s,%d) MCP(%#v)", statusCode, category, restCount, grpcCode, grpcCount, mcpResult)
+					}
+					return
+				}
+				if statusCode != http.StatusForbidden || category != "permission_denied" || grpcCode != codes.PermissionDenied || !mcpResult.IsError || matrixMCPError(mcpResult) != "permission_denied" {
+					t.Fatalf("denied planning list = REST(%d,%q) gRPC(%s) MCP(%#v,%q)", statusCode, category, grpcCode, mcpResult, matrixMCPError(mcpResult))
+				}
+			})
+		}
+	}
+	afterOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil || !reflect.DeepEqual(afterOutbox, beforeOutbox) {
+		t.Fatalf("planning list matrix changed Outbox: before=%#v after=%#v err=%v", beforeOutbox, afterOutbox, err)
+	}
+	afterReleases, releaseErr := fixture.repository.ListReleases(t.Context())
+	afterSprints, sprintErr := fixture.repository.ListSprints(t.Context())
+	afterMilestones, milestoneErr := fixture.repository.ListMilestones(t.Context())
+	if releaseErr != nil || sprintErr != nil || milestoneErr != nil || !reflect.DeepEqual(afterReleases, beforeReleases) || !reflect.DeepEqual(afterSprints, beforeSprints) || !reflect.DeepEqual(afterMilestones, beforeMilestones) {
+		t.Fatalf("planning list matrix changed business rows: releases=%v sprints=%v milestones=%v", releaseErr, sprintErr, milestoneErr)
 	}
 }
 
@@ -829,7 +1002,7 @@ func TestProductionRevisionConflictMatrixPreservesExactlyOneCrossTransportWrite(
 	}
 }
 
-func TestMCPRegistrationContainsExactlyElevenDictionaryPublicToolsAndSixExcludedExtensions(t *testing.T) {
+func TestMCPRegistrationContainsExactlyFourteenDictionaryPublicToolsAndSixExcludedExtensions(t *testing.T) {
 	server := mcpserver.New(nil, identity.Principal{})
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
 	serverSession, err := server.Connect(t.Context(), serverTransport, nil)
@@ -850,6 +1023,7 @@ func TestMCPRegistrationContainsExactlyElevenDictionaryPublicToolsAndSixExcluded
 	public := map[string]bool{
 		"delivery.list_work_items": true, "delivery.create_work_item": true, "delivery.update_work_item": true, "delivery.add_comment": true, "delivery.advance_gate": true,
 		"delivery.close_work_item": true, "delivery.create_project": true, "delivery.list_projects": true, "delivery.create_release": true, "delivery.create_sprint": true, "delivery.create_milestone": true,
+		"delivery.list_releases": true, "delivery.list_sprints": true, "delivery.list_milestones": true,
 	}
 	excluded := map[string]bool{
 		"delivery.find_similar": true, "delivery.get_member_week": true, "delivery.get_project_progress": true,

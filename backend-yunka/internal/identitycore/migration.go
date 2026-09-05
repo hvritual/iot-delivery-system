@@ -23,6 +23,11 @@ const ServiceGrantMigrationID = "S0-03-06_service_operation_grants_v1"
 // leave them without the project-list read contract.
 const ProjectReadAuthorizationMigrationID = "S0-04-07_project_read_authorization_v1"
 
+// PlanningListAuthorizationMigrationID adds the project-scoped read
+// permissions and service-operation rows for the three planning lists without
+// rewriting an already-applied authorization dictionary migration.
+const PlanningListAuthorizationMigrationID = "S0-04-08_planning_list_authorization_v1"
+
 const identitySchema = `
 CREATE TABLE organizations (
     id TEXT PRIMARY KEY NOT NULL CHECK (length(trim(id)) > 0),
@@ -307,6 +312,10 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("load project read authorization migration definition: %w", err)
 	}
+	planningLists, err := loadPlanningListAuthorizationDefinitions(dictionary)
+	if err != nil {
+		return fmt.Errorf("load planning list authorization migration definitions: %w", err)
+	}
 	if _, err := database.ExecContext(ctx, `PRAGMA foreign_keys = ON`); err != nil {
 		return fmt.Errorf("enable identity foreign keys: %w", err)
 	}
@@ -321,6 +330,10 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	var projectReadApplied int
 	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, ProjectReadAuthorizationMigrationID).Scan(&projectReadApplied); err != nil {
 		return fmt.Errorf("read project read authorization migration ledger: %w", err)
+	}
+	var planningListsApplied int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, PlanningListAuthorizationMigrationID).Scan(&planningListsApplied); err != nil {
+		return fmt.Errorf("read planning list authorization migration ledger: %w", err)
 	}
 	for _, migration := range []struct {
 		id     string
@@ -339,6 +352,11 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 		if migration.id == ServiceGrantMigrationID {
 			if err := ensureProjectReadAuthorization(ctx, tx, projectRead, projectReadApplied == 0); err != nil {
 				return fmt.Errorf("ensure project read authorization before service operation migration: %w", err)
+			}
+			for _, definition := range planningLists {
+				if err := ensureProjectReadAuthorization(ctx, tx, definition, planningListsApplied == 0); err != nil {
+					return fmt.Errorf("ensure planning list authorization before service operation migration: %w", err)
+				}
 			}
 		}
 		var applied int
@@ -378,6 +396,19 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 			return fmt.Errorf("record project read authorization migration: %w", err)
 		}
 	}
+	for _, definition := range planningLists {
+		if err := ensureProjectReadAuthorization(ctx, tx, definition, planningListsApplied == 0); err != nil {
+			return fmt.Errorf("ensure planning list authorization migration: %w", err)
+		}
+		if err := ensureProjectReadServiceOperation(ctx, tx, definition, planningListsApplied == 0); err != nil {
+			return fmt.Errorf("ensure planning list service operation migration: %w", err)
+		}
+	}
+	if planningListsApplied == 0 {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO iotd_schema_migrations (migration_id, applied_at) VALUES (?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`, PlanningListAuthorizationMigrationID); err != nil {
+			return fmt.Errorf("record planning list authorization migration: %w", err)
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit identity migration: %w", err)
 	}
@@ -391,8 +422,31 @@ type projectReadAuthorizationDefinition struct {
 }
 
 func loadProjectReadAuthorizationDefinition(dictionary authorization.Dictionary) (projectReadAuthorizationDefinition, error) {
-	const permissionID = "delivery.projects.read"
-	const operationID = "delivery.projects.list"
+	return loadProjectScopedReadAuthorizationDefinition(dictionary, "delivery.projects.read", "delivery.projects.list", "delivery.projects")
+}
+
+func loadPlanningListAuthorizationDefinitions(dictionary authorization.Dictionary) ([]projectReadAuthorizationDefinition, error) {
+	specifications := []struct {
+		permission string
+		operation  string
+		resource   string
+	}{
+		{permission: "delivery.releases.read", operation: "delivery.releases.list", resource: "delivery.releases"},
+		{permission: "delivery.sprints.read", operation: "delivery.sprints.list", resource: "delivery.sprints"},
+		{permission: "delivery.milestones.read", operation: "delivery.milestones.list", resource: "delivery.milestones"},
+	}
+	definitions := make([]projectReadAuthorizationDefinition, 0, len(specifications))
+	for _, specification := range specifications {
+		definition, err := loadProjectScopedReadAuthorizationDefinition(dictionary, specification.permission, specification.operation, specification.resource)
+		if err != nil {
+			return nil, err
+		}
+		definitions = append(definitions, definition)
+	}
+	return definitions, nil
+}
+
+func loadProjectScopedReadAuthorizationDefinition(dictionary authorization.Dictionary, permissionID, operationID, resourceID string) (projectReadAuthorizationDefinition, error) {
 	definition := projectReadAuthorizationDefinition{}
 	for _, permission := range dictionary.Permissions {
 		if permission.ID == permissionID {
@@ -400,8 +454,8 @@ func loadProjectReadAuthorizationDefinition(dictionary authorization.Dictionary)
 			break
 		}
 	}
-	if definition.permission.ID != permissionID || definition.permission.Resource != "delivery.projects" || definition.permission.Action != "read" || definition.permission.Status != "active" || !sameStrings(definition.permission.AllowedScopes, []string{"project"}) {
-		return projectReadAuthorizationDefinition{}, fmt.Errorf("permission %q must be active delivery.projects/read with exactly project scope", permissionID)
+	if definition.permission.ID != permissionID || definition.permission.Resource != resourceID || definition.permission.Action != "read" || definition.permission.Status != "active" || !sameStrings(definition.permission.AllowedScopes, []string{"project"}) {
+		return projectReadAuthorizationDefinition{}, fmt.Errorf("permission %q must be active %s/read with exactly project scope", permissionID, resourceID)
 	}
 	for _, operation := range dictionary.Operations {
 		if operation.ID == operationID {
