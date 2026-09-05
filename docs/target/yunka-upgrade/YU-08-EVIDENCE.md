@@ -29,13 +29,13 @@ All three plans are tenant-required, project-scoped, read-only, non-idempotent, 
 
 | Commit | Evidence |
 | --- | --- |
-| `007cda50bbb61f568185d0453f01f6263012fc81` | RED: descriptor/plan count was 13 instead of 16; no-service list execution failed with `delivery extension service is not configured`. |
-| `f326658fe5d8bf80d54fab16d5aafdba4855c52c` | Generated three new canonical Operations using the fixed generator and a conformant create-operation ChangeSet. |
-| `d8ce1fc0d53a33d9b66345e22776b3c99699184d` | Bound the generated-plan equivalence test to all 16 plans. |
-| `220262ec085e98a3607856413dc14c9499efc80f` | Replaced the three legacy extension calls with typed `ExecuteTyped` plans and added service-token through a conformant existing-operation ChangeSet. |
-| `7a3e781ea140357f52c72e521f72b28079dc9903` | Added durable project-scoped read permissions, migration, guard handling, MCP tools, and the human three-transport matrix. |
-| `d86d9d0644ed99579c6bbd2502560a2eecac801c` | Closed the versioned dictionary/contract inventory at 16 RPC and 14 dictionary-backed MCP Operations. |
-| `33f8795d598739c8434da33fe6167f7b5df11e56` | Proved service-token grants remain explicit per Operation and project for all three generated gRPC lists. |
+| `98d8371bdba0de83ce3bb3902111e6a04497ee31` | RED: descriptor/plan count was 13 instead of 16; no-service list execution failed with `delivery extension service is not configured`. |
+| `e6dde6f5817f71f9cbf140cb0937a366866f1234` | Generated three new canonical Operations using the fixed generator and a conformant create-operation ChangeSet. |
+| `af328f13c9b885cd0cf309be1fe572e8607fede4` | Bound the generated-plan equivalence test to all 16 plans. |
+| `4b518095a234199cc740ecae6484b344101eefe2` | Replaced the three legacy extension calls with typed `ExecuteTyped` plans and added service-token through a conformant existing-operation ChangeSet. |
+| `d83a7453f1accd147e94a502adf4c494133aad4f` | Added durable project-scoped read permissions, migration, guard handling, MCP tools, and the human three-transport matrix. |
+| `4d99165f54f96a6d60582bb18c916c1bdfed166a` | Closed the versioned dictionary/contract inventory at 16 RPC and 14 dictionary-backed MCP Operations. |
+| `45cb720aa80ea2c28bb2e876a651c94802ffd240` | Proved service-token grants remain explicit per Operation and project for all three generated gRPC lists. |
 
 The first create-operation ChangeSet used API-key and JWT because fixed Yunka serializes the accepted `service` CLI value differently from generated `service-token` semantics. After the structural commit, one multi-subject existing-operation ChangeSet explicitly allowed the three authentication deltas and passed with no scope or semantic violation.
 
