@@ -1,0 +1,134 @@
+name: yunka-150-auth-vocabulary-yu08
+
+on:
+  push:
+    branches:
+      - qualification/150-auth-vocabulary-yu08
+    paths:
+      - .github/workflows/yunka-150-auth-vocabulary-yu08.yml
+      - .github/qualification/yunka-150-auth-vocabulary-yu08.sh
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  single-create-changeset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      YUNKA_SHA: b4d7416d710f5b7e57b391fb274c194c457d7191
+      YU08_RED: 98d8371bdba0de83ce3bb3902111e6a04497ee31
+    steps:
+      - name: Checkout YU-08 qualification branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          path: consumer
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: false
+
+      - name: Assert preserved YU-08 RED plus qualification-only files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C consumer status --porcelain > "$RUNNER_TEMP/consumer-before.status"
+          test ! -s "$RUNNER_TEMP/consumer-before.status"
+          git -C consumer merge-base --is-ancestor "$YU08_RED" HEAD
+          changed="$(git -C consumer diff --name-only "$YU08_RED"...HEAD)"
+          expected=$'.github/qualification/yunka-150-auth-vocabulary-yu08.sh\n.github/workflows/yunka-150-auth-vocabulary-yu08.yml'
+          test "$changed" = "$expected"
+          test -f consumer/.yunka/project.json
+          test ! -e consumer/backend-yunka/internal/delivery/application/delivery_releases_list.go
+          test ! -e consumer/backend-yunka/internal/delivery/application/delivery_sprints_list.go
+          test ! -e consumer/backend-yunka/internal/delivery/application/delivery_milestones_list.go
+
+      - name: Checkout exact Yunka issue 150 candidate outside consumer repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: hvritual/yunka.io
+          ref: ${{ env.YUNKA_SHA }}
+          path: yunka-candidate
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Assert exact candidate and load toolchain
+        id: lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C yunka-candidate rev-parse HEAD)" = "$YUNKA_SHA"
+          source yunka-candidate/tools/toolchain.env
+          echo "go_version=${GO_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "protoc_release=${PROTOC_RELEASE}" >> "$GITHUB_OUTPUT"
+          echo "protoc_sha256=${PROTOC_LINUX_X86_64_SHA256}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup locked Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: ${{ steps.lock.outputs.go_version }}
+          cache: false
+
+      - name: Install locked protoc
+        shell: bash
+        env:
+          PROTOC_RELEASE: ${{ steps.lock.outputs.protoc_release }}
+          PROTOC_SHA256: ${{ steps.lock.outputs.protoc_sha256 }}
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/protoc.zip"
+          root="$RUNNER_TEMP/protoc"
+          curl --fail --silent --show-error --location --retry 3 \
+            "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_RELEASE}/protoc-${PROTOC_RELEASE}-linux-x86_64.zip" \
+            -o "$archive"
+          echo "${PROTOC_SHA256}  ${archive}" | sha256sum -c -
+          mkdir -p "$root"
+          unzip -q "$archive" -d "$root"
+          echo "$root/bin" >> "$GITHUB_PATH"
+
+      - name: Build locked protobuf Go plugins
+        shell: bash
+        run: |
+          set -euo pipefail
+          make -C yunka-candidate rpc-tools
+          echo "$GITHUB_WORKSPACE/yunka-candidate/.yunka/bin" >> "$GITHUB_PATH"
+
+      - name: Build exact Yunka candidate CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          go -C yunka-candidate/app build -o "$RUNNER_TEMP/yunka" ./cmd
+          "$RUNNER_TEMP/yunka" add operation --help >/dev/null
+          "$RUNNER_TEMP/yunka" change set check --help >/dev/null
+
+      - name: Execute YU-08 single-ChangeSet pressure
+        shell: bash
+        env:
+          YUNKA_BIN: ${{ runner.temp }}/yunka
+          YUNKA_ROOT: ${{ github.workspace }}/yunka-candidate
+          REPO: ${{ github.workspace }}/consumer
+          EVIDENCE: ${{ runner.temp }}/yunka-150-yu08-evidence
+          GOWORK: off
+        run: |
+          set -euo pipefail
+          bash consumer/.github/qualification/yunka-150-auth-vocabulary-yu08.sh
+
+      - name: Restore qualification checkout
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C consumer reset --hard "$GITHUB_SHA"
+          git -C consumer clean -fdx
+          git -C consumer status --porcelain > "$RUNNER_TEMP/consumer-after.status"
+          diff -u "$RUNNER_TEMP/consumer-before.status" "$RUNNER_TEMP/consumer-after.status"
+
+      - name: Upload issue 150 evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: yunka-150-auth-vocabulary-yu08
+          path: ${{ runner.temp }}/yunka-150-yu08-evidence
+          if-no-files-found: warn
+          retention-days: 3
