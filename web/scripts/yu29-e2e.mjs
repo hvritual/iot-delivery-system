@@ -14,6 +14,8 @@ const workspace = await mkdtemp(path.join(tmpdir(), "iotd-yu29-e2e-"));
 const databasePath = path.join(workspace, "yu29.db");
 const vaultPath = path.join(workspace, "vault");
 const manifestPath = path.join(workspace, "fixture.json");
+const runtimeBinary = path.join(workspace, process.platform === "win32" ? "iot-delivery-yu29.exe" : "iot-delivery-yu29");
+const nextCLI = path.join(webRoot, "node_modules", "next", "dist", "bin", "next");
 const runtimeBase = "http://127.0.0.1:8281";
 const webBase = "http://localhost:5173";
 const children = [];
@@ -21,8 +23,9 @@ const children = [];
 try {
   await run("go", ["run", "./cmd/yu29-fixture", "-db", databasePath, "-vault", vaultPath, "-manifest", manifestPath], backendRoot);
   const fixture = JSON.parse(await readFile(manifestPath, "utf8"));
+  await run("go", ["build", "-o", runtimeBinary, "./cmd/yunka-bootstrap"], backendRoot);
 
-  children.push(start("go", ["run", "./cmd/yunka-bootstrap"], backendRoot, {
+  children.push(start(runtimeBinary, [], backendRoot, {
     IOT_DELIVERY_RUNTIME_ENVIRONMENT: "production",
     IOT_DELIVERY_BOOTSTRAP_MODE: "disabled",
     IOT_DELIVERY_YUNKA_HTTP_ADDR: "127.0.0.1:8281",
@@ -35,7 +38,7 @@ try {
   }));
   await waitForHTTP(`${runtimeBase}/health`);
 
-  children.push(start(process.platform === "win32" ? "npm.cmd" : "npm", ["run", "dev"], webRoot, {
+  children.push(start(process.execPath, [nextCLI, "dev", "--webpack", "--hostname", "127.0.0.1", "--port", "5173"], webRoot, {
     IOT_DELIVERY_API_TARGET: runtimeBase,
     IOT_DELIVERY_WEB_ORIGIN: webBase,
   }));
