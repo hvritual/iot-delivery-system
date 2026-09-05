@@ -130,6 +130,20 @@ func TestApplyMigrationsRejectsProjectReadConflictAndForgedLedger(t *testing.T) 
 	})
 }
 
+func TestApplyMigrationsRejectsForgedProjectHealthNotificationLedger(t *testing.T) {
+	database := legacyProjectReadAuthorizationDatabase(t, true)
+	if _, err := database.Exec(`INSERT INTO iotd_schema_migrations (migration_id, applied_at) VALUES (?, '2026-09-05T00:00:00Z')`, ProjectHealthNotificationMigrationID); err != nil {
+		t.Fatalf("forge project health notification migration ledger: %v", err)
+	}
+	if err := ApplyMigrations(context.Background(), database); err == nil {
+		t.Fatal("forged project health notification ledger unexpectedly bypassed verification")
+	}
+	var count int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM service_operations WHERE id IN ('delivery.projects.progress', 'delivery.projects.schedule', 'delivery.notifications.list')`).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("forged ledger inserted project health operations = %d error=%v, want 0", count, err)
+	}
+}
+
 func legacyProjectReadAuthorizationDatabase(t *testing.T, includeServiceGrantSchema bool) *sql.DB {
 	t.Helper()
 	database := openAuthorizationTestDatabase(t)
