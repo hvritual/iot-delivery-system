@@ -2,6 +2,7 @@ package localprojectroleadmin
 
 import (
 	"database/sql"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -60,7 +61,7 @@ func TestYU24MigrationActivatesPermissionAddsRevisionAndIsRepeatable(t *testing.
 		}
 	}
 	_ = rows.Close()
-	if !foundRevision || strings.ToUpper(revisionType) != "INTEGER" || revisionNotNull != 1 || revisionDefault == nil || revisionDefault.(int64) != 1 {
+	if !foundRevision || strings.ToUpper(revisionType) != "INTEGER" || revisionNotNull != 1 || fmt.Sprint(revisionDefault) != "1" {
 		t.Fatalf("revision contract found=%v type=%q notnull=%d default=%#v", foundRevision, revisionType, revisionNotNull, revisionDefault)
 	}
 	var ledger int
