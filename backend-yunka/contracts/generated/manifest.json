@@ -741,6 +741,67 @@
       }
     },
     {
+      "name": "FindSimilarItemsRequest",
+      "fullName": "iot.delivery.v1.FindSimilarItemsRequest",
+      "fields": [
+        {
+          "name": "title",
+          "jsonName": "title",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "board",
+          "jsonName": "board",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "project_id",
+          "jsonName": "projectId",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "kind",
+          "jsonName": "kind",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "limit",
+          "jsonName": "limit",
+          "number": 5,
+          "kind": "scalar",
+          "type": "int32"
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "FindSimilarItemsResponse",
+      "fullName": "iot.delivery.v1.FindSimilarItemsResponse",
+      "fields": [
+        {
+          "name": "candidates",
+          "jsonName": "candidates",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.SimilarityCandidate",
+          "repeated": true
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
       "name": "GetDashboardRequest",
       "fullName": "iot.delivery.v1.GetDashboardRequest",
       "fields": null,
@@ -762,6 +823,22 @@
       ],
       "dto": {
         "kind": "output"
+      }
+    },
+    {
+      "name": "GetItemRequest",
+      "fullName": "iot.delivery.v1.GetItemRequest",
+      "fields": [
+        {
+          "name": "id",
+          "jsonName": "id",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        }
+      ],
+      "dto": {
+        "kind": "input"
       }
     },
     {
@@ -1195,6 +1272,125 @@
       ],
       "dto": {
         "kind": "output"
+      }
+    },
+    {
+      "name": "SearchItemsRequest",
+      "fullName": "iot.delivery.v1.SearchItemsRequest",
+      "fields": [
+        {
+          "name": "project_id",
+          "jsonName": "projectId",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "board",
+          "jsonName": "board",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "owner",
+          "jsonName": "owner",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "jsonName": "status",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "kind",
+          "jsonName": "kind",
+          "number": 5,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "release_id",
+          "jsonName": "releaseId",
+          "number": 6,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "sprint_id",
+          "jsonName": "sprintId",
+          "number": 7,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "milestone_id",
+          "jsonName": "milestoneId",
+          "number": 8,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "query",
+          "jsonName": "query",
+          "number": 9,
+          "kind": "scalar",
+          "type": "string"
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "SearchItemsResponse",
+      "fullName": "iot.delivery.v1.SearchItemsResponse",
+      "fields": [
+        {
+          "name": "items",
+          "jsonName": "items",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.WorkItem",
+          "repeated": true
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
+      "name": "SimilarityCandidate",
+      "fullName": "iot.delivery.v1.SimilarityCandidate",
+      "fields": [
+        {
+          "name": "item",
+          "jsonName": "item",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.WorkItem"
+        },
+        {
+          "name": "score",
+          "jsonName": "score",
+          "number": 2,
+          "kind": "scalar",
+          "type": "double"
+        },
+        {
+          "name": "exact",
+          "jsonName": "exact",
+          "number": 3,
+          "kind": "scalar",
+          "type": "bool"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
       }
     },
     {
@@ -2131,6 +2327,44 @@
           }
         },
         {
+          "name": "FindSimilarItems",
+          "fullName": "iot.delivery.v1.DeliveryService.FindSimilarItems",
+          "request": "iot.delivery.v1.FindSimilarItemsRequest",
+          "response": "iot.delivery.v1.FindSimilarItemsResponse",
+          "operation": {
+            "id": "delivery.items.similarity",
+            "useCase": "find_similar_items",
+            "permissions": [
+              "delivery.work-items.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt",
+              "service-token"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "read_only",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.items.similarity",
+            "permissions": [
+              "delivery.work-items.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt",
+              "service-token"
+            ]
+          }
+        },
+        {
           "name": "GetDashboard",
           "fullName": "iot.delivery.v1.DeliveryService.GetDashboard",
           "request": "iot.delivery.v1.GetDashboardRequest",
@@ -2159,6 +2393,44 @@
               "delivery.dashboard.read"
             ],
             "permissionMode": "all",
+            "authentication": [
+              "api-key",
+              "jwt",
+              "service-token"
+            ]
+          }
+        },
+        {
+          "name": "GetItem",
+          "fullName": "iot.delivery.v1.DeliveryService.GetItem",
+          "request": "iot.delivery.v1.GetItemRequest",
+          "response": "iot.delivery.v1.WorkItemResponse",
+          "operation": {
+            "id": "delivery.items.get",
+            "useCase": "get_item",
+            "permissions": [
+              "delivery.work-items.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt",
+              "service-token"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "read_only",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.items.get",
+            "permissions": [
+              "delivery.work-items.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
             "authentication": [
               "api-key",
               "jwt",
@@ -2344,6 +2616,44 @@
             "operationId": "delivery.sprints.list",
             "permissions": [
               "delivery.sprints.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt",
+              "service-token"
+            ]
+          }
+        },
+        {
+          "name": "SearchItems",
+          "fullName": "iot.delivery.v1.DeliveryService.SearchItems",
+          "request": "iot.delivery.v1.SearchItemsRequest",
+          "response": "iot.delivery.v1.SearchItemsResponse",
+          "operation": {
+            "id": "delivery.items.search",
+            "useCase": "search_items",
+            "permissions": [
+              "delivery.work-items.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt",
+              "service-token"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "read_only",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.items.search",
+            "permissions": [
+              "delivery.work-items.read"
             ],
             "permissionMode": "all",
             "tenantRequired": true,

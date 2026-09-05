@@ -218,26 +218,34 @@ func (operations *Operations) ListProjects(ctx context.Context) ([]delivery.Proj
 }
 
 func (operations *Operations) FindSimilar(ctx context.Context, query delivery.SimilarityQuery) ([]delivery.SimilarityCandidate, error) {
-	if err := operations.extensionReady(); err != nil {
+	if err := operations.ready(); err != nil {
 		return nil, err
 	}
-	value, err := operations.executor.Execute(ctx, extensionPlan("delivery.items.similarity", "find_similar_items", "delivery.items.read", "read_only"), query, func(callContext context.Context) (any, error) {
-		return operations.service.FindSimilar(callContext, query)
-	})
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanFindSimilarItems(), &deliveryv1.FindSimilarItemsRequest{
+		Title: query.Title, Board: string(query.Board), ProjectId: query.ProjectID, Kind: string(query.Kind), Limit: int32(query.Limit),
+	}, operations.application.FindSimilarItems)
 	if err != nil {
 		return nil, err
 	}
-	candidates, ok := value.([]delivery.SimilarityCandidate)
-	if !ok {
-		return nil, errors.New("delivery similarity operation returned an unexpected result")
+	result := make([]delivery.SimilarityCandidate, 0, len(response.GetCandidates()))
+	for _, candidate := range response.GetCandidates() {
+		if candidate == nil {
+			continue
+		}
+		result = append(result, delivery.SimilarityCandidate{WorkItem: workItemFromProto(candidate.GetItem()), Score: candidate.GetScore(), Exact: candidate.GetExact()})
 	}
-	return candidates, nil
+	return result, nil
 }
 
 func (operations *Operations) Get(ctx context.Context, id string) (delivery.WorkItem, error) {
-	return executeServiceExtension(operations, ctx, "delivery.items.get", "get_item", "delivery.items.read", "read_only", id, func(callContext context.Context) (delivery.WorkItem, error) {
-		return operations.service.Get(callContext, id)
-	})
+	if err := operations.ready(); err != nil {
+		return delivery.WorkItem{}, err
+	}
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanGetItem(), &deliveryv1.GetItemRequest{Id: id}, operations.application.GetItem)
+	if err != nil {
+		return delivery.WorkItem{}, err
+	}
+	return workItemFromProto(response.GetItem()), nil
 }
 
 func (operations *Operations) UpdateWorkItem(ctx context.Context, id string, expectedRevision int64, input delivery.WorkItemUpdate) (delivery.WorkItem, error) {
@@ -376,9 +384,17 @@ func (operations *Operations) AddComment(ctx context.Context, id string, expecte
 }
 
 func (operations *Operations) Search(ctx context.Context, filter delivery.WorkItemFilter) ([]delivery.WorkItem, error) {
-	return executeServiceExtension(operations, ctx, "delivery.items.search", "search_items", "delivery.items.read", "read_only", filter, func(callContext context.Context) ([]delivery.WorkItem, error) {
-		return operations.service.Search(callContext, filter)
-	})
+	if err := operations.ready(); err != nil {
+		return nil, err
+	}
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanSearchItems(), &deliveryv1.SearchItemsRequest{
+		ProjectId: filter.ProjectID, Board: string(filter.Board), Owner: filter.Owner, Status: string(filter.Status), Kind: string(filter.Kind),
+		ReleaseId: filter.ReleaseID, SprintId: filter.SprintID, MilestoneId: filter.MilestoneID, Query: filter.Query,
+	}, operations.application.SearchItems)
+	if err != nil {
+		return nil, err
+	}
+	return workItemsFromProto(response.GetItems()), nil
 }
 
 func (operations *Operations) CreateRelease(ctx context.Context, input delivery.ReleaseInput) (delivery.Release, error) {

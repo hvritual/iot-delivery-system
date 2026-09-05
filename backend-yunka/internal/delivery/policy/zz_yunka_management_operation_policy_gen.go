@@ -12,12 +12,15 @@ const OperationCreateMilestone authz.OperationID = "delivery.milestones.create"
 const OperationCreateProject authz.OperationID = "delivery.projects.create"
 const OperationCreateRelease authz.OperationID = "delivery.releases.create"
 const OperationCreateSprint authz.OperationID = "delivery.sprints.create"
+const OperationFindSimilarItems authz.OperationID = "delivery.items.similarity"
 const OperationGetDashboard authz.OperationID = "delivery.dashboard.get"
+const OperationGetItem authz.OperationID = "delivery.items.get"
 const OperationListItems authz.OperationID = "delivery.items.list"
 const OperationListMilestones authz.OperationID = "delivery.milestones.list"
 const OperationListProjects authz.OperationID = "delivery.projects.list"
 const OperationListReleases authz.OperationID = "delivery.releases.list"
 const OperationListSprints authz.OperationID = "delivery.sprints.list"
+const OperationSearchItems authz.OperationID = "delivery.items.search"
 const OperationUpdateItem authz.OperationID = "delivery.items.update"
 const OperationUpdateItemContext authz.OperationID = "delivery.items.update-context"
 
@@ -35,12 +38,15 @@ func Resolver() authz.StaticResolver {
 		"/iot.delivery.v1.DeliveryService/CreateProject":     {Operation: OperationCreateProject, Permissions: []authz.PermissionKey{"delivery.projects.create"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/CreateRelease":     {Operation: OperationCreateRelease, Permissions: []authz.PermissionKey{"delivery.releases.create"}, Mode: authz.PermissionAll, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/CreateSprint":      {Operation: OperationCreateSprint, Permissions: []authz.PermissionKey{"delivery.sprints.create"}, Mode: authz.PermissionAll, Authentication: []string{"api-key", "jwt", "service-token"}},
+		"/iot.delivery.v1.DeliveryService/FindSimilarItems":  {Operation: OperationFindSimilarItems, Permissions: []authz.PermissionKey{"delivery.work-items.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/GetDashboard":      {Operation: OperationGetDashboard, Permissions: []authz.PermissionKey{"delivery.dashboard.read"}, Mode: authz.PermissionAll, Authentication: []string{"api-key", "jwt", "service-token"}},
+		"/iot.delivery.v1.DeliveryService/GetItem":           {Operation: OperationGetItem, Permissions: []authz.PermissionKey{"delivery.work-items.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/ListItems":         {Operation: OperationListItems, Permissions: []authz.PermissionKey{"delivery.work-items.read"}, Mode: authz.PermissionAll, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/ListMilestones":    {Operation: OperationListMilestones, Permissions: []authz.PermissionKey{"delivery.milestones.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/ListProjects":      {Operation: OperationListProjects, Permissions: []authz.PermissionKey{"delivery.projects.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/ListReleases":      {Operation: OperationListReleases, Permissions: []authz.PermissionKey{"delivery.releases.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/ListSprints":       {Operation: OperationListSprints, Permissions: []authz.PermissionKey{"delivery.sprints.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
+		"/iot.delivery.v1.DeliveryService/SearchItems":       {Operation: OperationSearchItems, Permissions: []authz.PermissionKey{"delivery.work-items.read"}, Mode: authz.PermissionAll, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/UpdateItem":        {Operation: OperationUpdateItem, Permissions: []authz.PermissionKey{"delivery.work-items.update"}, Mode: authz.PermissionAll, Authentication: []string{"api-key", "jwt", "service-token"}},
 		"/iot.delivery.v1.DeliveryService/UpdateItemContext": {Operation: OperationUpdateItemContext, Permissions: []authz.PermissionKey{"delivery.work-items.context.update"}, Mode: authz.PermissionAll, Authentication: []string{"api-key", "jwt", "service-token"}},
 	})

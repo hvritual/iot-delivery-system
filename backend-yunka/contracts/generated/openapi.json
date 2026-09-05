@@ -379,6 +379,40 @@
         "type": "object",
         "x-yunka-proto-full-name": "iot.delivery.v1.Evidence"
       },
+      "iot_delivery_v1_FindSimilarItemsRequest": {
+        "properties": {
+          "board": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "limit": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.FindSimilarItemsRequest"
+      },
+      "iot_delivery_v1_FindSimilarItemsResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_SimilarityCandidate"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.FindSimilarItemsResponse"
+      },
       "iot_delivery_v1_GetDashboardRequest": {
         "properties": {},
         "type": "object",
@@ -392,6 +426,15 @@
         },
         "type": "object",
         "x-yunka-proto-full-name": "iot.delivery.v1.GetDashboardResponse"
+      },
+      "iot_delivery_v1_GetItemRequest": {
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.GetItemRequest"
       },
       "iot_delivery_v1_IoTBinding": {
         "properties": {
@@ -633,6 +676,67 @@
         },
         "type": "object",
         "x-yunka-proto-full-name": "iot.delivery.v1.ReleaseResponse"
+      },
+      "iot_delivery_v1_SearchItemsRequest": {
+        "properties": {
+          "board": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "milestoneId": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "query": {
+            "type": "string"
+          },
+          "releaseId": {
+            "type": "string"
+          },
+          "sprintId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.SearchItemsRequest"
+      },
+      "iot_delivery_v1_SearchItemsResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_WorkItem"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.SearchItemsResponse"
+      },
+      "iot_delivery_v1_SimilarityCandidate": {
+        "properties": {
+          "exact": {
+            "type": "boolean"
+          },
+          "item": {
+            "$ref": "#/components/schemas/iot_delivery_v1_WorkItem"
+          },
+          "score": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.SimilarityCandidate"
       },
       "iot_delivery_v1_Sprint": {
         "properties": {
@@ -1011,10 +1115,22 @@
       "rpcPath": "/iot.delivery.v1.DeliveryService/CreateSprint"
     },
     {
+      "operationId": "iot.delivery.v1.DeliveryService.FindSimilarItems",
+      "request": "iot.delivery.v1.FindSimilarItemsRequest",
+      "response": "iot.delivery.v1.FindSimilarItemsResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/FindSimilarItems"
+    },
+    {
       "operationId": "iot.delivery.v1.DeliveryService.GetDashboard",
       "request": "iot.delivery.v1.GetDashboardRequest",
       "response": "iot.delivery.v1.GetDashboardResponse",
       "rpcPath": "/iot.delivery.v1.DeliveryService/GetDashboard"
+    },
+    {
+      "operationId": "iot.delivery.v1.DeliveryService.GetItem",
+      "request": "iot.delivery.v1.GetItemRequest",
+      "response": "iot.delivery.v1.WorkItemResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/GetItem"
     },
     {
       "operationId": "iot.delivery.v1.DeliveryService.ListItems",
@@ -1045,6 +1161,12 @@
       "request": "iot.delivery.v1.ListSprintsRequest",
       "response": "iot.delivery.v1.ListSprintsResponse",
       "rpcPath": "/iot.delivery.v1.DeliveryService/ListSprints"
+    },
+    {
+      "operationId": "iot.delivery.v1.DeliveryService.SearchItems",
+      "request": "iot.delivery.v1.SearchItemsRequest",
+      "response": "iot.delivery.v1.SearchItemsResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/SearchItems"
     },
     {
       "operationId": "iot.delivery.v1.DeliveryService.UpdateItem",

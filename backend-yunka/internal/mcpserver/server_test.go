@@ -335,6 +335,66 @@ func TestMCPAndGeneratedGRPCShareCreateAndAdvanceGateExecution(t *testing.T) {
 	}
 }
 
+func TestMCPAndGeneratedGRPCShareCanonicalItemReads(t *testing.T) {
+	fixture := newExecutionFixture(t)
+	adminKey := "mcp-grpc-admin-key"
+	admin := fixture.principal(t, adminKey)
+	project, err := fixture.grpcClient.CreateProject(grpcContext(t.Context(), adminKey), &deliveryv1.CreateProjectRequest{Name: "read contracts", Board: string(delivery.BoardResearchDelivery), Owner: "owner"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := fixture.grpcClient.CreateItem(grpcContext(t.Context(), adminKey), &deliveryv1.CreateItemRequest{Title: "canonical exact title", Board: string(delivery.BoardResearchDelivery), ProjectId: project.GetProject().GetId(), Owner: "owner", Kind: string(delivery.WorkItemKindTask)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	grpcGet, err := fixture.grpcClient.GetItem(grpcContext(t.Context(), adminKey), &deliveryv1.GetItemRequest{Id: created.GetItem().GetId()})
+	if err != nil || grpcGet.GetItem().GetId() != created.GetItem().GetId() {
+		t.Fatalf("gRPC get = %#v, %v", grpcGet, err)
+	}
+	mcpGet := callMCP(t, fixture.operations, admin, "delivery.get_work_item", map[string]any{"id": created.GetItem().GetId()})
+	var got struct {
+		Item delivery.WorkItem `json:"item"`
+	}
+	decodeStructured(t, mcpGet, &got)
+	assertEquivalentItem(t, grpcGet.GetItem(), got.Item)
+
+	grpcSearch, err := fixture.grpcClient.SearchItems(grpcContext(t.Context(), adminKey), &deliveryv1.SearchItemsRequest{ProjectId: project.GetProject().GetId(), Query: "exact title"})
+	if err != nil || len(grpcSearch.GetItems()) != 1 {
+		t.Fatalf("gRPC search = %#v, %v", grpcSearch, err)
+	}
+	mcpSearch := callMCP(t, fixture.operations, admin, "delivery.list_work_items", map[string]any{"projectId": project.GetProject().GetId(), "query": "exact title"})
+	var searched struct {
+		Items []delivery.WorkItem `json:"items"`
+	}
+	decodeStructured(t, mcpSearch, &searched)
+	if len(searched.Items) != 1 {
+		t.Fatalf("MCP search = %#v", searched.Items)
+	}
+	assertEquivalentItem(t, grpcSearch.GetItems()[0], searched.Items[0])
+
+	grpcSimilar, err := fixture.grpcClient.FindSimilarItems(grpcContext(t.Context(), adminKey), &deliveryv1.FindSimilarItemsRequest{ProjectId: project.GetProject().GetId(), Title: created.GetItem().GetTitle(), Kind: string(delivery.WorkItemKindTask)})
+	if err != nil || len(grpcSimilar.GetCandidates()) != 1 || !grpcSimilar.GetCandidates()[0].GetExact() {
+		t.Fatalf("gRPC similarity = %#v, %v", grpcSimilar, err)
+	}
+	mcpSimilar := callMCP(t, fixture.operations, admin, "delivery.find_similar", map[string]any{"projectId": project.GetProject().GetId(), "title": created.GetItem().GetTitle(), "kind": string(delivery.WorkItemKindTask), "board": string(delivery.BoardResearchDelivery)})
+	var similar struct {
+		Candidates []delivery.SimilarityCandidate `json:"candidates"`
+	}
+	decodeStructured(t, mcpSimilar, &similar)
+	if len(similar.Candidates) != 1 || !similar.Candidates[0].Exact || similar.Candidates[0].ID != created.GetItem().GetId() {
+		t.Fatalf("MCP similarity = %#v", similar.Candidates)
+	}
+	after, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil || after != before {
+		t.Fatalf("canonical reads changed Outbox: before=%#v after=%#v err=%v", before, after, err)
+	}
+}
+
 func assertTransportAuditEntry(t *testing.T, repository *delivery.SQLiteRepository, operationID, targetID, transport, traceID string) {
 	t.Helper()
 	var actorType, actorID, storedTargetID, result, storedTraceID, metadata string

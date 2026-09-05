@@ -28,6 +28,11 @@ const ProjectReadAuthorizationMigrationID = "S0-04-07_project_read_authorization
 // rewriting an already-applied authorization dictionary migration.
 const PlanningListAuthorizationMigrationID = "S0-04-08_planning_list_authorization_v1"
 
+// ItemReadAuthorizationMigrationID installs the three canonical item-read
+// service operations into databases whose original service dictionary
+// migration has already been recorded.
+const ItemReadAuthorizationMigrationID = "S0-05-09_item_read_authorization_v1"
+
 const identitySchema = `
 CREATE TABLE organizations (
     id TEXT PRIMARY KEY NOT NULL CHECK (length(trim(id)) > 0),
@@ -316,6 +321,10 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("load planning list authorization migration definitions: %w", err)
 	}
+	itemReads, err := loadItemReadAuthorizationDefinitions(dictionary)
+	if err != nil {
+		return fmt.Errorf("load item read authorization migration definitions: %w", err)
+	}
 	if _, err := database.ExecContext(ctx, `PRAGMA foreign_keys = ON`); err != nil {
 		return fmt.Errorf("enable identity foreign keys: %w", err)
 	}
@@ -334,6 +343,10 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	var planningListsApplied int
 	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, PlanningListAuthorizationMigrationID).Scan(&planningListsApplied); err != nil {
 		return fmt.Errorf("read planning list authorization migration ledger: %w", err)
+	}
+	var itemReadsApplied int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, ItemReadAuthorizationMigrationID).Scan(&itemReadsApplied); err != nil {
+		return fmt.Errorf("read item read authorization migration ledger: %w", err)
 	}
 	for _, migration := range []struct {
 		id     string
@@ -409,6 +422,16 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 			return fmt.Errorf("record planning list authorization migration: %w", err)
 		}
 	}
+	for _, definition := range itemReads {
+		if err := ensureProjectReadServiceOperation(ctx, tx, definition, itemReadsApplied == 0); err != nil {
+			return fmt.Errorf("ensure item read service operation migration: %w", err)
+		}
+	}
+	if itemReadsApplied == 0 {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO iotd_schema_migrations (migration_id, applied_at) VALUES (?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`, ItemReadAuthorizationMigrationID); err != nil {
+			return fmt.Errorf("record item read authorization migration: %w", err)
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit identity migration: %w", err)
 	}
@@ -442,6 +465,41 @@ func loadPlanningListAuthorizationDefinitions(dictionary authorization.Dictionar
 			return nil, err
 		}
 		definitions = append(definitions, definition)
+	}
+	return definitions, nil
+}
+
+func loadItemReadAuthorizationDefinitions(dictionary authorization.Dictionary) ([]projectReadAuthorizationDefinition, error) {
+	var permission authorization.Permission
+	for _, candidate := range dictionary.Permissions {
+		if candidate.ID == "delivery.work-items.read" {
+			permission = candidate
+			break
+		}
+	}
+	if permission.ID == "" || permission.Resource != "delivery.work-items" || permission.Action != "read" ||
+		permission.Status != "active" || !sameStrings(permission.AllowedScopes, []string{"project", "object"}) {
+		return nil, errors.New("delivery.work-items.read must be active work-item read permission with project and object scopes")
+	}
+	want := map[string]string{
+		"delivery.items.get":        "object",
+		"delivery.items.search":     "project",
+		"delivery.items.similarity": "project",
+	}
+	definitions := make([]projectReadAuthorizationDefinition, 0, len(want))
+	for _, operation := range dictionary.Operations {
+		requiredScope, ok := want[operation.ID]
+		if !ok {
+			continue
+		}
+		if operation.Permission != permission.ID || operation.RequiredScope != requiredScope {
+			return nil, fmt.Errorf("item read operation %q has invalid dictionary semantics", operation.ID)
+		}
+		definitions = append(definitions, projectReadAuthorizationDefinition{permission: permission, operation: operation})
+		delete(want, operation.ID)
+	}
+	if len(want) != 0 {
+		return nil, fmt.Errorf("item read operation dictionary is incomplete: %v", want)
 	}
 	return definitions, nil
 }

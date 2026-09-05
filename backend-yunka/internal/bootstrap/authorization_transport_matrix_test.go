@@ -1002,7 +1002,7 @@ func TestProductionRevisionConflictMatrixPreservesExactlyOneCrossTransportWrite(
 	}
 }
 
-func TestMCPRegistrationContainsExactlyFourteenDictionaryPublicToolsAndSixExcludedExtensions(t *testing.T) {
+func TestMCPRegistrationContainsExactlySixteenDictionaryPublicToolsAndFiveExcludedExtensions(t *testing.T) {
 	server := mcpserver.New(nil, identity.Principal{})
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
 	serverSession, err := server.Connect(t.Context(), serverTransport, nil)
@@ -1022,11 +1022,12 @@ func TestMCPRegistrationContainsExactlyFourteenDictionaryPublicToolsAndSixExclud
 	}
 	public := map[string]bool{
 		"delivery.list_work_items": true, "delivery.create_work_item": true, "delivery.update_work_item": true, "delivery.add_comment": true, "delivery.advance_gate": true,
+		"delivery.get_work_item": true, "delivery.find_similar": true,
 		"delivery.close_work_item": true, "delivery.create_project": true, "delivery.list_projects": true, "delivery.create_release": true, "delivery.create_sprint": true, "delivery.create_milestone": true,
 		"delivery.list_releases": true, "delivery.list_sprints": true, "delivery.list_milestones": true,
 	}
 	excluded := map[string]bool{
-		"delivery.find_similar": true, "delivery.get_member_week": true, "delivery.get_project_progress": true,
+		"delivery.get_member_week": true, "delivery.get_project_progress": true,
 		"delivery.get_project_schedule": true, "delivery.save_view": true, "delivery.list_saved_views": true,
 	}
 	seen := map[string]bool{}

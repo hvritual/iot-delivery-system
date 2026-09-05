@@ -147,6 +147,36 @@
       }
     },
     {
+      "operationId": "delivery.items.get",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "get_item",
+      "requestType": "iot.delivery.v1.GetItemRequest",
+      "responseType": "iot.delivery.v1.WorkItemResponse",
+      "security": {
+        "tenantRequired": true,
+        "authentication": [
+          "api-key",
+          "jwt",
+          "service-token"
+        ],
+        "permissions": [
+          "delivery.work-items.read"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "read_only",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/GetItem"
+      }
+    },
+    {
       "operationId": "delivery.items.list",
       "domain": "delivery",
       "application": "management",
@@ -173,6 +203,66 @@
       },
       "bindings": {
         "rpc": "/iot.delivery.v1.DeliveryService/ListItems"
+      }
+    },
+    {
+      "operationId": "delivery.items.search",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "search_items",
+      "requestType": "iot.delivery.v1.SearchItemsRequest",
+      "responseType": "iot.delivery.v1.SearchItemsResponse",
+      "security": {
+        "tenantRequired": true,
+        "authentication": [
+          "api-key",
+          "jwt",
+          "service-token"
+        ],
+        "permissions": [
+          "delivery.work-items.read"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "read_only",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/SearchItems"
+      }
+    },
+    {
+      "operationId": "delivery.items.similarity",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "find_similar_items",
+      "requestType": "iot.delivery.v1.FindSimilarItemsRequest",
+      "responseType": "iot.delivery.v1.FindSimilarItemsResponse",
+      "security": {
+        "tenantRequired": true,
+        "authentication": [
+          "api-key",
+          "jwt",
+          "service-token"
+        ],
+        "permissions": [
+          "delivery.work-items.read"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "read_only",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/FindSimilarItems"
       }
     },
     {

@@ -147,7 +147,7 @@ INSERT INTO service_accounts (id, organization_id, name) VALUES ('service-a', 'o
 			t.Fatalf("upgraded table %s count = %d error=%v, want %d", table, count, err, want)
 		}
 	}
-	for _, migrationID := range []string{MigrationID, ServiceCredentialMigrationID, AuthorizationMigrationID, ServiceGrantMigrationID, ProjectReadAuthorizationMigrationID, PlanningListAuthorizationMigrationID} {
+	for _, migrationID := range []string{MigrationID, ServiceCredentialMigrationID, AuthorizationMigrationID, ServiceGrantMigrationID, ProjectReadAuthorizationMigrationID, PlanningListAuthorizationMigrationID, ItemReadAuthorizationMigrationID} {
 		var count int
 		if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, migrationID).Scan(&count); err != nil || count != 1 {
 			t.Fatalf("migration ledger %q count = %d error=%v, want 1", migrationID, count, err)
@@ -157,7 +157,7 @@ INSERT INTO service_accounts (id, organization_id, name) VALUES ('service-a', 'o
 		t.Fatalf("repeat upgraded migration: %v", err)
 	}
 	var ledgerCount int
-	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations`).Scan(&ledgerCount); err != nil || ledgerCount != 6 {
-		t.Fatalf("repeat migration ledger count = %d error=%v, want 6", ledgerCount, err)
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations`).Scan(&ledgerCount); err != nil || ledgerCount != 7 {
+		t.Fatalf("repeat migration ledger count = %d error=%v, want 7", ledgerCount, err)
 	}
 }

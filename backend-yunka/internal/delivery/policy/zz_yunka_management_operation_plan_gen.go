@@ -36,8 +36,16 @@ func OperationPlanCreateSprint() operationplan.Plan {
 	return operationplan.Plan{OperationID: "delivery.sprints.create", Domain: "delivery", Application: "management", UseCase: "create_sprint", RequestType: "iot.delivery.v1.CreateSprintRequest", ResponseType: "iot.delivery.v1.SprintResponse", Execution: operationplan.Execution{Transaction: "local", Idempotency: "none"}, Security: operationplan.Security{Public: false, TenantRequired: false, Authentication: []string{"api-key", "jwt", "service-token"}, Permissions: []string{"delivery.sprints.create"}, PermissionMode: "all"}, Composition: operationplan.Composition{Boundary: "local", RequiresOperations: []string{}, PermissionClosure: []string{}}, ApplicationRequires: []string{}, Bindings: operationplan.Bindings{RPC: "/iot.delivery.v1.DeliveryService/CreateSprint", HTTP: []operationplan.HTTPBinding{}}}
 }
 
+func OperationPlanFindSimilarItems() operationplan.Plan {
+	return operationplan.Plan{OperationID: "delivery.items.similarity", Domain: "delivery", Application: "management", UseCase: "find_similar_items", RequestType: "iot.delivery.v1.FindSimilarItemsRequest", ResponseType: "iot.delivery.v1.FindSimilarItemsResponse", Execution: operationplan.Execution{Transaction: "read_only", Idempotency: "none"}, Security: operationplan.Security{Public: false, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}, Permissions: []string{"delivery.work-items.read"}, PermissionMode: "all"}, Composition: operationplan.Composition{Boundary: "local", RequiresOperations: []string{}, PermissionClosure: []string{}}, ApplicationRequires: []string{}, Bindings: operationplan.Bindings{RPC: "/iot.delivery.v1.DeliveryService/FindSimilarItems", HTTP: []operationplan.HTTPBinding{}}}
+}
+
 func OperationPlanGetDashboard() operationplan.Plan {
 	return operationplan.Plan{OperationID: "delivery.dashboard.get", Domain: "delivery", Application: "management", UseCase: "get_dashboard", RequestType: "iot.delivery.v1.GetDashboardRequest", ResponseType: "iot.delivery.v1.GetDashboardResponse", Execution: operationplan.Execution{Transaction: "read_only", Idempotency: "none"}, Security: operationplan.Security{Public: false, TenantRequired: false, Authentication: []string{"api-key", "jwt", "service-token"}, Permissions: []string{"delivery.dashboard.read"}, PermissionMode: "all"}, Composition: operationplan.Composition{Boundary: "local", RequiresOperations: []string{}, PermissionClosure: []string{}}, ApplicationRequires: []string{}, Bindings: operationplan.Bindings{RPC: "/iot.delivery.v1.DeliveryService/GetDashboard", HTTP: []operationplan.HTTPBinding{}}}
+}
+
+func OperationPlanGetItem() operationplan.Plan {
+	return operationplan.Plan{OperationID: "delivery.items.get", Domain: "delivery", Application: "management", UseCase: "get_item", RequestType: "iot.delivery.v1.GetItemRequest", ResponseType: "iot.delivery.v1.WorkItemResponse", Execution: operationplan.Execution{Transaction: "read_only", Idempotency: "none"}, Security: operationplan.Security{Public: false, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}, Permissions: []string{"delivery.work-items.read"}, PermissionMode: "all"}, Composition: operationplan.Composition{Boundary: "local", RequiresOperations: []string{}, PermissionClosure: []string{}}, ApplicationRequires: []string{}, Bindings: operationplan.Bindings{RPC: "/iot.delivery.v1.DeliveryService/GetItem", HTTP: []operationplan.HTTPBinding{}}}
 }
 
 func OperationPlanListItems() operationplan.Plan {
@@ -58,6 +66,10 @@ func OperationPlanListReleases() operationplan.Plan {
 
 func OperationPlanListSprints() operationplan.Plan {
 	return operationplan.Plan{OperationID: "delivery.sprints.list", Domain: "delivery", Application: "management", UseCase: "list_sprints", RequestType: "iot.delivery.v1.ListSprintsRequest", ResponseType: "iot.delivery.v1.ListSprintsResponse", Execution: operationplan.Execution{Transaction: "read_only", Idempotency: "none"}, Security: operationplan.Security{Public: false, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}, Permissions: []string{"delivery.sprints.read"}, PermissionMode: "all"}, Composition: operationplan.Composition{Boundary: "local", RequiresOperations: []string{}, PermissionClosure: []string{}}, ApplicationRequires: []string{}, Bindings: operationplan.Bindings{RPC: "/iot.delivery.v1.DeliveryService/ListSprints", HTTP: []operationplan.HTTPBinding{}}}
+}
+
+func OperationPlanSearchItems() operationplan.Plan {
+	return operationplan.Plan{OperationID: "delivery.items.search", Domain: "delivery", Application: "management", UseCase: "search_items", RequestType: "iot.delivery.v1.SearchItemsRequest", ResponseType: "iot.delivery.v1.SearchItemsResponse", Execution: operationplan.Execution{Transaction: "read_only", Idempotency: "none"}, Security: operationplan.Security{Public: false, TenantRequired: true, Authentication: []string{"api-key", "jwt", "service-token"}, Permissions: []string{"delivery.work-items.read"}, PermissionMode: "all"}, Composition: operationplan.Composition{Boundary: "local", RequiresOperations: []string{}, PermissionClosure: []string{}}, ApplicationRequires: []string{}, Bindings: operationplan.Bindings{RPC: "/iot.delivery.v1.DeliveryService/SearchItems", HTTP: []operationplan.HTTPBinding{}}}
 }
 
 func OperationPlanUpdateItem() operationplan.Plan {

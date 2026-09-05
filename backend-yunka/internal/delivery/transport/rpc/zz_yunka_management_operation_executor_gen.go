@@ -139,6 +139,19 @@ func (server *OperationServer) CreateSprint(ctx context.Context, request *delive
 	return response, nil
 }
 
+func (server *OperationServer) FindSimilarItems(ctx context.Context, request *deliveryv1.FindSimilarItemsRequest) (*deliveryv1.FindSimilarItemsResponse, error) {
+	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
+		if values := metadata.Get("idempotency-key"); len(values) > 0 {
+			ctx = execution.WithIdempotencyKey(ctx, values[0])
+		}
+	}
+	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanFindSimilarItems(), request, server.application.FindSimilarItems)
+	if err != nil {
+		return nil, gatewaygrpc.OperationError(err)
+	}
+	return response, nil
+}
+
 func (server *OperationServer) GetDashboard(ctx context.Context, request *deliveryv1.GetDashboardRequest) (*deliveryv1.GetDashboardResponse, error) {
 	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
 		if values := metadata.Get("idempotency-key"); len(values) > 0 {
@@ -146,6 +159,19 @@ func (server *OperationServer) GetDashboard(ctx context.Context, request *delive
 		}
 	}
 	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanGetDashboard(), request, server.application.GetDashboard)
+	if err != nil {
+		return nil, gatewaygrpc.OperationError(err)
+	}
+	return response, nil
+}
+
+func (server *OperationServer) GetItem(ctx context.Context, request *deliveryv1.GetItemRequest) (*deliveryv1.WorkItemResponse, error) {
+	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
+		if values := metadata.Get("idempotency-key"); len(values) > 0 {
+			ctx = execution.WithIdempotencyKey(ctx, values[0])
+		}
+	}
+	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanGetItem(), request, server.application.GetItem)
 	if err != nil {
 		return nil, gatewaygrpc.OperationError(err)
 	}
@@ -211,6 +237,19 @@ func (server *OperationServer) ListSprints(ctx context.Context, request *deliver
 		}
 	}
 	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanListSprints(), request, server.application.ListSprints)
+	if err != nil {
+		return nil, gatewaygrpc.OperationError(err)
+	}
+	return response, nil
+}
+
+func (server *OperationServer) SearchItems(ctx context.Context, request *deliveryv1.SearchItemsRequest) (*deliveryv1.SearchItemsResponse, error) {
+	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
+		if values := metadata.Get("idempotency-key"); len(values) > 0 {
+			ctx = execution.WithIdempotencyKey(ctx, values[0])
+		}
+	}
+	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanSearchItems(), request, server.application.SearchItems)
 	if err != nil {
 		return nil, gatewaygrpc.OperationError(err)
 	}

@@ -42,6 +42,7 @@ func (server *server) addTools(target *mcp.Server) {
 	addTool(target, readTool("delivery.list_projects", "列出交付项目", "列出当前本地交付项目。"), server.listProjects)
 	addTool(target, writeTool("delivery.create_project", "创建交付项目", "在本地交付系统创建项目。"), server.createProject)
 	addTool(target, readTool("delivery.list_work_items", "查询交付事项", "按项目、负责人、状态、类型和关键词查询事项。"), server.listWorkItems)
+	addTool(target, readTool("delivery.get_work_item", "查看交付事项", "按事项 ID 查看一个交付事项。"), server.getWorkItem)
 	addTool(target, readTool("delivery.find_similar", "检查相似事项", "在创建前检查同项目或同板块的相似事项。"), server.findSimilar)
 	addTool(target, writeTool("delivery.create_work_item", "创建交付事项", "创建事项；若存在相似候选，先返回候选，需显式确认后才创建。"), server.createWorkItem)
 	addTool(target, writeTool("delivery.update_work_item", "更新交付事项", "编辑任务的排期、进度、IoT 绑定、依赖和研发证据。"), server.updateWorkItem)
@@ -165,6 +166,23 @@ type listWorkItemsArgs struct {
 
 type workItemsOutput struct {
 	Items []delivery.WorkItem `json:"items"`
+}
+
+type getWorkItemArgs struct {
+	ID string `json:"id" jsonschema:"the work item ID"`
+}
+
+type getWorkItemOutput struct {
+	Item delivery.WorkItem `json:"item"`
+}
+
+func (server *server) getWorkItem(ctx context.Context, _ *mcp.CallToolRequest, args getWorkItemArgs) (*mcp.CallToolResult, getWorkItemOutput, error) {
+	ctx, err := server.toolContext(ctx)
+	if err != nil {
+		return nil, getWorkItemOutput{}, err
+	}
+	item, err := server.operations.Get(ctx, args.ID)
+	return nil, getWorkItemOutput{Item: item}, err
 }
 
 func (server *server) listWorkItems(ctx context.Context, _ *mcp.CallToolRequest, args listWorkItemsArgs) (*mcp.CallToolResult, workItemsOutput, error) {

@@ -106,6 +106,18 @@ func (service *auditedDeliveryService) ListItems(ctx context.Context, request *d
 	return service.delegate.ListItems(ctx, request)
 }
 
+func (service *auditedDeliveryService) GetItem(ctx context.Context, request *deliveryv1.GetItemRequest) (*deliveryv1.WorkItemResponse, error) {
+	return service.delegate.GetItem(ctx, request)
+}
+
+func (service *auditedDeliveryService) SearchItems(ctx context.Context, request *deliveryv1.SearchItemsRequest) (*deliveryv1.SearchItemsResponse, error) {
+	return service.delegate.SearchItems(ctx, request)
+}
+
+func (service *auditedDeliveryService) FindSimilarItems(ctx context.Context, request *deliveryv1.FindSimilarItemsRequest) (*deliveryv1.FindSimilarItemsResponse, error) {
+	return service.delegate.FindSimilarItems(ctx, request)
+}
+
 func (service *auditedDeliveryService) CreateItem(ctx context.Context, request *deliveryv1.CreateItemRequest) (*deliveryv1.WorkItemResponse, error) {
 	operationID, metadata, err := verifiedWriteOperation(ctx, policy.OperationPlanCreateItem().OperationID)
 	if err != nil {

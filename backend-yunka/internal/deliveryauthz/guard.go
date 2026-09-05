@@ -164,7 +164,8 @@ func (guard *OperationGuard) Prepare(ctx context.Context, authorized authz.Autho
 	// List operations do not carry a caller-controlled project or organization.
 	// Resolve the durable grants into a tenant-owned project set before the
 	// application boundary, so every adapter can filter the same trusted set.
-	if authorized.Policy.Operation == "delivery.items.list" || authorized.Policy.Operation == "delivery.projects.list" {
+	if authorized.Policy.Operation == "delivery.items.list" || authorized.Policy.Operation == "delivery.projects.list" ||
+		((authorized.Policy.Operation == "delivery.items.search" || authorized.Policy.Operation == "delivery.items.similarity") && itemReadProjectID(input) == "") {
 		projects, err := guard.allowedProjects(ctx, grants, operation, tenantID)
 		if err != nil {
 			return nil, err
@@ -456,6 +457,12 @@ func (guard *OperationGuard) projectAndObjectID(ctx context.Context, operation a
 		projectID = request.GetProjectId()
 	case *deliveryv1.UpdateItemRequest:
 		objectID = request.GetId()
+	case *deliveryv1.GetItemRequest:
+		objectID = request.GetId()
+	case *deliveryv1.SearchItemsRequest:
+		projectID = request.GetProjectId()
+	case *deliveryv1.FindSimilarItemsRequest:
+		projectID = request.GetProjectId()
 	case *deliveryv1.CreateItemCommentRequest:
 		objectID = request.GetId()
 	case *deliveryv1.UpdateItemContextRequest:
@@ -493,6 +500,15 @@ func validInput(operation authz.OperationID, input any) bool {
 		return ok && request != nil
 	case "delivery.items.list":
 		request, ok := input.(*deliveryv1.ListItemsRequest)
+		return ok && request != nil
+	case "delivery.items.get":
+		request, ok := input.(*deliveryv1.GetItemRequest)
+		return ok && request != nil
+	case "delivery.items.search":
+		request, ok := input.(*deliveryv1.SearchItemsRequest)
+		return ok && request != nil
+	case "delivery.items.similarity":
+		request, ok := input.(*deliveryv1.FindSimilarItemsRequest)
 		return ok && request != nil
 	case "delivery.projects.list":
 		request, ok := input.(*deliveryv1.ListProjectsRequest)
@@ -538,6 +554,17 @@ func validInput(operation authz.OperationID, input any) bool {
 		return ok && request != nil
 	default:
 		return false
+	}
+}
+
+func itemReadProjectID(input any) string {
+	switch request := input.(type) {
+	case *deliveryv1.SearchItemsRequest:
+		return strings.TrimSpace(request.GetProjectId())
+	case *deliveryv1.FindSimilarItemsRequest:
+		return strings.TrimSpace(request.GetProjectId())
+	default:
+		return ""
 	}
 }
 

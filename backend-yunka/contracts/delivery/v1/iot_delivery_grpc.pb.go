@@ -35,6 +35,9 @@ const (
 	DeliveryService_ListReleases_FullMethodName      = "/iot.delivery.v1.DeliveryService/ListReleases"
 	DeliveryService_ListSprints_FullMethodName       = "/iot.delivery.v1.DeliveryService/ListSprints"
 	DeliveryService_ListMilestones_FullMethodName    = "/iot.delivery.v1.DeliveryService/ListMilestones"
+	DeliveryService_GetItem_FullMethodName           = "/iot.delivery.v1.DeliveryService/GetItem"
+	DeliveryService_SearchItems_FullMethodName       = "/iot.delivery.v1.DeliveryService/SearchItems"
+	DeliveryService_FindSimilarItems_FullMethodName  = "/iot.delivery.v1.DeliveryService/FindSimilarItems"
 )
 
 // DeliveryServiceClient is the client API for DeliveryService service.
@@ -61,6 +64,9 @@ type DeliveryServiceClient interface {
 	ListReleases(ctx context.Context, in *ListReleasesRequest, opts ...grpc.CallOption) (*ListReleasesResponse, error)
 	ListSprints(ctx context.Context, in *ListSprintsRequest, opts ...grpc.CallOption) (*ListSprintsResponse, error)
 	ListMilestones(ctx context.Context, in *ListMilestonesRequest, opts ...grpc.CallOption) (*ListMilestonesResponse, error)
+	GetItem(ctx context.Context, in *GetItemRequest, opts ...grpc.CallOption) (*WorkItemResponse, error)
+	SearchItems(ctx context.Context, in *SearchItemsRequest, opts ...grpc.CallOption) (*SearchItemsResponse, error)
+	FindSimilarItems(ctx context.Context, in *FindSimilarItemsRequest, opts ...grpc.CallOption) (*FindSimilarItemsResponse, error)
 }
 
 type deliveryServiceClient struct {
@@ -231,6 +237,36 @@ func (c *deliveryServiceClient) ListMilestones(ctx context.Context, in *ListMile
 	return out, nil
 }
 
+func (c *deliveryServiceClient) GetItem(ctx context.Context, in *GetItemRequest, opts ...grpc.CallOption) (*WorkItemResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(WorkItemResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_GetItem_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *deliveryServiceClient) SearchItems(ctx context.Context, in *SearchItemsRequest, opts ...grpc.CallOption) (*SearchItemsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SearchItemsResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_SearchItems_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *deliveryServiceClient) FindSimilarItems(ctx context.Context, in *FindSimilarItemsRequest, opts ...grpc.CallOption) (*FindSimilarItemsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FindSimilarItemsResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_FindSimilarItems_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DeliveryServiceServer is the server API for DeliveryService service.
 // All implementations should embed UnimplementedDeliveryServiceServer
 // for forward compatibility.
@@ -255,6 +291,9 @@ type DeliveryServiceServer interface {
 	ListReleases(context.Context, *ListReleasesRequest) (*ListReleasesResponse, error)
 	ListSprints(context.Context, *ListSprintsRequest) (*ListSprintsResponse, error)
 	ListMilestones(context.Context, *ListMilestonesRequest) (*ListMilestonesResponse, error)
+	GetItem(context.Context, *GetItemRequest) (*WorkItemResponse, error)
+	SearchItems(context.Context, *SearchItemsRequest) (*SearchItemsResponse, error)
+	FindSimilarItems(context.Context, *FindSimilarItemsRequest) (*FindSimilarItemsResponse, error)
 }
 
 // UnimplementedDeliveryServiceServer should be embedded to have
@@ -311,6 +350,15 @@ func (UnimplementedDeliveryServiceServer) ListSprints(context.Context, *ListSpri
 }
 func (UnimplementedDeliveryServiceServer) ListMilestones(context.Context, *ListMilestonesRequest) (*ListMilestonesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListMilestones not implemented")
+}
+func (UnimplementedDeliveryServiceServer) GetItem(context.Context, *GetItemRequest) (*WorkItemResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetItem not implemented")
+}
+func (UnimplementedDeliveryServiceServer) SearchItems(context.Context, *SearchItemsRequest) (*SearchItemsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SearchItems not implemented")
+}
+func (UnimplementedDeliveryServiceServer) FindSimilarItems(context.Context, *FindSimilarItemsRequest) (*FindSimilarItemsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FindSimilarItems not implemented")
 }
 func (UnimplementedDeliveryServiceServer) testEmbeddedByValue() {}
 
@@ -620,6 +668,60 @@ func _DeliveryService_ListMilestones_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DeliveryService_GetItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).GetItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_GetItem_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).GetItem(ctx, req.(*GetItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DeliveryService_SearchItems_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SearchItemsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).SearchItems(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_SearchItems_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).SearchItems(ctx, req.(*SearchItemsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DeliveryService_FindSimilarItems_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FindSimilarItemsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).FindSimilarItems(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_FindSimilarItems_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).FindSimilarItems(ctx, req.(*FindSimilarItemsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DeliveryService_ServiceDesc is the grpc.ServiceDesc for DeliveryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -690,6 +792,18 @@ var DeliveryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListMilestones",
 			Handler:    _DeliveryService_ListMilestones_Handler,
+		},
+		{
+			MethodName: "GetItem",
+			Handler:    _DeliveryService_GetItem_Handler,
+		},
+		{
+			MethodName: "SearchItems",
+			Handler:    _DeliveryService_SearchItems_Handler,
+		},
+		{
+			MethodName: "FindSimilarItems",
+			Handler:    _DeliveryService_FindSimilarItems_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

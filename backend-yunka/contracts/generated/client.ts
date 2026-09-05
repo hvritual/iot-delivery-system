@@ -147,11 +147,27 @@ export interface Iot_Delivery_V1_Evidence {
   recordedAt?: string;
 }
 
+export interface Iot_Delivery_V1_FindSimilarItemsRequest {
+  title?: string;
+  board?: string;
+  projectId?: string;
+  kind?: string;
+  limit?: number;
+}
+
+export interface Iot_Delivery_V1_FindSimilarItemsResponse {
+  candidates?: readonly Iot_Delivery_V1_SimilarityCandidate[];
+}
+
 export interface Iot_Delivery_V1_GetDashboardRequest {
 }
 
 export interface Iot_Delivery_V1_GetDashboardResponse {
   dashboard?: Iot_Delivery_V1_Dashboard;
+}
+
+export interface Iot_Delivery_V1_GetItemRequest {
+  id?: string;
 }
 
 export interface Iot_Delivery_V1_IoTBinding {
@@ -242,6 +258,28 @@ export interface Iot_Delivery_V1_Release {
 
 export interface Iot_Delivery_V1_ReleaseResponse {
   release?: Iot_Delivery_V1_Release;
+}
+
+export interface Iot_Delivery_V1_SearchItemsRequest {
+  projectId?: string;
+  board?: string;
+  owner?: string;
+  status?: string;
+  kind?: string;
+  releaseId?: string;
+  sprintId?: string;
+  milestoneId?: string;
+  query?: string;
+}
+
+export interface Iot_Delivery_V1_SearchItemsResponse {
+  items?: readonly Iot_Delivery_V1_WorkItem[];
+}
+
+export interface Iot_Delivery_V1_SimilarityCandidate {
+  item?: Iot_Delivery_V1_WorkItem;
+  score?: number;
+  exact?: boolean;
 }
 
 export interface Iot_Delivery_V1_Sprint {
@@ -391,11 +429,23 @@ export const operations = {
     requestType: "iot.delivery.v1.CreateSprintRequest",
     responseType: "iot.delivery.v1.SprintResponse"
   },
+  "iot.delivery.v1.DeliveryService.FindSimilarItems": {
+    fullName: "iot.delivery.v1.DeliveryService.FindSimilarItems",
+    rpcPath: "/iot.delivery.v1.DeliveryService/FindSimilarItems",
+    requestType: "iot.delivery.v1.FindSimilarItemsRequest",
+    responseType: "iot.delivery.v1.FindSimilarItemsResponse"
+  },
   "iot.delivery.v1.DeliveryService.GetDashboard": {
     fullName: "iot.delivery.v1.DeliveryService.GetDashboard",
     rpcPath: "/iot.delivery.v1.DeliveryService/GetDashboard",
     requestType: "iot.delivery.v1.GetDashboardRequest",
     responseType: "iot.delivery.v1.GetDashboardResponse"
+  },
+  "iot.delivery.v1.DeliveryService.GetItem": {
+    fullName: "iot.delivery.v1.DeliveryService.GetItem",
+    rpcPath: "/iot.delivery.v1.DeliveryService/GetItem",
+    requestType: "iot.delivery.v1.GetItemRequest",
+    responseType: "iot.delivery.v1.WorkItemResponse"
   },
   "iot.delivery.v1.DeliveryService.ListItems": {
     fullName: "iot.delivery.v1.DeliveryService.ListItems",
@@ -426,6 +476,12 @@ export const operations = {
     rpcPath: "/iot.delivery.v1.DeliveryService/ListSprints",
     requestType: "iot.delivery.v1.ListSprintsRequest",
     responseType: "iot.delivery.v1.ListSprintsResponse"
+  },
+  "iot.delivery.v1.DeliveryService.SearchItems": {
+    fullName: "iot.delivery.v1.DeliveryService.SearchItems",
+    rpcPath: "/iot.delivery.v1.DeliveryService/SearchItems",
+    requestType: "iot.delivery.v1.SearchItemsRequest",
+    responseType: "iot.delivery.v1.SearchItemsResponse"
   },
   "iot.delivery.v1.DeliveryService.UpdateItem": {
     fullName: "iot.delivery.v1.DeliveryService.UpdateItem",
@@ -476,8 +532,16 @@ export class Iot_Delivery_V1_DeliveryServiceClient {
     return this.transport.call<Iot_Delivery_V1_CreateSprintRequest, Iot_Delivery_V1_SprintResponse>(operations["iot.delivery.v1.DeliveryService.CreateSprint"], request);
   }
 
+  findSimilarItems(request: Iot_Delivery_V1_FindSimilarItemsRequest): Promise<Iot_Delivery_V1_FindSimilarItemsResponse> {
+    return this.transport.call<Iot_Delivery_V1_FindSimilarItemsRequest, Iot_Delivery_V1_FindSimilarItemsResponse>(operations["iot.delivery.v1.DeliveryService.FindSimilarItems"], request);
+  }
+
   getDashboard(request: Iot_Delivery_V1_GetDashboardRequest): Promise<Iot_Delivery_V1_GetDashboardResponse> {
     return this.transport.call<Iot_Delivery_V1_GetDashboardRequest, Iot_Delivery_V1_GetDashboardResponse>(operations["iot.delivery.v1.DeliveryService.GetDashboard"], request);
+  }
+
+  getItem(request: Iot_Delivery_V1_GetItemRequest): Promise<Iot_Delivery_V1_WorkItemResponse> {
+    return this.transport.call<Iot_Delivery_V1_GetItemRequest, Iot_Delivery_V1_WorkItemResponse>(operations["iot.delivery.v1.DeliveryService.GetItem"], request);
   }
 
   listItems(request: Iot_Delivery_V1_ListItemsRequest): Promise<Iot_Delivery_V1_ListItemsResponse> {
@@ -498,6 +562,10 @@ export class Iot_Delivery_V1_DeliveryServiceClient {
 
   listSprints(request: Iot_Delivery_V1_ListSprintsRequest): Promise<Iot_Delivery_V1_ListSprintsResponse> {
     return this.transport.call<Iot_Delivery_V1_ListSprintsRequest, Iot_Delivery_V1_ListSprintsResponse>(operations["iot.delivery.v1.DeliveryService.ListSprints"], request);
+  }
+
+  searchItems(request: Iot_Delivery_V1_SearchItemsRequest): Promise<Iot_Delivery_V1_SearchItemsResponse> {
+    return this.transport.call<Iot_Delivery_V1_SearchItemsRequest, Iot_Delivery_V1_SearchItemsResponse>(operations["iot.delivery.v1.DeliveryService.SearchItems"], request);
   }
 
   updateItem(request: Iot_Delivery_V1_UpdateItemRequest): Promise<Iot_Delivery_V1_WorkItemResponse> {

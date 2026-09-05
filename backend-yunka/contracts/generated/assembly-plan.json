@@ -162,6 +162,27 @@
       }
     },
     {
+      "id": "delivery.items.get",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.items.get",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.items.get/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.items.get"
+      }
+    },
+    {
       "id": "delivery.items.list",
       "application": "delivery/management",
       "bindings": [
@@ -180,6 +201,48 @@
         "ownership": "reused",
         "source": "operation-plans.json",
         "ref": "operations/delivery.items.list"
+      }
+    },
+    {
+      "id": "delivery.items.search",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.items.search",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.items.search/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.items.search"
+      }
+    },
+    {
+      "id": "delivery.items.similarity",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.items.similarity",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.items.similarity/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.items.similarity"
       }
     },
     {
@@ -420,7 +483,10 @@
         "delivery.items.close",
         "delivery.items.comment.create",
         "delivery.items.create",
+        "delivery.items.get",
         "delivery.items.list",
+        "delivery.items.search",
+        "delivery.items.similarity",
         "delivery.items.update",
         "delivery.items.update-context",
         "delivery.milestones.create",

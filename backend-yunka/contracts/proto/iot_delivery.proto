@@ -253,6 +253,51 @@ service DeliveryService {
       execution: { transaction: TRANSACTION_READ_ONLY idempotency: IDEMPOTENCY_NONE }
     };
   }
+  rpc GetItem(GetItemRequest) returns (WorkItemResponse) {
+    option (yunka.dsl.v1.operation) = {
+      id: "delivery.items.get"
+      use_case: "get_item"
+      public: false
+      tenant_required: true
+      permissions: "delivery.work-items.read"
+      permission_mode: PERMISSION_ALL
+      authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
+      authentication: AUTHENTICATION_SERVICE
+      composition: COMPOSITION_LOCAL
+      execution: { transaction: TRANSACTION_READ_ONLY idempotency: IDEMPOTENCY_NONE }
+    };
+  }
+  rpc SearchItems(SearchItemsRequest) returns (SearchItemsResponse) {
+    option (yunka.dsl.v1.operation) = {
+      id: "delivery.items.search"
+      use_case: "search_items"
+      public: false
+      tenant_required: true
+      permissions: "delivery.work-items.read"
+      permission_mode: PERMISSION_ALL
+      authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
+      authentication: AUTHENTICATION_SERVICE
+      composition: COMPOSITION_LOCAL
+      execution: { transaction: TRANSACTION_READ_ONLY idempotency: IDEMPOTENCY_NONE }
+    };
+  }
+  rpc FindSimilarItems(FindSimilarItemsRequest) returns (FindSimilarItemsResponse) {
+    option (yunka.dsl.v1.operation) = {
+      id: "delivery.items.similarity"
+      use_case: "find_similar_items"
+      public: false
+      tenant_required: true
+      permissions: "delivery.work-items.read"
+      permission_mode: PERMISSION_ALL
+      authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
+      authentication: AUTHENTICATION_SERVICE
+      composition: COMPOSITION_LOCAL
+      execution: { transaction: TRANSACTION_READ_ONLY idempotency: IDEMPOTENCY_NONE }
+    };
+  }
 }
 
 message GetDashboardRequest {
@@ -612,4 +657,48 @@ message ListMilestonesRequest {
 message ListMilestonesResponse {
   option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
   repeated Milestone milestones = 1;
+}
+
+message GetItemRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string id = 1;
+}
+
+message SearchItemsRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string project_id = 1;
+  string board = 2;
+  string owner = 3;
+  string status = 4;
+  string kind = 5;
+  string release_id = 6;
+  string sprint_id = 7;
+  string milestone_id = 8;
+  string query = 9;
+}
+
+message SearchItemsResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  repeated WorkItem items = 1;
+}
+
+message FindSimilarItemsRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string title = 1;
+  string board = 2;
+  string project_id = 3;
+  string kind = 4;
+  int32 limit = 5;
+}
+
+message FindSimilarItemsResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  repeated SimilarityCandidate candidates = 1;
+}
+
+message SimilarityCandidate {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  WorkItem item = 1;
+  double score = 2;
+  bool exact = 3;
 }

@@ -16,7 +16,7 @@ func TestApplyMigrationsAddsProjectReadAuthorizationToOldFourLedgerDatabase(t *t
 	}
 	assertProjectReadAuthorizationRows(t, database)
 	assertPlanningListAuthorizationRows(t, database)
-	assertProjectReadMigrationLedger(t, database, 6)
+	assertProjectReadMigrationLedger(t, database, 7)
 	var serviceGrantCount int
 	if err := database.QueryRow(`SELECT COUNT(*) FROM service_operation_grants WHERE operation_id = 'delivery.projects.list'`).Scan(&serviceGrantCount); err != nil || serviceGrantCount != 0 {
 		t.Fatalf("project list service grants = %d error=%v, want no default grants", serviceGrantCount, err)
@@ -29,7 +29,7 @@ func TestApplyMigrationsAddsProjectReadAuthorizationToOldFourLedgerDatabase(t *t
 	}
 	assertProjectReadAuthorizationRows(t, database)
 	assertPlanningListAuthorizationRows(t, database)
-	assertProjectReadMigrationLedger(t, database, 6)
+	assertProjectReadMigrationLedger(t, database, 7)
 }
 
 func TestApplyMigrationsAddsProjectReadAuthorizationBeforeServiceGrantSeed(t *testing.T) {
@@ -40,7 +40,7 @@ func TestApplyMigrationsAddsProjectReadAuthorizationBeforeServiceGrantSeed(t *te
 	}
 	assertProjectReadAuthorizationRows(t, database)
 	assertPlanningListAuthorizationRows(t, database)
-	assertProjectReadMigrationLedger(t, database, 6)
+	assertProjectReadMigrationLedger(t, database, 7)
 }
 
 func TestApplyMigrationsRejectsProjectReadConflictAndForgedLedger(t *testing.T) {
@@ -237,5 +237,12 @@ func assertProjectReadMigrationLedger(t *testing.T, database *sql.DB, wantTotal 
 	}
 	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations`).Scan(&ledgerCount); err != nil || ledgerCount != wantTotal {
 		t.Fatalf("migration ledger total = %d error=%v, want %d", ledgerCount, err, wantTotal)
+	}
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, ItemReadAuthorizationMigrationID).Scan(&migrationCount); err != nil || migrationCount != 1 {
+		t.Fatalf("item read migration ledger count = %d error=%v, want 1", migrationCount, err)
+	}
+	var operationCount int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM service_operations WHERE id IN ('delivery.items.get', 'delivery.items.search', 'delivery.items.similarity') AND permission_id = 'delivery.work-items.read' AND status = 'active' AND ((id = 'delivery.items.get' AND required_scope = 'object') OR (id <> 'delivery.items.get' AND required_scope = 'project'))`).Scan(&operationCount); err != nil || operationCount != 3 {
+		t.Fatalf("item read service operation count = %d error=%v, want 3", operationCount, err)
 	}
 }

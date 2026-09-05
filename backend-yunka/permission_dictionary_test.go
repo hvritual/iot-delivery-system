@@ -542,6 +542,9 @@ type operationContract struct {
 var expectedOperations = map[string]operationContract{
 	"delivery.dashboard.get":        {resource: "delivery.dashboard", permission: "delivery.dashboard.read", requiredScope: "organization", risk: "low", writes: false},
 	"delivery.items.list":           {resource: "delivery.work-items", permission: "delivery.work-items.read", requiredScope: "project", risk: "low", writes: false},
+	"delivery.items.get":            {resource: "delivery.work-items", permission: "delivery.work-items.read", requiredScope: "object", risk: "low", writes: false},
+	"delivery.items.search":         {resource: "delivery.work-items", permission: "delivery.work-items.read", requiredScope: "project", risk: "low", writes: false},
+	"delivery.items.similarity":     {resource: "delivery.work-items", permission: "delivery.work-items.read", requiredScope: "project", risk: "low", writes: false},
 	"delivery.items.create":         {resource: "delivery.work-items", permission: "delivery.work-items.create", requiredScope: "project", risk: "medium", writes: true},
 	"delivery.items.update":         {resource: "delivery.work-items", permission: "delivery.work-items.update", requiredScope: "object", risk: "medium", writes: true},
 	"delivery.items.comment.create": {resource: "delivery.work-items", permission: "delivery.work-items.comment.create", requiredScope: "object", risk: "low", writes: true},
@@ -633,7 +636,10 @@ func validateTransportTrace(definition operationDefinition) error {
 	}
 	want := map[string]trace{
 		"delivery.dashboard.get":        {rest: []transportPath{{Method: "GET", Path: "/api/dashboard"}}},
-		"delivery.items.list":           {rest: []transportPath{{Method: "GET", Path: "/api/items"}}, mcp: []string{"delivery.list_work_items"}},
+		"delivery.items.list":           {},
+		"delivery.items.get":            {rest: []transportPath{{Method: "GET", Path: "/api/items/{item_id}"}}, mcp: []string{"delivery.get_work_item"}},
+		"delivery.items.search":         {rest: []transportPath{{Method: "GET", Path: "/api/items"}}, mcp: []string{"delivery.list_work_items"}},
+		"delivery.items.similarity":     {rest: []transportPath{{Method: "POST", Path: "/api/items/similarity"}}, mcp: []string{"delivery.find_similar"}},
 		"delivery.items.create":         {rest: []transportPath{{Method: "POST", Path: "/api/items"}}, mcp: []string{"delivery.create_work_item"}},
 		"delivery.items.update":         {rest: []transportPath{{Method: "PATCH", Path: "/api/items/{item_id}"}}, mcp: []string{"delivery.update_work_item"}},
 		"delivery.items.comment.create": {rest: []transportPath{{Method: "POST", Path: "/api/items/{item_id}/comments"}}, mcp: []string{"delivery.add_comment"}},
