@@ -132,6 +132,8 @@ func writeHTTPServiceUnavailable(writer http.ResponseWriter, traceID string) {
 }
 
 func writeHTTPError(writer http.ResponseWriter, status int, code, traceID string) {
+	writer.Header().Set("Cache-Control", "no-store, max-age=0")
+	writer.Header().Set("Pragma", "no-cache")
 	writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 	writer.Header().Set(bffassertion.TraceHeader, traceID)
 	writer.WriteHeader(status)
