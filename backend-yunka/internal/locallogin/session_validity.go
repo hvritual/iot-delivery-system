@@ -81,7 +81,8 @@ func scanValidSession(row *sql.Row, invalid error) (SessionIdentity, error) {
 		return SessionIdentity{}, errors.New("read centralized local session validity")
 	}
 	session.ExpiresAt, err = parseTime(expiresAt)
-	if err != nil || session.Revision < 1 || session.CredentialRevision < 1 {
+	if err != nil || session.Revision < 1 || session.CredentialRevision < 1 ||
+		!canonicalIdentifier(session.SessionID) || !canonicalIdentifier(session.OrganizationID) || !canonicalIdentifier(session.UserID) {
 		return SessionIdentity{}, invalid
 	}
 	return session, nil
