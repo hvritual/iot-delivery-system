@@ -143,7 +143,8 @@ func rollbackAuditClassification(operation string) (EventCategory, string) {
 	switch operation {
 	case "config.revisions.change", "config.revisions.rollback":
 		return EventCategoryConfiguration, "configuration.transaction_rolled_back"
-	case "identity.members.create", "identity.members.disable", "identity.members.credentials.reset":
+	case "identity.members.create", "identity.members.disable", "identity.members.credentials.reset",
+		"identity.project-role-bindings.assign", "identity.project-role-bindings.revoke":
 		return EventCategoryConfiguration, "identity.transaction_rolled_back"
 	default:
 		return EventCategoryDelivery, "application.transaction_rolled_back"
