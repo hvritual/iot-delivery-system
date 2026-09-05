@@ -55,7 +55,7 @@ func (verifier *Verifier) GRPCUnaryServerInterceptor(fallback stdgrpc.UnaryServe
 		}
 		secured = runtimecontext.WithMetadata(secured, metadata)
 		if verifier != nil && verifier.recorder != nil {
-			if err := verifier.recorder.RecordAuthenticationAccepted(secured, "authentication.local_access_token"); err != nil {
+			if err := verifier.recorder.RecordLocalAccessAuthenticationAccepted(secured, "authentication.local_access_token", "grpc"); err != nil {
 				return nil, status.Error(codes.Unavailable, "service unavailable")
 			}
 		}
