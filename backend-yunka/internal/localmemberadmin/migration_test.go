@@ -38,15 +38,18 @@ func TestYU20MigrationUpgradesExistingUsersAndIsRepeatable(t *testing.T) {
 	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, MigrationID).Scan(&ledger); err != nil || ledger != 1 {
 		t.Fatalf("migration ledger=%d error=%v, want 1", ledger, err)
 	}
-	var grantCount, scopeCount, triggerCount int
-	if err := database.QueryRow(`SELECT COUNT(*) FROM role_permission_grants WHERE permission_id = ? AND role_id = 'system-administrator'`, PermissionManageUsers).Scan(&grantCount); err != nil {
+	var systemGrantCount, otherGrantCount, grantScopeCount, triggerCount int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM role_permission_grants WHERE permission_id = ? AND role_id = 'system-administrator'`, PermissionManageUsers).Scan(&systemGrantCount); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.QueryRow(`SELECT COUNT(*) FROM role_permission_grants WHERE permission_id = ? AND role_id <> 'system-administrator'`, PermissionManageUsers).Scan(&scopeCount); err != nil {
+	if err := database.QueryRow(`SELECT COUNT(*) FROM role_permission_grants WHERE permission_id = ? AND role_id <> 'system-administrator'`, PermissionManageUsers).Scan(&otherGrantCount); err != nil {
 		t.Fatal(err)
 	}
-	if grantCount != 1 || scopeCount != 0 {
-		t.Fatalf("member admin grants system=%d other=%d", grantCount, scopeCount)
+	if err := database.QueryRow(`SELECT COUNT(*) FROM role_permission_grant_allowed_scopes WHERE permission_id = ? AND role_id = 'system-administrator' AND scope_type = 'organization'`, PermissionManageUsers).Scan(&grantScopeCount); err != nil {
+		t.Fatal(err)
+	}
+	if systemGrantCount != 1 || otherGrantCount != 0 || grantScopeCount != 1 {
+		t.Fatalf("member admin grant system=%d other=%d organization-scopes=%d", systemGrantCount, otherGrantCount, grantScopeCount)
 	}
 	if err := database.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'trigger' AND name = 'users_preserve_last_system_administrator'`).Scan(&triggerCount); err != nil || triggerCount != 1 {
 		t.Fatalf("last administrator trigger count=%d error=%v", triggerCount, err)
