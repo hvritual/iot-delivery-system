@@ -106,6 +106,12 @@
       ]
     },
     {
+      "id": "identity.users",
+      "allowedScopes": [
+        "organization"
+      ]
+    },
+    {
       "id": "audit.events",
       "allowedScopes": [
         "organization",
@@ -329,6 +335,15 @@
         "project"
       ],
       "status": "reserved"
+    },
+    {
+      "id": "identity.users.manage",
+      "resource": "identity.users",
+      "action": "manage",
+      "allowedScopes": [
+        "organization"
+      ],
+      "status": "active"
     },
     {
       "id": "audit.events.read",
@@ -1030,6 +1045,12 @@
           "permission": "identity.role-bindings.manage",
           "allowedScopes": [
             "project"
+          ]
+        },
+        {
+          "permission": "identity.users.manage",
+          "allowedScopes": [
+            "organization"
           ]
         },
         {
