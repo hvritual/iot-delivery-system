@@ -18,7 +18,7 @@ import (
 	grpc "google.golang.org/grpc"
 )
 
-const AssemblyPlanDigest = "de3606445e2c470a5864a26fd157028fee6508c1f86383c247a276847035a8d0"
+const AssemblyPlanDigest = "da3beb8ae929f238f273d273c7c1a5b61178acb3c949e0476ec4cee172621404"
 
 type DeliveryManagementDependencies struct {
 	DeliveryNotifications    deliveryruntime.Notifications

@@ -208,6 +208,48 @@ service DeliveryService {
       execution: { transaction: TRANSACTION_READ_ONLY idempotency: IDEMPOTENCY_NONE }
     };
   }
+  rpc ListReleases(ListReleasesRequest) returns (ListReleasesResponse) {
+    option (yunka.dsl.v1.operation) = {
+      id: "delivery.releases.list"
+      use_case: "list_releases"
+      public: false
+      tenant_required: true
+      permissions: "delivery.releases.read"
+      permission_mode: PERMISSION_ALL
+      authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
+      composition: COMPOSITION_LOCAL
+      execution: { transaction: TRANSACTION_READ_ONLY idempotency: IDEMPOTENCY_NONE }
+    };
+  }
+  rpc ListSprints(ListSprintsRequest) returns (ListSprintsResponse) {
+    option (yunka.dsl.v1.operation) = {
+      id: "delivery.sprints.list"
+      use_case: "list_sprints"
+      public: false
+      tenant_required: true
+      permissions: "delivery.sprints.read"
+      permission_mode: PERMISSION_ALL
+      authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
+      composition: COMPOSITION_LOCAL
+      execution: { transaction: TRANSACTION_READ_ONLY idempotency: IDEMPOTENCY_NONE }
+    };
+  }
+  rpc ListMilestones(ListMilestonesRequest) returns (ListMilestonesResponse) {
+    option (yunka.dsl.v1.operation) = {
+      id: "delivery.milestones.list"
+      use_case: "list_milestones"
+      public: false
+      tenant_required: true
+      permissions: "delivery.milestones.read"
+      permission_mode: PERMISSION_ALL
+      authentication: AUTHENTICATION_API_KEY
+      authentication: AUTHENTICATION_JWT
+      composition: COMPOSITION_LOCAL
+      execution: { transaction: TRANSACTION_READ_ONLY idempotency: IDEMPOTENCY_NONE }
+    };
+  }
 }
 
 message GetDashboardRequest {
@@ -537,4 +579,34 @@ message ListProjectsRequest {
 message ListProjectsResponse {
   option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
   repeated Project projects = 1;
+}
+
+message ListReleasesRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string project_id = 1;
+}
+
+message ListReleasesResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  repeated Release releases = 1;
+}
+
+message ListSprintsRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string project_id = 1;
+}
+
+message ListSprintsResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  repeated Sprint sprints = 1;
+}
+
+message ListMilestonesRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string project_id = 1;
+}
+
+message ListMilestonesResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  repeated Milestone milestones = 1;
 }

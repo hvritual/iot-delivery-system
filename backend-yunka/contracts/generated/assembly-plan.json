@@ -246,6 +246,27 @@
       }
     },
     {
+      "id": "delivery.milestones.list",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.milestones.list",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.milestones.list/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.milestones.list"
+      }
+    },
+    {
       "id": "delivery.projects.create",
       "application": "delivery/management",
       "bindings": [
@@ -309,6 +330,27 @@
       }
     },
     {
+      "id": "delivery.releases.list",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.releases.list",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.releases.list/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.releases.list"
+      }
+    },
+    {
       "id": "delivery.sprints.create",
       "application": "delivery/management",
       "bindings": [
@@ -327,6 +369,27 @@
         "ownership": "reused",
         "source": "operation-plans.json",
         "ref": "operations/delivery.sprints.create"
+      }
+    },
+    {
+      "id": "delivery.sprints.list",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.sprints.list",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.sprints.list/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.sprints.list"
       }
     }
   ],
@@ -361,10 +424,13 @@
         "delivery.items.update",
         "delivery.items.update-context",
         "delivery.milestones.create",
+        "delivery.milestones.list",
         "delivery.projects.create",
         "delivery.projects.list",
         "delivery.releases.create",
-        "delivery.sprints.create"
+        "delivery.releases.list",
+        "delivery.sprints.create",
+        "delivery.sprints.list"
       ],
       "evidence": {
         "ownership": "derived",

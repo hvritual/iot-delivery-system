@@ -32,6 +32,9 @@ const (
 	DeliveryService_CreateSprint_FullMethodName      = "/iot.delivery.v1.DeliveryService/CreateSprint"
 	DeliveryService_CreateMilestone_FullMethodName   = "/iot.delivery.v1.DeliveryService/CreateMilestone"
 	DeliveryService_ListProjects_FullMethodName      = "/iot.delivery.v1.DeliveryService/ListProjects"
+	DeliveryService_ListReleases_FullMethodName      = "/iot.delivery.v1.DeliveryService/ListReleases"
+	DeliveryService_ListSprints_FullMethodName       = "/iot.delivery.v1.DeliveryService/ListSprints"
+	DeliveryService_ListMilestones_FullMethodName    = "/iot.delivery.v1.DeliveryService/ListMilestones"
 )
 
 // DeliveryServiceClient is the client API for DeliveryService service.
@@ -55,6 +58,9 @@ type DeliveryServiceClient interface {
 	CreateSprint(ctx context.Context, in *CreateSprintRequest, opts ...grpc.CallOption) (*SprintResponse, error)
 	CreateMilestone(ctx context.Context, in *CreateMilestoneRequest, opts ...grpc.CallOption) (*MilestoneResponse, error)
 	ListProjects(ctx context.Context, in *ListProjectsRequest, opts ...grpc.CallOption) (*ListProjectsResponse, error)
+	ListReleases(ctx context.Context, in *ListReleasesRequest, opts ...grpc.CallOption) (*ListReleasesResponse, error)
+	ListSprints(ctx context.Context, in *ListSprintsRequest, opts ...grpc.CallOption) (*ListSprintsResponse, error)
+	ListMilestones(ctx context.Context, in *ListMilestonesRequest, opts ...grpc.CallOption) (*ListMilestonesResponse, error)
 }
 
 type deliveryServiceClient struct {
@@ -195,6 +201,36 @@ func (c *deliveryServiceClient) ListProjects(ctx context.Context, in *ListProjec
 	return out, nil
 }
 
+func (c *deliveryServiceClient) ListReleases(ctx context.Context, in *ListReleasesRequest, opts ...grpc.CallOption) (*ListReleasesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListReleasesResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_ListReleases_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *deliveryServiceClient) ListSprints(ctx context.Context, in *ListSprintsRequest, opts ...grpc.CallOption) (*ListSprintsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSprintsResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_ListSprints_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *deliveryServiceClient) ListMilestones(ctx context.Context, in *ListMilestonesRequest, opts ...grpc.CallOption) (*ListMilestonesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMilestonesResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_ListMilestones_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DeliveryServiceServer is the server API for DeliveryService service.
 // All implementations should embed UnimplementedDeliveryServiceServer
 // for forward compatibility.
@@ -216,6 +252,9 @@ type DeliveryServiceServer interface {
 	CreateSprint(context.Context, *CreateSprintRequest) (*SprintResponse, error)
 	CreateMilestone(context.Context, *CreateMilestoneRequest) (*MilestoneResponse, error)
 	ListProjects(context.Context, *ListProjectsRequest) (*ListProjectsResponse, error)
+	ListReleases(context.Context, *ListReleasesRequest) (*ListReleasesResponse, error)
+	ListSprints(context.Context, *ListSprintsRequest) (*ListSprintsResponse, error)
+	ListMilestones(context.Context, *ListMilestonesRequest) (*ListMilestonesResponse, error)
 }
 
 // UnimplementedDeliveryServiceServer should be embedded to have
@@ -263,6 +302,15 @@ func (UnimplementedDeliveryServiceServer) CreateMilestone(context.Context, *Crea
 }
 func (UnimplementedDeliveryServiceServer) ListProjects(context.Context, *ListProjectsRequest) (*ListProjectsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListProjects not implemented")
+}
+func (UnimplementedDeliveryServiceServer) ListReleases(context.Context, *ListReleasesRequest) (*ListReleasesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListReleases not implemented")
+}
+func (UnimplementedDeliveryServiceServer) ListSprints(context.Context, *ListSprintsRequest) (*ListSprintsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListSprints not implemented")
+}
+func (UnimplementedDeliveryServiceServer) ListMilestones(context.Context, *ListMilestonesRequest) (*ListMilestonesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMilestones not implemented")
 }
 func (UnimplementedDeliveryServiceServer) testEmbeddedByValue() {}
 
@@ -518,6 +566,60 @@ func _DeliveryService_ListProjects_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DeliveryService_ListReleases_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListReleasesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).ListReleases(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_ListReleases_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).ListReleases(ctx, req.(*ListReleasesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DeliveryService_ListSprints_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSprintsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).ListSprints(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_ListSprints_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).ListSprints(ctx, req.(*ListSprintsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DeliveryService_ListMilestones_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMilestonesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).ListMilestones(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_ListMilestones_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).ListMilestones(ctx, req.(*ListMilestonesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DeliveryService_ServiceDesc is the grpc.ServiceDesc for DeliveryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -576,6 +678,18 @@ var DeliveryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListProjects",
 			Handler:    _DeliveryService_ListProjects_Handler,
+		},
+		{
+			MethodName: "ListReleases",
+			Handler:    _DeliveryService_ListReleases_Handler,
+		},
+		{
+			MethodName: "ListSprints",
+			Handler:    _DeliveryService_ListSprints_Handler,
+		},
+		{
+			MethodName: "ListMilestones",
+			Handler:    _DeliveryService_ListMilestones_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -263,6 +263,35 @@
       }
     },
     {
+      "operationId": "delivery.milestones.list",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "list_milestones",
+      "requestType": "iot.delivery.v1.ListMilestonesRequest",
+      "responseType": "iot.delivery.v1.ListMilestonesResponse",
+      "security": {
+        "tenantRequired": true,
+        "authentication": [
+          "api-key",
+          "jwt"
+        ],
+        "permissions": [
+          "delivery.milestones.read"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "read_only",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/ListMilestones"
+      }
+    },
+    {
       "operationId": "delivery.projects.create",
       "domain": "delivery",
       "application": "management",
@@ -352,6 +381,35 @@
       }
     },
     {
+      "operationId": "delivery.releases.list",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "list_releases",
+      "requestType": "iot.delivery.v1.ListReleasesRequest",
+      "responseType": "iot.delivery.v1.ListReleasesResponse",
+      "security": {
+        "tenantRequired": true,
+        "authentication": [
+          "api-key",
+          "jwt"
+        ],
+        "permissions": [
+          "delivery.releases.read"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "read_only",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/ListReleases"
+      }
+    },
+    {
       "operationId": "delivery.sprints.create",
       "domain": "delivery",
       "application": "management",
@@ -378,6 +436,35 @@
       },
       "bindings": {
         "rpc": "/iot.delivery.v1.DeliveryService/CreateSprint"
+      }
+    },
+    {
+      "operationId": "delivery.sprints.list",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "list_sprints",
+      "requestType": "iot.delivery.v1.ListSprintsRequest",
+      "responseType": "iot.delivery.v1.ListSprintsResponse",
+      "security": {
+        "tenantRequired": true,
+        "authentication": [
+          "api-key",
+          "jwt"
+        ],
+        "permissions": [
+          "delivery.sprints.read"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "read_only",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/ListSprints"
       }
     }
   ]

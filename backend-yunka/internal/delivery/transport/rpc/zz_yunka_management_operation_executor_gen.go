@@ -165,6 +165,19 @@ func (server *OperationServer) ListItems(ctx context.Context, request *deliveryv
 	return response, nil
 }
 
+func (server *OperationServer) ListMilestones(ctx context.Context, request *deliveryv1.ListMilestonesRequest) (*deliveryv1.ListMilestonesResponse, error) {
+	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
+		if values := metadata.Get("idempotency-key"); len(values) > 0 {
+			ctx = execution.WithIdempotencyKey(ctx, values[0])
+		}
+	}
+	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanListMilestones(), request, server.application.ListMilestones)
+	if err != nil {
+		return nil, gatewaygrpc.OperationError(err)
+	}
+	return response, nil
+}
+
 func (server *OperationServer) ListProjects(ctx context.Context, request *deliveryv1.ListProjectsRequest) (*deliveryv1.ListProjectsResponse, error) {
 	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
 		if values := metadata.Get("idempotency-key"); len(values) > 0 {
@@ -172,6 +185,32 @@ func (server *OperationServer) ListProjects(ctx context.Context, request *delive
 		}
 	}
 	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanListProjects(), request, server.application.ListProjects)
+	if err != nil {
+		return nil, gatewaygrpc.OperationError(err)
+	}
+	return response, nil
+}
+
+func (server *OperationServer) ListReleases(ctx context.Context, request *deliveryv1.ListReleasesRequest) (*deliveryv1.ListReleasesResponse, error) {
+	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
+		if values := metadata.Get("idempotency-key"); len(values) > 0 {
+			ctx = execution.WithIdempotencyKey(ctx, values[0])
+		}
+	}
+	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanListReleases(), request, server.application.ListReleases)
+	if err != nil {
+		return nil, gatewaygrpc.OperationError(err)
+	}
+	return response, nil
+}
+
+func (server *OperationServer) ListSprints(ctx context.Context, request *deliveryv1.ListSprintsRequest) (*deliveryv1.ListSprintsResponse, error) {
+	if metadata, ok := grpcmetadata.FromIncomingContext(ctx); ok {
+		if values := metadata.Get("idempotency-key"); len(values) > 0 {
+			ctx = execution.WithIdempotencyKey(ctx, values[0])
+		}
+	}
+	response, err := operation.ExecuteTyped(ctx, server.executor, policy.OperationPlanListSprints(), request, server.application.ListSprints)
 	if err != nil {
 		return nil, gatewaygrpc.OperationError(err)
 	}

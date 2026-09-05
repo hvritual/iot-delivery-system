@@ -831,6 +831,39 @@
       }
     },
     {
+      "name": "ListMilestonesRequest",
+      "fullName": "iot.delivery.v1.ListMilestonesRequest",
+      "fields": [
+        {
+          "name": "project_id",
+          "jsonName": "projectId",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "ListMilestonesResponse",
+      "fullName": "iot.delivery.v1.ListMilestonesResponse",
+      "fields": [
+        {
+          "name": "milestones",
+          "jsonName": "milestones",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.Milestone",
+          "repeated": true
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
       "name": "ListProjectsRequest",
       "fullName": "iot.delivery.v1.ListProjectsRequest",
       "fields": null,
@@ -848,6 +881,72 @@
           "number": 1,
           "kind": "message",
           "type": "iot.delivery.v1.Project",
+          "repeated": true
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
+      "name": "ListReleasesRequest",
+      "fullName": "iot.delivery.v1.ListReleasesRequest",
+      "fields": [
+        {
+          "name": "project_id",
+          "jsonName": "projectId",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "ListReleasesResponse",
+      "fullName": "iot.delivery.v1.ListReleasesResponse",
+      "fields": [
+        {
+          "name": "releases",
+          "jsonName": "releases",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.Release",
+          "repeated": true
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
+      "name": "ListSprintsRequest",
+      "fullName": "iot.delivery.v1.ListSprintsRequest",
+      "fields": [
+        {
+          "name": "project_id",
+          "jsonName": "projectId",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "ListSprintsResponse",
+      "fullName": "iot.delivery.v1.ListSprintsResponse",
+      "fields": [
+        {
+          "name": "sprints",
+          "jsonName": "sprints",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.Sprint",
           "repeated": true
         }
       ],
@@ -2104,6 +2203,42 @@
           }
         },
         {
+          "name": "ListMilestones",
+          "fullName": "iot.delivery.v1.DeliveryService.ListMilestones",
+          "request": "iot.delivery.v1.ListMilestonesRequest",
+          "response": "iot.delivery.v1.ListMilestonesResponse",
+          "operation": {
+            "id": "delivery.milestones.list",
+            "useCase": "list_milestones",
+            "permissions": [
+              "delivery.milestones.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "read_only",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.milestones.list",
+            "permissions": [
+              "delivery.milestones.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt"
+            ]
+          }
+        },
+        {
           "name": "ListProjects",
           "fullName": "iot.delivery.v1.DeliveryService.ListProjects",
           "request": "iot.delivery.v1.ListProjectsRequest",
@@ -2138,6 +2273,78 @@
               "api-key",
               "jwt",
               "service-token"
+            ]
+          }
+        },
+        {
+          "name": "ListReleases",
+          "fullName": "iot.delivery.v1.DeliveryService.ListReleases",
+          "request": "iot.delivery.v1.ListReleasesRequest",
+          "response": "iot.delivery.v1.ListReleasesResponse",
+          "operation": {
+            "id": "delivery.releases.list",
+            "useCase": "list_releases",
+            "permissions": [
+              "delivery.releases.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "read_only",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.releases.list",
+            "permissions": [
+              "delivery.releases.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt"
+            ]
+          }
+        },
+        {
+          "name": "ListSprints",
+          "fullName": "iot.delivery.v1.DeliveryService.ListSprints",
+          "request": "iot.delivery.v1.ListSprintsRequest",
+          "response": "iot.delivery.v1.ListSprintsResponse",
+          "operation": {
+            "id": "delivery.sprints.list",
+            "useCase": "list_sprints",
+            "permissions": [
+              "delivery.sprints.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "read_only",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.sprints.list",
+            "permissions": [
+              "delivery.sprints.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt"
             ]
           }
         },
