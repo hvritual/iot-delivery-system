@@ -54,7 +54,7 @@ func TestConfigurationRejectsProductionInsecureServiceCredentialFlag(t *testing.
 	}
 }
 
-func TestYU23ProductionMCPAcceptsLocalAccessOrSessionCredentialMode(t *testing.T) {
+func TestYU23DevelopmentMCPAcceptsLocalAccessOrSessionCredentialMode(t *testing.T) {
 	for _, scenario := range []struct {
 		name string
 		env  string
@@ -65,32 +65,44 @@ func TestYU23ProductionMCPAcceptsLocalAccessOrSessionCredentialMode(t *testing.T
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
 			clearMCPAuthEnvironment(t)
-			t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "production")
+			t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "development")
 			t.Setenv("IOT_DELIVERY_BOOTSTRAP_MODE", "disabled")
 			t.Setenv(scenario.env, "YU23-local-member-credential-sentinel")
 			key := base64.RawURLEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef"))
 			t.Setenv(localAuthKeyEnvironment, key)
 			configuration, err := configurationFromEnv()
 			if err != nil {
-				t.Fatalf("production local-member MCP configuration error=%v", err)
+				t.Fatalf("development local-member MCP configuration error=%v", err)
 			}
 			credential, err := mcpCredentialFromEnv()
-			if err != nil || credential.kind != scenario.kind || configuration.RuntimeEnvironment != "production" || configuration.LocalAuthJWTSigningKey != key {
+			if err != nil || credential.kind != scenario.kind || configuration.RuntimeEnvironment != "development" || configuration.LocalAuthJWTSigningKey != key {
 				t.Fatalf("credential=%#v configuration=%#v error=%v", credential, configuration, err)
 			}
 		})
 	}
 }
 
-func TestYU23MCPRejectsMissingOrMixedCredentialFamiliesWithoutLeakingValues(t *testing.T) {
+func TestYU23ProductionLocalMemberMCPRemainsDevelopmentOnly(t *testing.T) {
 	clearMCPAuthEnvironment(t)
 	t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "production")
+	t.Setenv("IOT_DELIVERY_BOOTSTRAP_MODE", "disabled")
+	t.Setenv(mcpAccessTokenEnvironment, "YU23-production-access-token")
+	t.Setenv(localAuthKeyEnvironment, base64.RawURLEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef")))
+	_, err := configurationFromEnv()
+	if err == nil || !strings.Contains(err.Error(), "development-only") {
+		t.Fatalf("production local-member MCP error=%v, want development-only", err)
+	}
+}
+
+func TestYU23MCPRejectsMissingOrMixedCredentialFamiliesWithoutLeakingValues(t *testing.T) {
+	clearMCPAuthEnvironment(t)
+	t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "development")
 	t.Setenv("IOT_DELIVERY_BOOTSTRAP_MODE", "disabled")
 	if _, err := configurationFromEnv(); err == nil || !strings.Contains(err.Error(), "exactly one MCP credential family") {
 		t.Fatalf("missing MCP credential error=%v", err)
 	}
 	clearMCPAuthEnvironment(t)
-	t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "production")
+	t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "development")
 	t.Setenv("IOT_DELIVERY_BOOTSTRAP_MODE", "disabled")
 	const accessSentinel = "YU23-access-secret-must-not-leak"
 	const sessionSentinel = "YU23-session-secret-must-not-leak"
