@@ -2,6 +2,7 @@ package obsidian
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -328,11 +329,22 @@ func iotScope(item delivery.WorkItem) string {
 		return "## IoT 交付范围\n\n未知：尚未在交付系统中绑定设备、固件、客户、环境或灰度批次。"
 	}
 	var builder strings.Builder
-	builder.WriteString("## IoT 交付范围\n\n| 类型 | 引用 | 标识 |\n| --- | --- | --- |\n")
+	builder.WriteString("## IoT 交付范围\n\n| 类型 | 引用 | 标识 | 属性 |\n| --- | --- | --- | --- |\n")
 	for _, binding := range item.IoTBindings {
-		fmt.Fprintf(&builder, "| %s | %s | %s |\n", markdownCell(iotBindingLabel(binding.Kind)), markdownCell(binding.Reference), markdownCell(binding.Label))
+		fmt.Fprintf(&builder, "| %s | %s | %s | %s |\n", markdownCell(iotBindingLabel(binding.Kind)), markdownCell(binding.Reference), markdownCell(binding.Label), markdownCell(iotAttributes(binding.Attributes)))
 	}
 	return builder.String()
+}
+
+func iotAttributes(attributes map[string]string) string {
+	if len(attributes) == 0 {
+		return ""
+	}
+	encoded, err := json.Marshal(attributes)
+	if err != nil {
+		return ""
+	}
+	return string(encoded)
 }
 
 func traceLinks(item delivery.WorkItem) string {

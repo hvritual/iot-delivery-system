@@ -22,25 +22,50 @@ export function filterDeliveryItems(items, filter = {}) {
 }
 
 export function parseIoTBindings(value) {
-  return parseLines(value, 3).map(([kind, reference, label]) => ({ kind, reference, ...(label ? { label } : {}) }));
+  return parseLines(value, 4).map(([kind, reference, label, encodedAttributes]) => ({
+    kind,
+    reference,
+    ...(label ? { label } : {}),
+    ...(encodedAttributes ? { attributes: parseAttributes(encodedAttributes) } : {}),
+  }));
 }
 
 export function parseTraceLinks(value) {
-  return parseLines(value, 5).map(([kind, reference, title, url, status]) => ({
+  return parseLines(value, 6).map(([kind, reference, title, url, status, recordedAt]) => ({
     kind,
     reference,
     ...(title ? { title } : {}),
     ...(url ? { url } : {}),
     ...(status ? { status } : {}),
+    ...(recordedAt ? { recordedAt } : {}),
   }));
 }
 
 export function stringifyIoTBindings(bindings = []) {
-  return bindings.map((binding) => [binding.kind, binding.reference, binding.label ?? ""].join(" | ")).join("\n");
+  return bindings.map((binding) => [binding.kind, binding.reference, binding.label ?? "", stringifyAttributes(binding.attributes)].join(" | ")).join("\n");
 }
 
 export function stringifyTraceLinks(links = []) {
-  return links.map((link) => [link.kind, link.reference, link.title ?? "", link.url ?? "", link.status ?? ""].join(" | ")).join("\n");
+  return links.map((link) => [link.kind, link.reference, link.title ?? "", link.url ?? "", link.status ?? "", link.recordedAt ?? ""].join(" | ")).join("\n");
+}
+
+function stringifyAttributes(attributes) {
+  if (!attributes || typeof attributes !== "object" || Array.isArray(attributes) || Object.keys(attributes).length === 0) return "";
+  const ordered = Object.fromEntries(Object.entries(attributes).sort(([left], [right]) => left.localeCompare(right)));
+  return JSON.stringify(ordered).replaceAll("|", "\\u007c");
+}
+
+function parseAttributes(value) {
+  let attributes;
+  try {
+    attributes = JSON.parse(value);
+  } catch {
+    throw new TypeError("IoT 绑定属性必须是 JSON 对象");
+  }
+  if (!attributes || typeof attributes !== "object" || Array.isArray(attributes) || Object.values(attributes).some((entry) => typeof entry !== "string")) {
+    throw new TypeError("IoT 绑定属性必须是字符串到字符串的 JSON 对象");
+  }
+  return attributes;
 }
 
 export function projectProgressLabel(progress) {
