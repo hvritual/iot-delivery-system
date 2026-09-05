@@ -73,21 +73,28 @@ type jwtHeader struct {
 }
 
 type jwtClaims struct {
-	Issuer    string `json:"iss"`
-	Audience  string `json:"aud"`
-	Subject   string `json:"sub"`
-	TenantID  string `json:"tid"`
-	SessionID string `json:"sid"`
-	IssuedAt  int64  `json:"iat"`
-	ExpiresAt int64  `json:"exp"`
-	Version   int    `json:"ver"`
+	Issuer          string `json:"iss"`
+	Audience        string `json:"aud"`
+	Subject         string `json:"sub"`
+	TenantID        string `json:"tid"`
+	SessionID       string `json:"sid"`
+	SessionRevision int64  `json:"sv"`
+	IssuedAt        int64  `json:"iat"`
+	ExpiresAt       int64  `json:"exp"`
+	Version         int    `json:"ver"`
 }
 
+// signAccessToken is retained for YU-21 compatibility tests and signs the
+// initial session revision. Runtime renewal uses signAccessTokenForSession.
 func signAccessToken(config Config, organizationID, userID, sessionID string, issuedAt time.Time) (string, time.Time, error) {
+	return signAccessTokenForSession(config, organizationID, userID, sessionID, 1, issuedAt)
+}
+
+func signAccessTokenForSession(config Config, organizationID, userID, sessionID string, sessionRevision int64, issuedAt time.Time) (string, time.Time, error) {
 	if err := config.validate(); err != nil {
 		return "", time.Time{}, err
 	}
-	if !canonicalIdentifier(organizationID) || !canonicalIdentifier(userID) || !canonicalIdentifier(sessionID) {
+	if !canonicalIdentifier(organizationID) || !canonicalIdentifier(userID) || !canonicalIdentifier(sessionID) || sessionRevision < 1 {
 		return "", time.Time{}, ErrAccessTokenInvalid
 	}
 	issuedAt = issuedAt.UTC().Truncate(time.Second)
@@ -98,7 +105,7 @@ func signAccessToken(config Config, organizationID, userID, sessionID string, is
 	header := jwtHeader{Algorithm: JWTAlgorithm, Type: JWTType, KeyID: config.KeyID}
 	claims := jwtClaims{
 		Issuer: config.Issuer, Audience: config.Audience,
-		Subject: userID, TenantID: organizationID, SessionID: sessionID,
+		Subject: userID, TenantID: organizationID, SessionID: sessionID, SessionRevision: sessionRevision,
 		IssuedAt: issuedAt.Unix(), ExpiresAt: expiresAt.Unix(), Version: JWTVersion,
 	}
 	headerJSON, err := json.Marshal(header)
@@ -155,7 +162,7 @@ func verifyAccessTokenSignature(config Config, token string, now time.Time) (jwt
 		return jwtClaims{}, ErrAccessTokenInvalid
 	}
 	if claims.Issuer != config.Issuer || claims.Audience != config.Audience || claims.Version != JWTVersion ||
-		!canonicalIdentifier(claims.Subject) || !canonicalIdentifier(claims.TenantID) || !canonicalIdentifier(claims.SessionID) ||
+		!canonicalIdentifier(claims.Subject) || !canonicalIdentifier(claims.TenantID) || !canonicalIdentifier(claims.SessionID) || claims.SessionRevision < 1 ||
 		claims.IssuedAt <= 0 || claims.ExpiresAt <= claims.IssuedAt || claims.ExpiresAt-claims.IssuedAt != int64(config.AccessTTL/time.Second) {
 		return jwtClaims{}, ErrAccessTokenInvalid
 	}
