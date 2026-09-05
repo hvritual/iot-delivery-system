@@ -1,0 +1,141 @@
+name: yunka-149-nested-project
+
+on:
+  push:
+    branches:
+      - qualification/149-nested-project-git-paths
+    paths:
+      - .github/workflows/yunka-149-nested-project.yml
+      - .github/qualification/yunka-149-nested-project-pressure.sh
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nested-project-git-paths:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      YUNKA_SHA: 97e2c8fe44d804eeb6819e75fc78f11d1a53b6c3
+      CONSUMER_RED_PARENT: 3b84d2a420d1931087ee0717b5bb64126a388592
+    steps:
+      - name: Checkout nested-project qualification branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          path: consumer
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: false
+
+      - name: Capture pristine consumer status
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C consumer status --porcelain > "$RUNNER_TEMP/consumer-before.status"
+          test ! -s "$RUNNER_TEMP/consumer-before.status"
+          test -f consumer/backend-yunka/.yunka/project.json
+          test ! -f consumer/.yunka/project.json
+          git -C consumer merge-base --is-ancestor "$CONSUMER_RED_PARENT" HEAD
+          changed="$(git -C consumer diff --name-only "$CONSUMER_RED_PARENT"...HEAD)"
+          expected=$'.github/qualification/yunka-149-nested-project-pressure.sh\n.github/workflows/yunka-149-nested-project.yml'
+          test "$changed" = "$expected"
+
+      - name: Checkout exact Yunka issue 149 candidate into historical replace target
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: hvritual/yunka.io
+          ref: ${{ env.YUNKA_SHA }}
+          path: consumer/third_party/yunka
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C consumer/third_party/yunka rev-parse HEAD)" = "$YUNKA_SHA"
+          grep -q 'replace github.com/hvritual/yunka.io/framework => ../third_party/yunka/framework' consumer/backend-yunka/go.mod
+          grep -q 'replace github.com/hvritual/yunka.io/gateway => ../third_party/yunka/gateway' consumer/backend-yunka/go.mod
+          grep -q 'replace github.com/hvritual/yunka.io/pkg => ../third_party/yunka/pkg' consumer/backend-yunka/go.mod
+
+      - name: Load locked Yunka toolchain
+        id: lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          source consumer/third_party/yunka/tools/toolchain.env
+          echo "go_version=${GO_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "protoc_release=${PROTOC_RELEASE}" >> "$GITHUB_OUTPUT"
+          echo "protoc_sha256=${PROTOC_LINUX_X86_64_SHA256}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup locked Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: ${{ steps.lock.outputs.go_version }}
+          cache: false
+
+      - name: Install locked protoc
+        shell: bash
+        env:
+          PROTOC_RELEASE: ${{ steps.lock.outputs.protoc_release }}
+          PROTOC_SHA256: ${{ steps.lock.outputs.protoc_sha256 }}
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/protoc.zip"
+          root="$RUNNER_TEMP/protoc"
+          curl --fail --silent --show-error --location --retry 3 \
+            "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_RELEASE}/protoc-${PROTOC_RELEASE}-linux-x86_64.zip" \
+            -o "$archive"
+          echo "${PROTOC_SHA256}  ${archive}" | sha256sum -c -
+          mkdir -p "$root"
+          unzip -q "$archive" -d "$root"
+          echo "$root/bin" >> "$GITHUB_PATH"
+
+      - name: Build locked protobuf Go plugins
+        shell: bash
+        run: |
+          set -euo pipefail
+          make -C consumer/third_party/yunka rpc-tools
+          echo "$GITHUB_WORKSPACE/consumer/third_party/yunka/.yunka/bin" >> "$GITHUB_PATH"
+
+      - name: Build exact Yunka candidate CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          go -C consumer/third_party/yunka/app build -o "$RUNNER_TEMP/yunka" ./cmd
+          "$RUNNER_TEMP/yunka" audit --help >/dev/null
+          "$RUNNER_TEMP/yunka" change set check --help >/dev/null
+
+      - name: Execute original nested-project pressure
+        shell: bash
+        env:
+          YUNKA_BIN: ${{ runner.temp }}/yunka
+          YUNKA_ROOT: ${{ github.workspace }}/consumer/third_party/yunka
+          REPO: ${{ github.workspace }}/consumer
+          ROOT: ${{ github.workspace }}/consumer/backend-yunka
+          EVIDENCE: ${{ runner.temp }}/yunka-149-evidence
+        run: |
+          set -euo pipefail
+          bash consumer/.github/qualification/yunka-149-nested-project-pressure.sh
+
+      - name: Restore historical consumer checkout
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf consumer/third_party/yunka
+          git -C consumer reset --hard "$GITHUB_SHA"
+          git -C consumer clean -fdx
+          git -C consumer status --porcelain > "$RUNNER_TEMP/consumer-after.status"
+          diff -u "$RUNNER_TEMP/consumer-before.status" "$RUNNER_TEMP/consumer-after.status"
+
+      - name: Upload issue 149 evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: yunka-149-nested-project
+          path: ${{ runner.temp }}/yunka-149-evidence
+          if-no-files-found: warn
+          retention-days: 3
