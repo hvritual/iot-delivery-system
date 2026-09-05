@@ -23,7 +23,10 @@ const (
 const bindingRevisionTrigger = `
 CREATE TRIGGER IF NOT EXISTS role_bindings_require_revision_on_disable
 BEFORE UPDATE ON role_bindings
-WHEN OLD.status = 'active'
+WHEN OLD.scope_type = 'project'
+ AND OLD.user_id IS NOT NULL
+ AND OLD.team_id IS NULL
+ AND OLD.status = 'active'
  AND NEW.status = 'disabled'
  AND NEW.revision <> OLD.revision + 1
 BEGIN
@@ -33,7 +36,11 @@ END;`
 const bindingReactivationTrigger = `
 CREATE TRIGGER IF NOT EXISTS role_bindings_prevent_reactivation
 BEFORE UPDATE OF status ON role_bindings
-WHEN OLD.status = 'disabled' AND NEW.status <> 'disabled'
+WHEN OLD.scope_type = 'project'
+ AND OLD.user_id IS NOT NULL
+ AND OLD.team_id IS NULL
+ AND OLD.status = 'disabled'
+ AND NEW.status <> 'disabled'
 BEGIN
     SELECT RAISE(ABORT, 'revoked project role binding cannot be reactivated');
 END;`
@@ -41,7 +48,11 @@ END;`
 const bindingRevisionOnlyTrigger = `
 CREATE TRIGGER IF NOT EXISTS role_bindings_revision_only_on_revocation
 BEFORE UPDATE OF revision ON role_bindings
-WHEN OLD.status = NEW.status AND NEW.revision <> OLD.revision
+WHEN OLD.scope_type = 'project'
+ AND OLD.user_id IS NOT NULL
+ AND OLD.team_id IS NULL
+ AND OLD.status = NEW.status
+ AND NEW.revision <> OLD.revision
 BEGIN
     SELECT RAISE(ABORT, 'project role binding revision may change only on revocation');
 END;`
@@ -49,14 +60,19 @@ END;`
 const bindingIdentityTrigger = `
 CREATE TRIGGER IF NOT EXISTS role_bindings_identity_immutable
 BEFORE UPDATE OF id, organization_id, role_id, scope_type, scope_id, user_id, team_id, created_at ON role_bindings
-WHEN NEW.id <> OLD.id
-  OR NEW.organization_id <> OLD.organization_id
-  OR NEW.role_id <> OLD.role_id
-  OR NEW.scope_type <> OLD.scope_type
-  OR NEW.scope_id <> OLD.scope_id
-  OR NOT (NEW.user_id IS OLD.user_id)
-  OR NOT (NEW.team_id IS OLD.team_id)
-  OR NEW.created_at <> OLD.created_at
+WHEN OLD.scope_type = 'project'
+ AND OLD.user_id IS NOT NULL
+ AND OLD.team_id IS NULL
+ AND (
+    NEW.id <> OLD.id
+    OR NEW.organization_id <> OLD.organization_id
+    OR NEW.role_id <> OLD.role_id
+    OR NEW.scope_type <> OLD.scope_type
+    OR NEW.scope_id <> OLD.scope_id
+    OR NOT (NEW.user_id IS OLD.user_id)
+    OR NOT (NEW.team_id IS OLD.team_id)
+    OR NEW.created_at <> OLD.created_at
+ )
 BEGIN
     SELECT RAISE(ABORT, 'project role binding identity is immutable');
 END;`
@@ -315,23 +331,20 @@ func ensureCanonicalRoleGrants(ctx context.Context, tx *sql.Tx, canonicalRoles [
 }
 
 func verifyBindingTriggers(ctx context.Context, tx *sql.Tx) error {
+	requiredScope := []string{"old.scope_type = 'project'", "old.user_id is not null", "old.team_id is null"}
 	required := map[string][]string{
-		"role_bindings_require_revision_on_disable": {
+		"role_bindings_require_revision_on_disable": append(append([]string{}, requiredScope...),
 			"old.status = 'active'", "new.status = 'disabled'", "new.revision <> old.revision + 1",
-			"raise(abort, 'project role binding revocation requires revision cas')",
-		},
-		"role_bindings_prevent_reactivation": {
+			"raise(abort, 'project role binding revocation requires revision cas')"),
+		"role_bindings_prevent_reactivation": append(append([]string{}, requiredScope...),
 			"old.status = 'disabled'", "new.status <> 'disabled'",
-			"raise(abort, 'revoked project role binding cannot be reactivated')",
-		},
-		"role_bindings_revision_only_on_revocation": {
+			"raise(abort, 'revoked project role binding cannot be reactivated')"),
+		"role_bindings_revision_only_on_revocation": append(append([]string{}, requiredScope...),
 			"old.status = new.status", "new.revision <> old.revision",
-			"raise(abort, 'project role binding revision may change only on revocation')",
-		},
-		"role_bindings_identity_immutable": {
+			"raise(abort, 'project role binding revision may change only on revocation')"),
+		"role_bindings_identity_immutable": append(append([]string{}, requiredScope...),
 			"before update of id, organization_id, role_id, scope_type, scope_id, user_id, team_id, created_at on role_bindings",
-			"raise(abort, 'project role binding identity is immutable')",
-		},
+			"raise(abort, 'project role binding identity is immutable')"),
 	}
 	for name, fragments := range required {
 		var definition string
