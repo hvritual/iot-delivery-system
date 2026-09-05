@@ -21,7 +21,7 @@ func TestGeneratedRPCOperationPlansRemainCanonical(t *testing.T) {
 
 	const (
 		serviceName       = "iot.delivery.v1.DeliveryService"
-		generatedRPCCount = 22
+		generatedRPCCount = 25
 	)
 
 	services := deliveryv1.File_iot_delivery_proto.Services()
@@ -35,7 +35,7 @@ func TestGeneratedRPCOperationPlansRemainCanonical(t *testing.T) {
 	if got := service.Methods().Len(); got != generatedRPCCount {
 		t.Fatalf("generated descriptor RPC count = %d, want %d", got, generatedRPCCount)
 	}
-	for _, methodName := range []string{"ListReleases", "ListSprints", "ListMilestones", "GetItem", "SearchItems", "FindSimilarItems", "SaveView", "ListSavedViews", "GetMemberWeek"} {
+	for _, methodName := range []string{"ListReleases", "ListSprints", "ListMilestones", "GetItem", "SearchItems", "FindSimilarItems", "SaveView", "ListSavedViews", "GetMemberWeek", "GetProjectProgress", "GetProjectSchedule", "ListNotifications"} {
 		if method := service.Methods().ByName(protoreflect.Name(methodName)); method == nil {
 			t.Errorf("generated descriptor is missing %s", methodName)
 		}
