@@ -114,26 +114,36 @@ func (recorder *SecurityRecorder) RecordAuthenticationAccepted(ctx context.Conte
 
 // RecordApplicationRollback records a failure only after the shared executor
 // has returned from its local transaction, so the failure audit is not part of
-// the transaction that was intentionally rolled back.
+// the transaction that was intentionally rolled back. The audit category is
+// derived from the canonical operation domain so configuration failures do not
+// become delivery failures merely because both domains share one executor.
 func (recorder *SecurityRecorder) RecordApplicationRollback(ctx context.Context, operation string) error {
 	actorType, actorID, organizationID, err := trustedSecurityActor(ctx)
 	if err != nil {
 		return err
 	}
+	eventCategory, reasonCode := rollbackAuditClassification(operation)
 	return recorder.record(ctx, securityRecord{
-		eventCategory:  EventCategoryDelivery,
+		eventCategory:  eventCategory,
 		actorType:      actorType,
 		actorID:        actorID,
 		organizationID: organizationID,
 		operation:      operation,
 		decision:       DecisionAllowed,
 		result:         ResultFailure,
-		reasonCode:     "application.transaction_rolled_back",
+		reasonCode:     reasonCode,
 		transport:      securityTransport(ctx),
 		phase:          "application",
 		failureClass:   "transaction",
 		change:         "rolled_back",
 	})
+}
+
+func rollbackAuditClassification(operation string) (EventCategory, string) {
+	if strings.HasPrefix(operation, "config.revisions.") {
+		return EventCategoryConfiguration, "configuration.transaction_rolled_back"
+	}
+	return EventCategoryDelivery, "application.transaction_rolled_back"
 }
 
 // RecordRevocationInTransaction ensures the state change and audit entry are
