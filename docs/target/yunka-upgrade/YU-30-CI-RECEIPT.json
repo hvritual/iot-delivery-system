@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "task_id": "YU-30",
+  "repository": "hvritual/iot-delivery-system",
+  "fixed_parent": "f66019e605affe1eedbf20801fab4f22a0903621",
+  "tested_sha": "2f533dc233584c3318b9788f7016dcfb131b99b7",
+  "tested_tree": "1366aec6a9ad6998229a6c191f2972821ff7b049",
+  "framework_sha": "057ebcf88a87303eb633eb6e604d306f633dfac0",
+  "workflow_run_id": 33971774693,
+  "run_attempt": 1,
+  "run_url": "https://github.com/hvritual/iot-delivery-system/actions/runs/33971774693",
+  "completed_at": "2026-09-05T14:32:59Z",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "id": 101321453966,
+      "name": "YU-30 / browser-e2e",
+      "conclusion": "success"
+    },
+    {
+      "id": 101321454006,
+      "name": "YU-30 / canonical-full",
+      "conclusion": "success"
+    },
+    {
+      "id": 101321454032,
+      "name": "YU-30 / web-diagnostics",
+      "conclusion": "success"
+    },
+    {
+      "id": 101321454045,
+      "name": "YU-30 / go-diagnostics",
+      "conclusion": "success"
+    }
+  ],
+  "artifacts": [
+    {
+      "id": 9971229038,
+      "name": "yu30-canonical-full-33971774693-1",
+      "sha256": "d19254822b14efd575fc8d3363605c3b882d9e1f77434e6f2d6e56b0370bd532"
+    },
+    {
+      "id": 9971191912,
+      "name": "yu30-go-diagnostics-33971774693-1",
+      "sha256": "adedf49aeb030772ca62297cb85a62072e52dfd73759c9a5841489f69367407c"
+    },
+    {
+      "id": 9971153327,
+      "name": "yu30-browser-e2e-33971774693-1",
+      "sha256": "7428d2b8d779c3378ba2b57e6c54a2c990b233efe57c2dcb5d94bef8f14e5511"
+    },
+    {
+      "id": 9971143645,
+      "name": "yu30-web-diagnostics-33971774693-1",
+      "sha256": "4717f267483f25494d875df2db2768b3f4631fa20c0a3a4b3bf06fa9645d64b9"
+    }
+  ],
+  "web_tests": {
+    "files_passed": 22,
+    "tests_passed": 74
+  },
+  "npm_audit_reported_vulnerabilities": 0,
+  "audit_debt": {
+    "new": 0,
+    "existing": [
+      "AUDIT-AUTH-001:backend-yunka/internal/delivery/application/adapter.go:github.com/hvritual/yunka.io/gateway/authz"
+    ],
+    "policy": "no new proven debt; not zero-debt certification"
+  },
+  "changeset_scope": "current canonical operations at tested HEAD; positive, exact out-of-scope negative control, restored positive; not historical whole-diff certification",
+  "closeout_gate": "the documentation closeout commit requires its own exact-SHA CI run before non-force merge",
+  "next_task_started": false,
+  "deployed": false
+}

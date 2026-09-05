@@ -1,235 +1,69 @@
 # YU-30 full regression evidence
 
-> Document class: **EVIDENCE**  
-> Task: `YU-30`  
-> Fixed consumer parent: `f66019e605affe1eedbf20801fab4f22a0903621`  
-> Task branch: `codex/yu-30-full-regression`  
-> Fixed Yunka gitlink: `057ebcf88a87303eb633eb6e604d306f633dfac0`  
-> Scope stop: before `YU-31`
+> Document class: **EVIDENCE**
+> Fixed consumer parent: `f66019e605affe1eedbf20801fab4f22a0903621`
+> Task branch: `codex/yu-30-full-regression`
+> Fixed Yunka: `057ebcf88a87303eb633eb6e604d306f633dfac0`
+> Scope stop: before YU-31; no deployment
 
-## Result
+## Authoritative execution result
 
-YU-30 is **not GREEN and not certified in the current execution environment**.
+The implemented source at `2f533dc233584c3318b9788f7016dcfb131b99b7` passed all four required jobs in GitHub Actions run **33971774693**, attempt 1, completed on 2026-09-05. This replaces the earlier environment-blocked status; it is not a claim that the restricted assistant shell ran the tests.
 
-This task is an execution/certification task rather than a feature-authoring task. The current tool container cannot materialize the fixed canonical repository checkout, so none of the required generator, Go, frontend, browser E2E, ownership, audit, ChangeSet or no-bypass commands can truthfully be reported as passing.
+Run: https://github.com/hvritual/iot-delivery-system/actions/runs/33971774693
 
-The round therefore adds one deterministic consumer regression entry point:
+`YU-30-CI-RECEIPT.json` binds the exact consumer SHA, framework SHA, job IDs, artifact IDs and SHA-256 digests. All four archives were downloaded through the connected artifact API and their bytes were independently hash-checked. Their `head.txt` values match the tested SHA, and all `worktree.txt` / `worktree.patch` files are empty.
 
-```text
-backend-yunka/scripts/run-yu30-regression.sh
-```
+The documentation closeout is a separate commit. It must obtain its own exact-SHA required-job success before non-force merge. This receipt certifies its named source commit, not an unknown future commit. TASKS dispatch advances only after that gate and main/branch readback.
 
-but deliberately does **not** advance `TASKS.md` to YU-31 and does **not** treat the runner's existence as execution evidence.
+## Executed matrix
 
-## Fixed-parent RED review
+| Gate | Observed result |
+| --- | --- |
+| Exact checkout, pinned framework and toolchain | PASS on GitHub-hosted Ubuntu 24.04 |
+| Canonical generate/check pass 1 and pass 2 | PASS; zero worktree drift after each |
+| Ownership check of changed handwritten Go | PASS |
+| Generated ownership inventory | 15 files; every file generator-only and not safe-auto-edit |
+| Yunka audit JSON debt delta | 0 new proven debts; 1 existing debt retained, not zero findings |
+| Real ChangeSet CLI | Positive conformant; exact scope probe rejected; restored conformant |
+| Application authorization / audit / transaction / no-bypass packages | PASS |
+| `go mod tidy -diff` | Exit 0; no committed dependency drift |
+| `go test ./...` | PASS |
+| `go vet ./...` | Exit 0 |
+| `go test -race ./...` | PASS |
+| Frontend `npm test` | 22 files / 74 tests passed |
+| Frontend typecheck / production build | Exit 0 / exit 0 |
+| `npm audit --audit-level=high` | Exit 0; that run reported zero vulnerabilities |
+| `npm run e2e:yu29` | Real browser PASS in canonical-full and independent browser-e2e jobs |
+| Final whitespace and worktree drift | PASS; empty worktree evidence |
 
-### Candidate A — the canonical tree has already failed a YU-30 product gate
+Toolchain: Go 1.25.13, Node 22.16.0, protoc 3.21.12, protoc-gen-go 1.36.11, protoc-gen-go-grpc 1.6.2. Browser evidence records Google Chrome 152.0.7977.64. No compiler, typecheck, race, authentication or authorization gate was disabled.
 
-Not established.
+## Real RED and repair provenance
 
-YU-30 accepts only a real command failure, generator drift, `yunka check --full` failure, Go/frontend/E2E test failure, or ownership/audit/ChangeSet/no-bypass gate failure as RED.
+The first CI run, **33969280959** at `029df4c1fa30d081667fe79790119d81bd477e8a`, checked out both repositories and installed the required toolchain. It then exposed real failures rather than a missing-container hypothesis. Subsequent repairs and reruns are retained in branch history.
 
-No such command was able to execute against the canonical fixed-parent tree in this environment. Therefore this round does not manufacture a consumer RED from missing checkout/network/toolchain materialization.
+- Framework CLI composition: globally disabling workspace selection resolved the public pkg tag rather than the pinned framework workspace and produced missing diagnostic symbols. The consumer Makefile now explicitly selects `third_party/yunka/go.work`; consumer test processes still use `GOWORK=off`. Framework source was not edited.
+- Go compilation, identity fixtures and source guards: small consumer fixes restored compile/type alignment, current durable permission/session fixtures and fail-closed no-bypass checks. Complete packages and race/vet were rerun; no empty regex match is counted as a gate.
+- Frontend: the real run found 4 failing auth-shell tests and BodyInit/mock-signature type errors. Component semantics, test cleanup and request-body types were repaired; the final 74-test suite and production build pass.
+- Dependency resolution: real Go module resolution and the npm lockfile were committed. The original npm installation reported high-severity findings; the updated dependency graph reports zero in the recorded final audit. This is a dated audit result, not a permanent security claim.
+- Browser certification: cross-context CSRF now holds reviewer identity, grant, request path, body and revision constant while changing only the CSRF token. The wrong token is rejected with unchanged business state; the correct reviewer token commits exactly one revision. A role-denied administrator call is not used to prove CSRF protection.
+- Next type generation: `next-env.d.ts` is mode-specific generated output. It is ignored rather than hand-maintained; strict typecheck first runs `next typegen`. No TypeScript check is skipped.
 
-### Confirmed execution blocker — canonical source is unavailable to the local toolchain
+## Governance limits and retained improvements
 
-The execution container was inspected before writing any product fix.
+**Existing consumer audit debt:** `AUDIT-AUTH-001` at `backend-yunka/internal/delivery/application/adapter.go` identifies a direct import of `github.com/hvritual/yunka.io/gateway/authz` in the application domain. The raw report classifies it as an existing proven violation relative to the fixed parent. It is neither fixed nor a Yunka defect in this round. The current gate is no-new-debt; YU-32 must review the boundary and close or explicitly adjudicate this debt with evidence. Do not describe YU-30 as zero-debt or final security certification.
 
-Available tools include:
+**ChangeSet scope:** the actual CLI checks all current generated canonical operations at the tested HEAD, plus an exact negative out-of-scope file and restoration. It does not retrospectively certify every historical YU-01..29 edit or unrelated frontend/CI changes. Those paths retain their own diff and executable gates.
 
-```text
-Node      v22.16.0
-npm       10.9.2
-Go        go1.23.2 linux/amd64
-Chromium  140.0.7339.80
-```
+**Evidence retention:** Actions command artifacts currently expire after seven days and offline source after one day. Receipt hashes and run IDs make provenance explicit but do not replace artifact bytes. Long-lived evidence retention and permanent merge enforcement remain improvement candidates; this round performs an explicit exact-SHA gate, not a repository-ruleset installation.
 
-No `iot-delivery-system` checkout exists in the accessible workspace.
+## Environment and scope
 
-A direct repository probe returned:
+The assistant shell's direct GitHub DNS restriction still exists. GitHub Actions provides the real execution environment; checksum-verified Git bundles provide offline source access. This resolves the workflow dependency on the restricted shell without pretending to repair its network or installing a lower toolchain. See `YU-30-ENVIRONMENT.md`.
 
-```text
-git ls-remote https://github.com/hvritual/iot-delivery-system.git HEAD
-fatal: unable to access 'https://github.com/hvritual/iot-delivery-system.git/': Could not resolve host: github.com
-```
+No Yunka framework source, framework gitlink, protobuf or generated business artifact was changed by the repairs. No new framework defect was reproduced and no framework Issue was created. The retained audit debt is consumer-side. YU-31 runtime smoke/closure and YU-32 independent review have not been executed by this round.
 
-Additional direct-IP / external DNS bypass attempts did not provide usable GitHub transport. Historical pinned tool paths from the earlier YU-03 execution workspace are also absent from the current container.
+## Earlier blocked attempt (historical, superseded)
 
-This is an **environment blocker**, not product RED.
-
-## Canonical toolchain contract reread
-
-The fixed-parent `backend-yunka/Makefile` remains authoritative for generation/check execution.
-
-It requires:
-
-```text
-Yunka gitlink          057ebcf88a87303eb633eb6e604d306f633dfac0
-Go                     go1.25.13
-protoc                  libprotoc 3.21.12
-protoc-gen-go           v1.36.11
-protoc-gen-go-grpc      1.6.2
-```
-
-and exposes:
-
-```text
-make yunka-toolchain-check
-make yunka-generate
-make yunka-check
-```
-
-The current container's Go `1.23.2` is therefore not accepted as a substitute for the reviewed Go `1.25.13` generation/check workflow.
-
-The fixed-parent GitHub tree was also reread through the repository API and confirms:
-
-```text
-third_party/yunka -> 057ebcf88a87303eb633eb6e604d306f633dfac0
-```
-
-with the canonical generated artifacts, authorization tests, audit tests, ownership tests, no-bypass tests and YU-29 E2E harness present in the tree.
-
-Static existence is inventory evidence only; it is not execution PASS evidence.
-
-## Canonical YU-30 regression runner
-
-`backend-yunka/scripts/run-yu30-regression.sh` centralizes the required execution sequence without weakening any existing gate.
-
-The runner first requires:
-
-```text
-HEAD descends from fixed YU-29 parent
-third_party/yunka has the exact fixed gitlink
-repository worktree is clean
-make yunka-toolchain-check succeeds
-```
-
-It then runs the canonical generator/check twice:
-
-```text
-make yunka-generate
-make yunka-check
-clean-tree assertion
-
-make yunka-generate
-make yunka-check
-clean-tree assertion
-```
-
-A first-pass generated drift is therefore a real failure rather than being silently overwritten. The second pass proves repeatability only after the committed tree is already canonical.
-
-### Focused governance packages
-
-The runner executes complete packages rather than using permissive `go test -run <regex>` filters:
-
-```text
-go test .
-go test ./internal/delivery
-go test ./internal/audit
-go test ./internal/bffhttp
-go test ./internal/httpapi
-go test ./internal/localbffhttp
-```
-
-This avoids the Go behavior where a `-run` expression matching zero tests may still return exit status zero.
-
-These packages carry the current consumer gates for:
-
-- root no-bypass / permission / credential-leak contracts;
-- project ownership and generated-operation equivalence;
-- transaction / Outbox and segregation-of-duties regressions;
-- audit acceptance/denial/failure/rollback/redaction behavior;
-- REST execution-boundary / local-BFF no-bypass behavior.
-
-### Full Go regression
-
-Using the same Go binary that passed `yunka-toolchain-check`, with `GOWORK=off`:
-
-```text
-go mod tidy -diff
-go test ./... -count=1
-go vet ./...
-go test -race ./... -count=1
-```
-
-### Frontend and real browser regression
-
-The runner then executes:
-
-```text
-cd web
-npm ci
-npm test
-npm run typecheck
-npm run build
-npm run e2e:yu29
-```
-
-`npm run e2e:yu29` remains the real two-account/two-browser-context Next + Yunka runtime + SQLite certification authored in YU-29; it is not replaced with a component mock.
-
-The Go toolchain directory is prepended to `PATH` before E2E so the YU-29 fixture/runtime builds inherit the same reviewed Go binary instead of accidentally using a different system Go.
-
-Finally the runner requires:
-
-```text
-git diff --check
-clean repository worktree
-```
-
-and prints `YU-30 REGRESSION PASS` only after every preceding process exits successfully.
-
-## Current execution matrix
-
-| Gate | Status | Reason |
-| --- | --- | --- |
-| canonical checkout at fixed parent | BLOCKED | source not materialized; GitHub DNS/egress unavailable to local shell |
-| `make yunka-toolchain-check` | NOT RUN | no checkout; current system Go is also not canonical 1.25.13 |
-| generate/check pass 1 | NOT RUN | prerequisite blocked |
-| generate/check pass 2 / zero drift | NOT RUN | prerequisite blocked |
-| ownership gates | NOT RUN | prerequisite blocked |
-| audit gates | NOT RUN | prerequisite blocked |
-| ChangeSet/generated-equivalence gates | NOT RUN | prerequisite blocked |
-| no-bypass gates | NOT RUN | prerequisite blocked |
-| `go mod tidy -diff` | NOT RUN | prerequisite blocked |
-| `go test ./...` | NOT RUN | prerequisite blocked |
-| `go vet ./...` | NOT RUN | prerequisite blocked |
-| `go test -race ./...` | NOT RUN | prerequisite blocked |
-| `npm ci` | NOT RUN | no checkout |
-| `npm test` | NOT RUN | no checkout |
-| `npm run typecheck` | NOT RUN | no checkout |
-| `npm run build` | NOT RUN | no checkout |
-| `npm run e2e:yu29` | NOT RUN | no checkout |
-| final generated/worktree drift | NOT RUN | prerequisite blocked |
-
-No row above is reported as PASS.
-
-## Historical evidence is not substituted for YU-30
-
-Earlier YU-03 evidence records a real environment where the pinned Go/toolchain successfully executed canonical generation/check and Go test/race/vet for the then-current tree.
-
-Later YU-15/YU-16 evidence records the authored transaction/audit regression surfaces.
-
-Those artifacts establish provenance for the gates, but they do **not** certify the YU-29 fixed-parent tree and are not reused as a YU-30 PASS.
-
-## Framework disposition
-
-No new Yunka framework defect is reproduced in this round.
-
-The inability to execute is environmental, and an unexecuted hypothesis is not sufficient evidence for a framework Issue. The fixed framework remains unmodified at:
-
-```text
-057ebcf88a87303eb633eb6e604d306f633dfac0
-```
-
-No framework Issue is created.
-
-## Completion boundary
-
-YU-30 remains the active task until the canonical runner can execute against a materialized checkout with the required pinned toolchain and all gates pass (or a real failing gate is reproduced and minimally repaired).
-
-Accordingly this branch intentionally:
-
-- does not advance `TASKS.md` to YU-31;
-- does not claim YU-30 GREEN;
-- does not start YU-31 runtime smoke/closure work;
-- does not deploy.
+At branch `b8138628574ff52b713a34e3680b0068c9daf5e6`, the restricted shell lacked a checkout and the pinned toolchain, and GitHub DNS lookup failed. Its runner was authored but not executed; that was an environment blocker, not product RED. The previous NOT RUN matrix applies only to that earlier attempt. It must not override the later exact-SHA CI results above.

@@ -51,16 +51,24 @@
 | **YU-32** | 12 | 45–75m | 独立安全/架构审查与问题闭环 | YU-30/31 + YU-00F | 候选→复现/反证→证实；consumer debt 不归因框架；绕过不称修复 |
 | **YU-33** | 12 | 45–75m | 更新运行说明、最终 manifest、提交与遗留问题清单 | YU-32 | 文档与 executable truth 一致；提交 parent/evidence 完整；同步任务分支并合并 `main`；不部署 |
 
+
+## YU-30 执行认证与收口
+
+已核验源码 `2f533dc233584c3318b9788f7016dcfb131b99b7` 的 GitHub Actions run `33971774693`：canonical-full / go-diagnostics / web-diagnostics / browser-e2e 四项均成功。完整回执见 `YU-30-CI-RECEIPT.json`，边界见 `YU-30-EVIDENCE.md`。本收口提交必须再取得精确 SHA 的 CI 全绿并 non-force 合并到 main，才能完成派发切换。
+
+注意：audit 为零新增 proven debt，仍保留 `AUDIT-AUTH-001` 的一项既有消费者债务；ChangeSet 为当前 canonical operations 的正/反/恢复验证，不是历史全量变更认证。YU-30 不等于 YU-32 安全/架构终审。
+
 ## 下一原子任务派发说明
 
-**建议下一侧边栏任务：YU-30「全量 Go/前端/生成/ownership/audit/ChangeSet 回归」**。
+**下一独立任务：YU-31「真实 runtime health/diagnostics/closure 与 REST/gRPC/MCP smoke」；须在 YU-30 精确 HEAD CI 全绿并合并后开始。**
 
-- 固定 parent：使用 YU-29 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
-- 输入：YU-01…YU-29 canonical consumer tree、目标 Yunka `057ebcf88a87303eb633eb6e604d306f633dfac0`、canonical generator/check、YU-29 `npm run e2e:yu29`、现有 ownership/audit/ChangeSet 与 no-bypass gates。
-- 允许：执行并记录阶段总回归；对真实回归失败做最小消费者修复和对应 regression；目标 generator 产生的 canonical generated 更新；必要的 YU-30 evidence/framework-problem disposition。任何修复必须先有可复现 RED，不能顺带重构。
-- 禁止：修改 Yunka framework 源码、手改 generated 文件、跳过失败命令却宣称 PASS、把环境缺工具/网络当产品 RED、提前做 YU-31 runtime smoke/closure 认证、部署、无关功能或 UI 开发。
-- RED：只接受真实命令失败、double-generate drift、`yunka check --full` 失败、Go/frontend/E2E 测试失败、ownership/audit/ChangeSet/no-bypass gate 失败作为 RED；环境缺 checkout、网络、浏览器或工具只能记录为环境阻断。若失败指向框架缺陷，按项目合同只创建/更新 `hvritual/yunka.io` Issue，不修改框架源码。
-- GREEN：目标 generator 连续执行两次后零 drift；`yunka check --full` 通过；Go `test ./...`、`test -race ./...`、`vet ./...` 通过；frontend `npm test`、`npm run typecheck`、`npm run build` 通过；`npm run e2e:yu29` 在真实浏览器/SQLite/runtime/Web 上通过；ownership/audit/ChangeSet/no-bypass gates 全部通过；最终工作树无非预期生成漂移。
-- 边界说明：YU-30 是阶段总回归和真实失败收口，不新增产品能力。YU-31 才负责最终 runtime health/diagnostics/closure 与 REST/gRPC/MCP smoke；YU-32 才做独立安全/架构审查。
-- 框架问题：真实回归如复现 Yunka defect，只创建/更新框架 Issue并保留证据；consumer/test harness/configuration 问题不得归因框架。
-- 结束条件：完成可执行回归与必要最小修复，独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-31。
+- 固定 parent：YU-30 收口合并到 main 后的精确 SHA，开始时回读并冻结，不跟随后续移动 HEAD。
+- 输入：YU-30 canonical consumer tree、CI receipt、目标 Yunka `057ebcf88a87303eb633eb6e604d306f633dfac0`、真实 SQLite 身份授权链与 runtime lifecycle。
+- 允许：真实启动与 health/diagnostics/closure 验证；REST/gRPC/MCP smoke；对可复现失败做最小消费者修复和对应回归；更新本任务证据。
+- 禁止：修改 Yunka 源码或 gitlink、手改 generated、用 mock/development 身份代替真实授权、不经验证部署、提前执行 YU-32 独立审查。
+- RED：仅真实执行失败、错误身份/权限结果、资源未关闭或僵尸进程等可复现行为；缺环境不是产品 RED。
+- GREEN：同一 SQLite 身份授权链的 runtime health/diagnostics 与 transport smoke 通过，shutdown 完整且无遗留资源；相关回归通过且无生成漂移。
+- 框架问题：仅创建/更新框架 Issue，保留最小复现；消费者组合/fixture 问题不得归因框架。
+- 结束条件：独立提交、精确 SHA CI 回读、同步分支并 non-force 合并 main 后停止；不部署、不自动开始 YU-32。
+
+**YU-31 尚未启动。**
