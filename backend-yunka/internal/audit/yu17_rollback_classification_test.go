@@ -19,6 +19,11 @@ func TestYU17RollbackAuditClassificationFollowsCanonicalOperationDomain(t *testi
 			reason:    "configuration.transaction_rolled_back",
 		},
 		{
+			operation: "config.revisions.unregistered",
+			category:  EventCategoryDelivery,
+			reason:    "application.transaction_rolled_back",
+		},
+		{
 			operation: "delivery.items.create",
 			category:  EventCategoryDelivery,
 			reason:    "application.transaction_rolled_back",
