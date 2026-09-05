@@ -79,6 +79,7 @@ func TestYU24PersistentBindingInvariantsRejectBypassWrites(t *testing.T) {
 		`INSERT INTO organizations (id, slug, name, status) VALUES ('org-a', 'org-a', 'Org A', 'active')`,
 		`INSERT INTO users (id, organization_id, display_name, status) VALUES ('user-a', 'org-a', 'User A', 'active')`,
 		`INSERT INTO role_bindings (id, organization_id, role_id, scope_type, scope_id, user_id, status) VALUES ('binding-a', 'org-a', 'contributor', 'project', 'project-a', 'user-a', 'active')`,
+		`INSERT INTO role_bindings (id, organization_id, role_id, scope_type, scope_id, user_id, status) VALUES ('organization-binding-a', 'org-a', 'system-administrator', 'organization', 'org-a', 'user-a', 'active')`,
 	} {
 		if _, err := database.Exec(statement); err != nil {
 			t.Fatal(err)
@@ -98,6 +99,11 @@ func TestYU24PersistentBindingInvariantsRejectBypassWrites(t *testing.T) {
 	}
 	if _, err := database.Exec(`UPDATE role_bindings SET status = 'active', revision = 3 WHERE id = 'binding-a'`); err == nil || !strings.Contains(strings.ToLower(err.Error()), strings.ToLower(bindingReactivationAbort)) {
 		t.Fatalf("binding reactivation error=%v", err)
+	}
+	// YU-24 owns only user-scoped project RoleBindings. Organization bindings
+	// keep their pre-YU-24 lifecycle semantics and are not frozen by these CAS triggers.
+	if _, err := database.Exec(`UPDATE role_bindings SET status = 'disabled' WHERE id = 'organization-binding-a'`); err != nil {
+		t.Fatalf("YU-24 project triggers overreached organization binding: %v", err)
 	}
 }
 
