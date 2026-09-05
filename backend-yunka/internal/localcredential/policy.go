@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"errors"
-	"fmt"
 	"io"
 
 	"golang.org/x/crypto/argon2"
@@ -176,8 +175,4 @@ func zeroBytes(value []byte) {
 	for index := range value {
 		value[index] = 0
 	}
-}
-
-func describePolicy(policy Policy) string {
-	return fmt.Sprintf("%s/v%d/policy-%d", policy.Algorithm, policy.ArgonVersion, policy.PolicyVersion)
 }
