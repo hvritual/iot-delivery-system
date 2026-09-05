@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
 import { KeyRoundIcon, LogOutIcon, ShieldCheckIcon, UserRoundCogIcon } from "lucide-react";
 
 import { DeliveryWorkspace } from "@/components/delivery-workspace";
@@ -71,7 +71,6 @@ type BindingResult = Readonly<{
 
 type AuthMode = "loading" | "unauthenticated" | "local" | "oidc" | "unavailable";
 type AccountTab = "profile" | "security" | "members" | "roles";
-
 type RequestError = Error & { status?: number; traceId?: string };
 
 export function LocalAuthShell() {
@@ -111,8 +110,7 @@ export function LocalAuthShell() {
         setMember(current);
         setMode("local");
       } catch (cause) {
-        const status = errorStatus(cause);
-        if (status === 401) {
+        if (errorStatus(cause) === 401) {
           setMember(null);
           setMode("oidc");
           return;
@@ -156,6 +154,7 @@ export function LocalAuthShell() {
   async function handleLogout() {
     setBusy(true);
     setError("");
+    setMessage("");
     try {
       if (mode === "local") await localLogout();
       else if (mode === "oidc") await oidcLogout();
@@ -178,6 +177,7 @@ export function LocalAuthShell() {
     event.preventDefault();
     setBusy(true);
     setError("");
+    setMessage("");
     const form = event.currentTarget;
     const data = new FormData(form);
     try {
@@ -201,6 +201,7 @@ export function LocalAuthShell() {
     event.preventDefault();
     setBusy(true);
     setError("");
+    setMessage("");
     const form = event.currentTarget;
     const data = new FormData(form);
     try {
@@ -223,8 +224,8 @@ export function LocalAuthShell() {
     event.preventDefault();
     setBusy(true);
     setError("");
-    const form = event.currentTarget;
-    const data = new FormData(form);
+    setMessage("");
+    const data = new FormData(event.currentTarget);
     try {
       const result = await disableLocalMember(
         String(data.get("userId") ?? "").trim(),
@@ -243,6 +244,7 @@ export function LocalAuthShell() {
     event.preventDefault();
     setBusy(true);
     setError("");
+    setMessage("");
     const form = event.currentTarget;
     const data = new FormData(form);
     try {
@@ -265,6 +267,7 @@ export function LocalAuthShell() {
     event.preventDefault();
     setBusy(true);
     setError("");
+    setMessage("");
     const form = event.currentTarget;
     const data = new FormData(form);
     try {
@@ -287,8 +290,8 @@ export function LocalAuthShell() {
     event.preventDefault();
     setBusy(true);
     setError("");
-    const form = event.currentTarget;
-    const data = new FormData(form);
+    setMessage("");
+    const data = new FormData(event.currentTarget);
     try {
       const result = await revokeLocalProjectRole(
         String(data.get("bindingId") ?? "").trim(),
@@ -398,8 +401,8 @@ export function LocalAuthShell() {
         </div>
       </header>
 
-      {message ? <div className="px-4 pt-3"><p role="status" className="text-sm text-muted-foreground">{message}</p></div> : null}
-      {error ? <div className="px-4 pt-3"><p role="alert" className="text-sm text-destructive">{error}</p></div> : null}
+      {message && !accountOpen ? <div className="px-4 pt-3"><p role="status" className="text-sm text-muted-foreground">{message}</p></div> : null}
+      {error && !accountOpen ? <div className="px-4 pt-3"><p role="alert" className="text-sm text-destructive">{error}</p></div> : null}
       <DeliveryWorkspace />
 
       {mode === "local" && member ? (
@@ -450,17 +453,19 @@ export function LocalAuthShell() {
 
 function Profile({ member }: { member: LocalMember }) {
   return (
-    <section className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2" aria-labelledby="current-member-heading">
-      <div className="sm:col-span-2">
+    <section className="grid gap-3 rounded-lg border p-4" aria-labelledby="current-member-heading">
+      <div>
         <h2 id="current-member-heading" className="font-medium">当前 verified member</h2>
         <p className="text-sm text-muted-foreground">显示值来自当前服务端 session 重验，不从浏览器角色快照恢复。</p>
       </div>
-      <Value label="OrganizationID" value={member.organizationId} />
-      <Value label="UserID" value={member.userId} />
-      <Value label="显示名称" value={member.displayName || "—"} />
-      <Value label="邮箱" value={member.email || "—"} />
-      <Value label="User revision" value={String(member.userRevision)} />
-      <Value label="Session revision" value={String(member.sessionRevision)} />
+      <dl className="grid gap-3 sm:grid-cols-2">
+        <Value label="OrganizationID" value={member.organizationId} />
+        <Value label="UserID" value={member.userId} />
+        <Value label="显示名称" value={member.displayName || "—"} />
+        <Value label="邮箱" value={member.email || "—"} />
+        <Value label="User revision" value={String(member.userRevision)} />
+        <Value label="Session revision" value={String(member.sessionRevision)} />
+      </dl>
     </section>
   );
 }
@@ -480,13 +485,7 @@ function PasswordForm({ busy, onSubmit }: { busy: boolean; onSubmit: (event: For
   );
 }
 
-function MemberAdministration({
-  busy,
-  lastResult,
-  onCreate,
-  onDisable,
-  onReset,
-}: {
+function MemberAdministration({ busy, lastResult, onCreate, onDisable, onReset }: {
   busy: boolean;
   lastResult: MemberResult | null;
   onCreate: (event: FormEvent<HTMLFormElement>) => void;
@@ -528,12 +527,7 @@ function MemberAdministration({
   );
 }
 
-function ProjectRoleAdministration({
-  busy,
-  lastResult,
-  onAssign,
-  onRevoke,
-}: {
+function ProjectRoleAdministration({ busy, lastResult, onAssign, onRevoke }: {
   busy: boolean;
   lastResult: BindingResult | null;
   onAssign: (event: FormEvent<HTMLFormElement>) => void;
@@ -565,15 +559,15 @@ function ProjectRoleAdministration({
   );
 }
 
-function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
+function Field({ id, label, children }: { id: string; label: string; children: ReactNode }) {
   return <div className="space-y-1.5"><Label htmlFor={id}>{label}</Label>{children}</div>;
 }
 
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return <Button type="button" variant={active ? "default" : "outline"} size="sm" aria-pressed={active} onClick={onClick}>{children}</Button>;
 }
 
-function GuardNotice({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+function GuardNotice({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <Alert>
       <ShieldCheckIcon />
