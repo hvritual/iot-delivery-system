@@ -54,3 +54,32 @@ func TestYU19BootstrapMigrationDoesNotTrustForgedLedgerOverMalformedStateSchema(
 		t.Fatal("forged migration ledger hid malformed bootstrap state schema")
 	}
 }
+
+func TestYU19BootstrapMigrationRejectsForgedNoOpImmutabilityTriggers(t *testing.T) {
+	database := openDatabase(t, 1)
+	if err := identitycore.ApplyMigrations(t.Context(), database); err != nil {
+		t.Fatal(err)
+	}
+	if err := localcredential.ApplyMigrations(t.Context(), database); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(bootstrapStateSchema); err != nil {
+		t.Fatal(err)
+	}
+	for _, statement := range []string{
+		`DROP TRIGGER iotd_local_admin_bootstrap_state_immutable_update`,
+		`DROP TRIGGER iotd_local_admin_bootstrap_state_immutable_delete`,
+		`CREATE TRIGGER iotd_local_admin_bootstrap_state_immutable_update BEFORE UPDATE ON iotd_local_admin_bootstrap_state BEGIN SELECT 1; END`,
+		`CREATE TRIGGER iotd_local_admin_bootstrap_state_immutable_delete BEFORE DELETE ON iotd_local_admin_bootstrap_state BEGIN SELECT 1; END`,
+	} {
+		if _, err := database.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := database.Exec(`INSERT INTO iotd_schema_migrations (migration_id) VALUES (?)`, MigrationID); err != nil {
+		t.Fatal(err)
+	}
+	if err := ApplyMigrations(t.Context(), database); err == nil {
+		t.Fatal("forged no-op bootstrap immutability triggers were trusted")
+	}
+}
