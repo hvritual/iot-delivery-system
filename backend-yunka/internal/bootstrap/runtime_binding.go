@@ -17,6 +17,7 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/httpapi"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localcredential"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localmemberadmin"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localprojectroleadmin"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/obsidian"
@@ -113,6 +114,16 @@ func (binder *applicationRuntimeBinder) Bind(
 	if err != nil {
 		return generatedassembly.RuntimeBindings{}, fmt.Errorf("configure local member administration: %w", err)
 	}
+	projectRoleAdmin, err := localprojectroleadmin.NewManager(
+		binder.repository.Database(),
+		binder.repository,
+		binder.auditStore,
+		dependencies.DeliveryOutbox,
+		executor,
+	)
+	if err != nil {
+		return generatedassembly.RuntimeBindings{}, fmt.Errorf("configure project role administration: %w", err)
+	}
 	operations := deliveryapplication.NewOperations(auditedAdapter, executor, service)
 	if binder.bootstrapMode == BootstrapModeExample {
 		if err := seedExample(ctx, operations); err != nil {
@@ -143,6 +154,7 @@ func (binder *applicationRuntimeBinder) Bind(
 	binder.application.operations = operations
 	binder.application.configOps = configOps
 	binder.application.memberAdmin = memberAdmin
+	binder.application.projectRoleAdmin = projectRoleAdmin
 	binder.bound = true
 	return generatedassembly.RuntimeBindings{
 		Factories: applicationFactories{deliveryManagement: auditedAdapter},
