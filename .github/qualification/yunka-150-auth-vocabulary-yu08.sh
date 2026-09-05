@@ -6,21 +6,38 @@ set -euo pipefail
 : "${REPO:?REPO is required}"
 : "${EVIDENCE:?EVIDENCE is required}"
 
+ROOT="$REPO/backend-yunka"
 mkdir -p "$EVIDENCE"
 
-test -f "$REPO/.yunka/project.json"
-test -f "$REPO/backend-yunka/contracts/proto/iot_delivery.proto"
-test ! -e "$REPO/backend-yunka/internal/delivery/application/delivery_releases_list.go"
-test ! -e "$REPO/backend-yunka/internal/delivery/application/delivery_sprints_list.go"
-test ! -e "$REPO/backend-yunka/internal/delivery/application/delivery_milestones_list.go"
+test -f "$ROOT/.yunka/project.json"
+test -f "$ROOT/contracts/proto/iot_delivery.proto"
+test ! -e "$ROOT/internal/delivery/application/delivery_releases_list.go"
+test ! -e "$ROOT/internal/delivery/application/delivery_sprints_list.go"
+test ! -e "$ROOT/internal/delivery/application/delivery_milestones_list.go"
 
 git -C "$REPO" config user.email "yunka-150@example.invalid"
 git -C "$REPO" config user.name "Yunka 150 Qualification"
 
-# Bind the historical consumer module to the exact external framework candidate
-# without touching the tracked historical Yunka gitlink. Freeze that runner-only
-# binding as the immutable qualification baseline before ChangeSet authoring.
-go -C "$REPO/backend-yunka" mod edit \
+# #149 is already merged and exact-main qualified. Use the preserved original
+# nested project profile so this run isolates #150 instead of inheriting the
+# later repository-root workaround, which would also scan the unrelated legacy
+# sibling backend module.
+"$YUNKA_BIN" context --root "$ROOT" --json > "$EVIDENCE/context.json"
+CONTEXT="$EVIDENCE/context.json" python3 - <<'PY'
+import json, os
+from pathlib import Path
+value = json.loads(Path(os.environ['CONTEXT']).read_text())
+project = value.get('project') or {}
+assert project.get('profiled') is True, value
+assert project.get('profile') == '.yunka/project.json', value
+assert project.get('contractSource') == 'contracts/proto', value
+assert project.get('generatedGoRoot') == 'internal', value
+PY
+
+# Bind the canonical nested module to the exact external framework candidate.
+# This runner-only dependency binding is committed before any ChangeSet authoring
+# so all Git-backed proof uses an immutable clean baseline.
+go -C "$ROOT" mod edit \
   -replace="github.com/hvritual/yunka.io/framework=$YUNKA_ROOT/framework" \
   -replace="github.com/hvritual/yunka.io/gateway=$YUNKA_ROOT/gateway" \
   -replace="github.com/hvritual/yunka.io/pkg=$YUNKA_ROOT/pkg"
@@ -36,24 +53,31 @@ PROTOC_GEN_GO="$(command -v protoc-gen-go)"
 PROTOC_GEN_GO_GRPC="$(command -v protoc-gen-go-grpc)"
 export PROTOC_GEN_GO PROTOC_GEN_GO_GRPC
 
-# The preserved YU-08 RED must still be structurally canonical before adding
-# the three missing list Operations. Its business RED is intentionally not a
-# Yunka structural failure.
+# The preserved YU-08 RED is a business RED, not a Yunka structural RED. The
+# nested project itself must be canonical before the three missing Operations.
 "$YUNKA_BIN" check \
-  --root "$REPO" \
+  --root "$ROOT" \
   --full \
   --protoc "$PROTOC" \
   --proto-path "$YUNKA_ROOT/contracts/proto" \
   --format agent-json \
   > "$EVIDENCE/baseline-check.json"
 
-SOURCE="backend-yunka/contracts/proto/iot_delivery.proto"
+CHECK="$EVIDENCE/baseline-check.json" python3 - <<'PY'
+import json, os
+from pathlib import Path
+value = json.loads(Path(os.environ['CHECK']).read_text())
+assert value.get('ok') is True, value
+assert value.get('diagnostics') == [], value
+PY
+
+SOURCE="contracts/proto/iot_delivery.proto"
 APP="delivery/management"
 
 plan_operation() {
   local operation="$1" use_case="$2" permission="$3" rpc="$4" request="$5" response="$6" output="$7"
   "$YUNKA_BIN" add operation \
-    --root "$REPO" \
+    --root "$ROOT" \
     --source "$SOURCE" \
     --plan \
     --format agent-json \
@@ -77,7 +101,7 @@ plan_operation() {
 apply_operation() {
   local operation="$1" use_case="$2" permission="$3" rpc="$4" request="$5" response="$6" output="$7"
   "$YUNKA_BIN" add operation \
-    --root "$REPO" \
+    --root "$ROOT" \
     --source "$SOURCE" \
     --format agent-json \
     --use-case "$use_case" \
@@ -115,7 +139,7 @@ PY
 
 CHANGESET="$RUNNER_TEMP/yunka-150-yu08-changeset.json"
 "$YUNKA_BIN" change set begin \
-  --root "$REPO" \
+  --root "$ROOT" \
   --base HEAD \
   --create-plan "$EVIDENCE/releases-plan.json" \
   --create-plan "$EVIDENCE/sprints-plan.json" \
@@ -124,9 +148,9 @@ CHANGESET="$RUNNER_TEMP/yunka-150-yu08-changeset.json"
   --format agent-json \
   > "$EVIDENCE/change-set-begin.json"
 
-# Trusted create-plan revalidation is part of the proof: the canonical
-# service-token values above must be directly consumable without translating
-# them back to the public `service` alias or adding a second ChangeSet.
+# Trusted create-plan revalidation is part of the proof: canonical service-token
+# must round-trip directly without translating back to public `service` or
+# requiring a second existing-operation ChangeSet.
 CHANGESET_PATH="$CHANGESET" python3 - <<'PY'
 import json, os
 from pathlib import Path
@@ -144,23 +168,23 @@ apply_operation delivery.releases.list list_releases delivery.releases.read List
 apply_operation delivery.sprints.list list_sprints delivery.sprints.read ListSprints ListSprintsRequest ListSprintsResponse "$EVIDENCE/sprints-apply.json"
 apply_operation delivery.milestones.list list_milestones delivery.milestones.read ListMilestones ListMilestonesRequest ListMilestonesResponse "$EVIDENCE/milestones-apply.json"
 
-# The public alias must render the existing protobuf enum, while canonical
-# generation projects it back as service-token.
+# The public alias must render the existing protobuf enum. All three new RPCs
+# must include API-key/JWT/service authentication before generation.
 for enum in AUTHENTICATION_API_KEY AUTHENTICATION_JWT AUTHENTICATION_SERVICE; do
-  count="$(grep -c "$enum" "$REPO/$SOURCE")"
+  count="$(grep -c "$enum" "$ROOT/$SOURCE")"
   test "$count" -ge 3
   printf '%s=%s\n' "$enum" "$count" >> "$EVIDENCE/proto-auth-enum-counts.txt"
 done
 
 "$YUNKA_BIN" generate \
-  --root "$REPO" \
+  --root "$ROOT" \
   --full \
   --protoc "$PROTOC" \
   --proto-path "$YUNKA_ROOT/contracts/proto" \
   > "$EVIDENCE/generate.log" 2>&1
 
 "$YUNKA_BIN" check \
-  --root "$REPO" \
+  --root "$ROOT" \
   --full \
   --protoc "$PROTOC" \
   --proto-path "$YUNKA_ROOT/contracts/proto" \
@@ -168,7 +192,7 @@ done
   > "$EVIDENCE/post-generate-check.json"
 
 "$YUNKA_BIN" change set check \
-  --root "$REPO" \
+  --root "$ROOT" \
   --set "$CHANGESET" \
   --format agent-json \
   > "$EVIDENCE/change-set-check.json"
@@ -189,9 +213,9 @@ assert check.get('ok') is True, check
 assert check.get('diagnostics') == [], check
 PY
 
-# Prove the resulting canonical manifest contains all three Operations with the
-# canonical authentication vocabulary; no generated artifact is hand-edited.
-MANIFEST="$REPO/backend-yunka/contracts/generated/manifest.json"
+# Canonical generated manifest must contain all three Operations with the same
+# authentication vocabulary. Generated artifacts are produced only by generate.
+MANIFEST="$ROOT/contracts/generated/manifest.json"
 MANIFEST="$MANIFEST" python3 - <<'PY'
 import json, os
 from pathlib import Path
@@ -217,8 +241,5 @@ for op, node in found.items():
     assert 'jwt' in text, (op, node)
 PY
 
-git -C "$REPO" status --porcelain > "$EVIDENCE/pressure.status"
-# The intended pressure must include the canonical proto plus derived/generated
-# and three developer landing files, but never a second authentication-only
-# source mutation after generation.
+git -C "$REPO" status --porcelain -- backend-yunka > "$EVIDENCE/pressure.status"
 test -s "$EVIDENCE/pressure.status"
