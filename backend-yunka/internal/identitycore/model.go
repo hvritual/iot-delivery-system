@@ -125,7 +125,8 @@ type RolePermissionGrant struct {
 }
 
 // RoleBinding grants a built-in role to exactly one human user or team. A
-// service account is intentionally not a valid subject for this model.
+// service account is intentionally not a valid subject for this model. Revision
+// is the durable CAS token for mutable binding lifecycle state.
 type RoleBinding struct {
 	ID             string
 	OrganizationID string
@@ -135,6 +136,7 @@ type RoleBinding struct {
 	UserID         *string
 	TeamID         *string
 	Status         Status
+	Revision       int64
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
