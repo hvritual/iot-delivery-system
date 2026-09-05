@@ -53,13 +53,13 @@
 
 ## 下一原子任务派发说明
 
-**建议下一侧边栏任务：YU-19「一次性管理员初始化并永久关闭匿名再初始化」**。
+**建议下一侧边栏任务：YU-20「管理员创建、停用、重置成员凭据的应用操作与 CAS」**。
 
-- 固定 parent：使用 YU-18 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
-- 输入：YU-18 `localcredential` schema/repository/Argon2id policy、既有 `identitycore` User/RoleBinding、YU-16 audit 脱敏边界、YU-17 root Executor/UoW。
-- 允许：消费者侧 bootstrap-state schema/repository、一次性管理员初始化 application operation、必要的 localcredential migration/runtime wiring、system-administrator RoleBinding、root transaction/audit/并发与重复初始化回归、YU-19 证据文档。
-- 禁止：修改 Yunka 源码、手改 generated 文件、实现通用管理员成员管理/重置凭据（YU-20）、密码登录/session/JWT（YU-21）、BFF auth routes 或 UI。
-- RED：必须由真实可执行路径证明匿名初始化可以重复、并发创建多个管理员、初始化状态可被停用/删号重新打开，或管理员 identity/role/credential/audit 不能原子提交；环境缺工具不算 RED。
-- GREEN：空系统只允许一次初始化；并发/重复请求最多一个成功；成功后永久关闭匿名初始化；管理员 User、system-administrator RoleBinding、credential、bootstrap closed-state 与 audit 在同一 root UoW 原子提交；任一失败零部分状态；后续停用/删除语义不得重新开放初始化。
+- 固定 parent：使用 YU-19 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
+- 输入：YU-19 一次性管理员与永久 bootstrap latch、YU-18 `localcredential` CAS/Argon2id、既有 `identitycore` User/RoleBinding、durable human GrantResolver/OperationGuard、YU-16 audit 脱敏与 YU-17 root Executor/UoW。
+- 允许：消费者侧管理员成员管理 application operations、必要的权限字典/内部 canonical plan、User 状态 CAS、localcredential 创建/重置 CAS、事务 audit/Outbox、真实 JWT Principal + durable system-administrator 授权回归与 YU-20 证据文档。
+- 禁止：修改 Yunka 源码、手改 generated 文件、实现密码登录/session/JWT（YU-21）、当前成员/本人改密/退出（YU-22）、BFF local-auth routes（YU-26）或 UI。
+- RED：必须由真实可执行路径证明管理员成员管理可绕过 durable human authorization、跨租户修改、用 Owner/邮箱/显示名错误合并身份、CAS 冲突产生部分状态，或 User/credential/audit/Outbox 不能原子提交；环境缺工具不算 RED。
+- GREEN：只有真实 JWT system-administrator durable grant 可创建/停用/重置成员；每个成员保持独立 User 与独立 credential；Owner/邮箱/显示名不参与身份合并；User/credential 写入使用显式 CAS；拒绝、冲突、audit 或 Outbox 失败均无部分业务状态/业务事件；敏感密码不进入日志/audit/Outbox。
 - 框架问题：如复现 Yunka 缺陷，只创建/更新框架 Issue，不修改框架源码；消费者绕过不得表述为框架修复。
-- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-20。
+- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-21。
