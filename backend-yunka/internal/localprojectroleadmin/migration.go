@@ -18,6 +18,7 @@ const (
 	bindingReactivationAbort = "revoked project role binding cannot be reactivated"
 	bindingIdentityAbort     = "project role binding identity is immutable"
 	bindingRevisionOnlyAbort = "project role binding revision may change only on revocation"
+	bindingDeleteAbort       = "project role binding history is immutable"
 )
 
 const bindingRevisionTrigger = `
@@ -77,6 +78,16 @@ BEGIN
     SELECT RAISE(ABORT, 'project role binding identity is immutable');
 END;`
 
+const bindingDeleteTrigger = `
+CREATE TRIGGER IF NOT EXISTS role_bindings_prevent_project_user_delete
+BEFORE DELETE ON role_bindings
+WHEN OLD.scope_type = 'project'
+ AND OLD.user_id IS NOT NULL
+ AND OLD.team_id IS NULL
+BEGIN
+    SELECT RAISE(ABORT, 'project role binding history is immutable');
+END;`
+
 func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	if database == nil {
 		return errors.New("project role administration SQLite database is required")
@@ -124,6 +135,7 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 		"reactivation":        bindingReactivationTrigger,
 		"revision mutation":   bindingRevisionOnlyTrigger,
 		"identity mutation":   bindingIdentityTrigger,
+		"history delete":      bindingDeleteTrigger,
 	} {
 		if _, err := tx.ExecContext(ctx, statement); err != nil {
 			return fmt.Errorf("install project role %s trigger: %w", name, err)
@@ -345,6 +357,8 @@ func verifyBindingTriggers(ctx context.Context, tx *sql.Tx) error {
 		"role_bindings_identity_immutable": append(append([]string{}, requiredScope...),
 			"before update of id, organization_id, role_id, scope_type, scope_id, user_id, team_id, created_at on role_bindings",
 			"raise(abort, 'project role binding identity is immutable')"),
+		"role_bindings_prevent_project_user_delete": append(append([]string{}, requiredScope...),
+			"before delete on role_bindings", "raise(abort, 'project role binding history is immutable')"),
 	}
 	for name, fragments := range required {
 		var definition string
