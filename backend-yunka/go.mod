@@ -4,7 +4,10 @@ go 1.25.0
 
 toolchain go1.25.13
 
-require modernc.org/sqlite v1.58.0
+require (
+	golang.org/x/crypto v0.56.0
+	modernc.org/sqlite v1.58.0
+)
 
 require (
 	github.com/coreos/go-oidc/v3 v3.21.0
