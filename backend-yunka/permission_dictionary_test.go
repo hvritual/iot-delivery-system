@@ -189,7 +189,7 @@ func TestPermissionDictionaryIntegrityGateRejectsMissingRequiredMappings(t *test
 			value.DevelopmentCompatibility.LocalRoleProfiles[0].Permissions = value.DevelopmentCompatibility.LocalRoleProfiles[0].Permissions[1:]
 		},
 		"local alias drift": func(value *permissionDictionary) {
-			value.DevelopmentCompatibility.LegacyExtensionPermissionAliases[0].Replacement = "delivery.work-items.create"
+			value.DevelopmentCompatibility.LegacyExtensionPermissionAliases = append(value.DevelopmentCompatibility.LegacyExtensionPermissionAliases, legacyPermissionAlias{LegacyPermission: "delivery.items.read", Replacement: "delivery.work-items.create", Reason: "invalid retired alias"})
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -569,6 +569,9 @@ var expectedOperations = map[string]operationContract{
 	"delivery.items.close":          {resource: "delivery.work-items", permission: "delivery.work-items.close", requiredScope: "object", risk: "high", writes: true},
 	"delivery.projects.create":      {resource: "delivery.projects", permission: "delivery.projects.create", requiredScope: "organization", risk: "high", writes: true},
 	"delivery.projects.list":        {resource: "delivery.projects", permission: "delivery.projects.read", requiredScope: "project", risk: "low", writes: false},
+	"delivery.projects.progress":    {resource: "delivery.projects", permission: "delivery.projects.read", requiredScope: "project", risk: "low", writes: false},
+	"delivery.projects.schedule":    {resource: "delivery.projects", permission: "delivery.projects.read", requiredScope: "project", risk: "low", writes: false},
+	"delivery.notifications.list":   {resource: "delivery.work-items", permission: "delivery.work-items.read", requiredScope: "project", risk: "low", writes: false},
 	"delivery.releases.create":      {resource: "delivery.releases", permission: "delivery.releases.create", requiredScope: "project", risk: "high", writes: true},
 	"delivery.releases.list":        {resource: "delivery.releases", permission: "delivery.releases.read", requiredScope: "project", risk: "low", writes: false},
 	"delivery.sprints.create":       {resource: "delivery.sprints", permission: "delivery.sprints.create", requiredScope: "project", risk: "medium", writes: true},
@@ -676,6 +679,9 @@ func validateTransportTrace(definition operationDefinition) error {
 		"delivery.items.close":          {rest: []transportPath{{Method: "POST", Path: "/api/items/{item_id}/close"}}, mcp: []string{"delivery.close_work_item"}},
 		"delivery.projects.create":      {rest: []transportPath{{Method: "POST", Path: "/api/projects"}}, mcp: []string{"delivery.create_project"}},
 		"delivery.projects.list":        {rest: []transportPath{{Method: "GET", Path: "/api/projects"}}, mcp: []string{"delivery.list_projects"}},
+		"delivery.projects.progress":    {rest: []transportPath{{Method: "GET", Path: "/api/projects/{project_id}/progress"}}, mcp: []string{"delivery.get_project_progress"}},
+		"delivery.projects.schedule":    {rest: []transportPath{{Method: "GET", Path: "/api/projects/{project_id}/schedule"}}, mcp: []string{"delivery.get_project_schedule"}},
+		"delivery.notifications.list":   {rest: []transportPath{{Method: "GET", Path: "/api/notifications"}}, mcp: []string{"delivery.list_notifications"}},
 		"delivery.releases.create":      {rest: []transportPath{{Method: "POST", Path: "/api/releases"}}, mcp: []string{"delivery.create_release"}},
 		"delivery.releases.list":        {rest: []transportPath{{Method: "GET", Path: "/api/releases"}}, mcp: []string{"delivery.list_releases"}},
 		"delivery.sprints.create":       {rest: []transportPath{{Method: "POST", Path: "/api/sprints"}}, mcp: []string{"delivery.create_sprint"}},
@@ -768,10 +774,10 @@ func validateServiceIdentities(policy serviceIdentityPolicy) error {
 }
 
 var expectedDevelopmentProfiles = map[string][]string{
-	"local-admin":     {"delivery.dashboard.read", "delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.projects.create", "delivery.projects.read", "delivery.releases.read", "delivery.sprints.read", "delivery.milestones.read", "delivery.releases.create", "delivery.sprints.create", "delivery.milestones.create", "delivery.items.read"},
-	"viewer":          {"delivery.dashboard.read", "delivery.work-items.read", "delivery.projects.read", "delivery.releases.read", "delivery.sprints.read", "delivery.milestones.read", "delivery.items.read"},
-	"contributor":     {"delivery.dashboard.read", "delivery.work-items.read", "delivery.projects.read", "delivery.releases.read", "delivery.sprints.read", "delivery.milestones.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.items.read"},
-	"release-manager": {"delivery.dashboard.read", "delivery.work-items.read", "delivery.projects.read", "delivery.releases.read", "delivery.sprints.read", "delivery.milestones.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.items.read"},
+	"local-admin":     {"delivery.dashboard.read", "delivery.work-items.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close", "delivery.projects.create", "delivery.projects.read", "delivery.releases.read", "delivery.sprints.read", "delivery.milestones.read", "delivery.releases.create", "delivery.sprints.create", "delivery.milestones.create"},
+	"viewer":          {"delivery.dashboard.read", "delivery.work-items.read", "delivery.projects.read", "delivery.releases.read", "delivery.sprints.read", "delivery.milestones.read"},
+	"contributor":     {"delivery.dashboard.read", "delivery.work-items.read", "delivery.projects.read", "delivery.releases.read", "delivery.sprints.read", "delivery.milestones.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update"},
+	"release-manager": {"delivery.dashboard.read", "delivery.work-items.read", "delivery.projects.read", "delivery.releases.read", "delivery.sprints.read", "delivery.milestones.read", "delivery.work-items.create", "delivery.work-items.update", "delivery.work-items.comment.create", "delivery.work-items.context.update", "delivery.work-items.gate.advance", "delivery.work-items.close"},
 }
 
 func validateDevelopmentCompatibility(policy developmentCompatibility) error {
@@ -780,7 +786,7 @@ func validateDevelopmentCompatibility(policy developmentCompatibility) error {
 	if policy.Status != status || policy.Rule != rule || len(policy.LocalRoleProfiles) != len(expectedDevelopmentProfiles) {
 		return fmt.Errorf("development compatibility policy is incomplete")
 	}
-	wantAliases := []legacyPermissionAlias{{LegacyPermission: "delivery.items.read", Replacement: "delivery.work-items.read", Reason: "existing ungenerated read extensions"}}
+	wantAliases := []legacyPermissionAlias{}
 	if !slices.Equal(policy.LegacyExtensionPermissionAliases, wantAliases) {
 		return fmt.Errorf("development compatibility aliases are incomplete")
 	}

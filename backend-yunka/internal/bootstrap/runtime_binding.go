@@ -73,7 +73,7 @@ func (binder *applicationRuntimeBinder) Bind(
 		dependencies.DeliveryProjection,
 		delivery.NewTransactionalOutboxStager(dependencies.DeliveryOutbox),
 	)
-	adapter := deliveryapplication.NewAdapter(service)
+	adapter := deliveryapplication.NewAdapter(service, dependencies.DeliveryNotifications)
 	auditedAdapter, err := deliveryapplication.NewAuditedDeliveryService(
 		adapter,
 		binder.auditStore,
@@ -96,8 +96,7 @@ func (binder *applicationRuntimeBinder) Bind(
 	if err != nil {
 		return generatedassembly.RuntimeBindings{}, fmt.Errorf("configure config revision operations: %w", err)
 	}
-	operations := deliveryapplication.NewOperations(auditedAdapter, executor, service).
-		WithNotificationReader(dependencies.DeliveryNotifications)
+	operations := deliveryapplication.NewOperations(auditedAdapter, executor, service)
 	if binder.bootstrapMode == BootstrapModeExample {
 		if err := seedExample(ctx, operations); err != nil {
 			return generatedassembly.RuntimeBindings{}, err

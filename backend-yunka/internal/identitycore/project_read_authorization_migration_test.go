@@ -17,7 +17,8 @@ func TestApplyMigrationsAddsProjectReadAuthorizationToOldFourLedgerDatabase(t *t
 	assertProjectReadAuthorizationRows(t, database)
 	assertPlanningListAuthorizationRows(t, database)
 	assertSavedViewAuthorizationRows(t, database)
-	assertProjectReadMigrationLedger(t, database, 8)
+	assertProjectHealthNotificationAuthorizationRows(t, database)
+	assertProjectReadMigrationLedger(t, database, 9)
 	var serviceGrantCount int
 	if err := database.QueryRow(`SELECT COUNT(*) FROM service_operation_grants WHERE operation_id = 'delivery.projects.list'`).Scan(&serviceGrantCount); err != nil || serviceGrantCount != 0 {
 		t.Fatalf("project list service grants = %d error=%v, want no default grants", serviceGrantCount, err)
@@ -31,7 +32,8 @@ func TestApplyMigrationsAddsProjectReadAuthorizationToOldFourLedgerDatabase(t *t
 	assertProjectReadAuthorizationRows(t, database)
 	assertPlanningListAuthorizationRows(t, database)
 	assertSavedViewAuthorizationRows(t, database)
-	assertProjectReadMigrationLedger(t, database, 8)
+	assertProjectHealthNotificationAuthorizationRows(t, database)
+	assertProjectReadMigrationLedger(t, database, 9)
 }
 
 func TestApplyMigrationsAddsProjectReadAuthorizationBeforeServiceGrantSeed(t *testing.T) {
@@ -43,7 +45,26 @@ func TestApplyMigrationsAddsProjectReadAuthorizationBeforeServiceGrantSeed(t *te
 	assertProjectReadAuthorizationRows(t, database)
 	assertPlanningListAuthorizationRows(t, database)
 	assertSavedViewAuthorizationRows(t, database)
-	assertProjectReadMigrationLedger(t, database, 8)
+	assertProjectHealthNotificationAuthorizationRows(t, database)
+	assertProjectReadMigrationLedger(t, database, 9)
+}
+
+func assertProjectHealthNotificationAuthorizationRows(t *testing.T, database *sql.DB) {
+	t.Helper()
+	for _, specification := range []struct{ operation, permission string }{
+		{operation: "delivery.projects.progress", permission: "delivery.projects.read"},
+		{operation: "delivery.projects.schedule", permission: "delivery.projects.read"},
+		{operation: "delivery.notifications.list", permission: "delivery.work-items.read"},
+	} {
+		var count int
+		if err := database.QueryRow(`SELECT COUNT(*) FROM service_operations WHERE id = ? AND permission_id = ? AND required_scope = 'project' AND status = 'active'`, specification.operation, specification.permission).Scan(&count); err != nil || count != 1 {
+			t.Fatalf("project health operation %s = %d error=%v, want 1", specification.operation, count, err)
+		}
+	}
+	var count int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, ProjectHealthNotificationMigrationID).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("project health notification migration ledger = %d error=%v, want 1", count, err)
+	}
 }
 
 func assertSavedViewAuthorizationRows(t *testing.T, database *sql.DB) {
@@ -139,7 +160,7 @@ func legacyProjectReadAuthorizationDatabase(t *testing.T, includeServiceGrantSch
 			t.Fatalf("create legacy service grant schema: %v", err)
 		}
 		for _, operation := range dictionary.Operations {
-			if operation.ID == "delivery.projects.list" || operation.ID == "delivery.releases.list" || operation.ID == "delivery.sprints.list" || operation.ID == "delivery.milestones.list" {
+			if operation.ID == "delivery.projects.list" || operation.ID == "delivery.releases.list" || operation.ID == "delivery.sprints.list" || operation.ID == "delivery.milestones.list" || operation.ID == "delivery.projects.progress" || operation.ID == "delivery.projects.schedule" || operation.ID == "delivery.notifications.list" {
 				continue
 			}
 			if _, err := database.Exec(`INSERT INTO service_operations (id, permission_id, required_scope, status) VALUES (?, ?, ?, 'active')`, operation.ID, operation.Permission, operation.RequiredScope); err != nil {

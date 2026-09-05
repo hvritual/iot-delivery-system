@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -25,6 +26,7 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localoutbox"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/mcpserver"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/serviceauthz"
 	"github.com/hvritual/yunka.io/framework/core/identity"
 	"github.com/hvritual/yunka.io/framework/operation"
@@ -39,12 +41,13 @@ import (
 )
 
 type authorizationMatrixFixture struct {
-	repository  *delivery.SQLiteRepository
-	outbox      *localoutbox.SQLiteStore
-	operations  *deliveryapplication.Operations
-	application deliveryapplication.DeliveryService
-	executor    operation.Executor
-	handler     http.Handler
+	repository    *delivery.SQLiteRepository
+	outbox        *localoutbox.SQLiteStore
+	operations    *deliveryapplication.Operations
+	application   deliveryapplication.DeliveryService
+	executor      operation.Executor
+	handler       http.Handler
+	notifications *notification.SQLiteStore
 }
 
 const (
@@ -143,6 +146,10 @@ func newAuthorizationMatrixFixtureWithExecutor(t *testing.T, decorate func(opera
 		t.Fatalf("open SQLite outbox: %v", err)
 	}
 	service := delivery.NewService(repository, nil, delivery.NewTransactionalOutboxStager(outbox))
+	notifications, err := notification.NewSQLiteStore(repository.Database())
+	if err != nil {
+		t.Fatalf("open SQLite notification store: %v", err)
+	}
 	auditStore, err := audit.NewSQLiteStore(repository.Database())
 	if err != nil {
 		t.Fatalf("open SQLite audit store: %v", err)
@@ -151,7 +158,7 @@ func newAuthorizationMatrixFixtureWithExecutor(t *testing.T, decorate func(opera
 	if err != nil {
 		t.Fatalf("open production security audit recorder: %v", err)
 	}
-	application, err := deliveryapplication.NewAuditedDeliveryService(deliveryapplication.NewAdapter(service), auditStore, deliveryapplication.WithWorkItemResolver(service.Get))
+	application, err := deliveryapplication.NewAuditedDeliveryService(deliveryapplication.NewAdapter(service, notifications), auditStore, deliveryapplication.WithWorkItemResolver(service.Get))
 	if err != nil {
 		t.Fatalf("assemble production audited delivery application: %v", err)
 	}
@@ -167,7 +174,7 @@ func newAuthorizationMatrixFixtureWithExecutor(t *testing.T, decorate func(opera
 		operationExecutor = decorate(operationExecutor)
 	}
 	operations := deliveryapplication.NewOperations(application, operationExecutor)
-	return &authorizationMatrixFixture{repository: repository, outbox: outbox, operations: operations, application: application, executor: operationExecutor, handler: httpapi.NewHandler(operations)}
+	return &authorizationMatrixFixture{repository: repository, outbox: outbox, operations: operations, application: application, executor: operationExecutor, handler: httpapi.NewHandler(operations), notifications: notifications}
 }
 
 func (fixture *authorizationMatrixFixture) revision(t *testing.T, id string) int64 {
@@ -290,6 +297,60 @@ func (fixture *authorizationMatrixFixture) grpcPlanningList(t *testing.T, princi
 	}
 }
 
+func (fixture *authorizationMatrixFixture) grpcProjectHealth(t *testing.T, principal identity.Principal, kind, projectID string) codes.Code {
+	t.Helper()
+	listener := bufconn.Listen(1024 * 1024)
+	server := grpc.NewServer(grpc.UnaryInterceptor(func(ctx context.Context, request any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		return handler(identity.WithPrincipal(ctx, principal), request)
+	}))
+	if err := deliveryrpc.RegisterOperationExecutor(server, fixture.application, fixture.executor); err != nil {
+		t.Fatalf("register project-health gRPC executor: %v", err)
+	}
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(server.Stop)
+	connection, err := grpc.DialContext(t.Context(), "passthrough:///project-health-matrix", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("dial project-health matrix gRPC server: %v", err)
+	}
+	t.Cleanup(func() { _ = connection.Close() })
+	client := deliveryv1.NewDeliveryServiceClient(connection)
+	switch kind {
+	case "progress":
+		_, err = client.GetProjectProgress(t.Context(), &deliveryv1.GetProjectProgressRequest{ProjectId: projectID})
+	case "schedule":
+		_, err = client.GetProjectSchedule(t.Context(), &deliveryv1.GetProjectScheduleRequest{ProjectId: projectID})
+	default:
+		t.Fatalf("unknown project-health kind %q", kind)
+	}
+	return status.Code(err)
+}
+
+func (fixture *authorizationMatrixFixture) grpcNotifications(t *testing.T, principal identity.Principal, limit int32) (string, codes.Code) {
+	t.Helper()
+	listener := bufconn.Listen(1024 * 1024)
+	server := grpc.NewServer(grpc.UnaryInterceptor(func(ctx context.Context, request any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		return handler(identity.WithPrincipal(ctx, principal), request)
+	}))
+	if err := deliveryrpc.RegisterOperationExecutor(server, fixture.application, fixture.executor); err != nil {
+		t.Fatalf("register notification gRPC executor: %v", err)
+	}
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(server.Stop)
+	connection, err := grpc.DialContext(t.Context(), "passthrough:///notification-matrix", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		t.Fatalf("dial notification matrix gRPC server: %v", err)
+	}
+	t.Cleanup(func() { _ = connection.Close() })
+	response, err := deliveryv1.NewDeliveryServiceClient(connection).ListNotifications(t.Context(), &deliveryv1.ListNotificationsRequest{Limit: limit})
+	if err != nil {
+		return "", status.Code(err)
+	}
+	if len(response.GetNotifications()) != 1 {
+		return "", codes.OK
+	}
+	return response.GetNotifications()[0].GetSubject(), codes.OK
+}
+
 func (fixture *authorizationMatrixFixture) grpcUpdate(t *testing.T, principal identity.Principal, itemID string, expectedRevision int64, progress int32) (codes.Code, string) {
 	t.Helper()
 	listener := bufconn.Listen(1024 * 1024)
@@ -409,6 +470,38 @@ func (fixture *authorizationMatrixFixture) restPlanningList(t *testing.T, princi
 		t.Fatalf("decode REST %s list: %v", kind, err)
 	}
 	return recorder.Code, "", len(values)
+}
+
+func (fixture *authorizationMatrixFixture) restProjectHealth(t *testing.T, principal identity.Principal, kind, projectID string) (int, string) {
+	t.Helper()
+	request := httptest.NewRequest(http.MethodGet, "/api/projects/"+projectID+"/"+kind, nil).WithContext(identity.WithPrincipal(t.Context(), principal))
+	recorder := httptest.NewRecorder()
+	fixture.handler.ServeHTTP(recorder, request)
+	if recorder.Code == http.StatusOK {
+		return recorder.Code, ""
+	}
+	var payload map[string]any
+	_ = json.NewDecoder(recorder.Body).Decode(&payload)
+	category, _ := payload["error"].(string)
+	return recorder.Code, category
+}
+
+func (fixture *authorizationMatrixFixture) restNotifications(t *testing.T, principal identity.Principal, limit int) (int, string, []notification.Notification) {
+	t.Helper()
+	request := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/notifications?limit=%d", limit), nil).WithContext(identity.WithPrincipal(t.Context(), principal))
+	recorder := httptest.NewRecorder()
+	fixture.handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		var payload map[string]any
+		_ = json.NewDecoder(recorder.Body).Decode(&payload)
+		category, _ := payload["error"].(string)
+		return recorder.Code, category, nil
+	}
+	var values []notification.Notification
+	if err := json.NewDecoder(recorder.Body).Decode(&values); err != nil {
+		t.Fatalf("decode REST notifications: %v", err)
+	}
+	return recorder.Code, "", values
 }
 
 func (fixture *authorizationMatrixFixture) restGateAtRevision(t *testing.T, principal identity.Principal, itemID string, expectedRevision int64, gate delivery.Gate) (int, string) {
@@ -550,6 +643,28 @@ func matrixMCPPlanningCount(t *testing.T, result *mcp.CallToolResult, field stri
 		t.Fatalf("decode MCP planning list: %v; payload=%s", err, payload)
 	}
 	return len(output[field])
+}
+
+func matrixMCPNotificationSubjects(t *testing.T, result *mcp.CallToolResult) []string {
+	t.Helper()
+	if result == nil || result.IsError {
+		t.Fatalf("MCP notification list = %#v text=%q", result, matrixMCPError(result))
+	}
+	payload, err := json.Marshal(result.StructuredContent)
+	if err != nil {
+		t.Fatalf("marshal MCP notification list: %v", err)
+	}
+	var output struct {
+		Notifications []notification.Notification `json:"notifications"`
+	}
+	if err := json.Unmarshal(payload, &output); err != nil {
+		t.Fatalf("decode MCP notification list: %v; payload=%s", err, payload)
+	}
+	subjects := make([]string, 0, len(output.Notifications))
+	for _, value := range output.Notifications {
+		subjects = append(subjects, value.Subject)
+	}
+	return subjects
 }
 
 func TestProductionProjectListMatrixUsesOneDurableScopeAcrossRESTGRPCAndMCP(t *testing.T) {
@@ -759,6 +874,69 @@ func TestProductionPlanningListsEnforceProjectAndTenantScopeAcrossRESTGRPCAndMCP
 	afterMilestones, milestoneErr := fixture.repository.ListMilestones(t.Context())
 	if releaseErr != nil || sprintErr != nil || milestoneErr != nil || !reflect.DeepEqual(afterReleases, beforeReleases) || !reflect.DeepEqual(afterSprints, beforeSprints) || !reflect.DeepEqual(afterMilestones, beforeMilestones) {
 		t.Fatalf("planning list matrix changed business rows: releases=%v sprints=%v milestones=%v", releaseErr, sprintErr, milestoneErr)
+	}
+}
+
+func TestProductionProjectHealthAndNotificationsUseOneProjectScopeAcrossRESTGRPCAndMCP(t *testing.T) {
+	fixture := newAuthorizationMatrixFixture(t)
+	project, item := fixture.createProtectedItem(t)
+	admin := identity.WithPrincipal(t.Context(), matrixPrincipal("admin"))
+	otherProject, err := fixture.operations.CreateProject(admin, delivery.ProjectInput{Name: "Other project", Board: delivery.BoardResearchDelivery, Owner: "admin"})
+	if err != nil {
+		t.Fatalf("create other project: %v", err)
+	}
+	otherItem, err := fixture.operations.Create(admin, delivery.CreateInput{Title: "Other project item", Board: delivery.BoardResearchDelivery, Owner: "admin", ProjectID: otherProject.ID, Kind: delivery.WorkItemKindTask})
+	if err != nil {
+		t.Fatalf("create other project item: %v", err)
+	}
+	now := time.Now().UTC()
+	crossTenantProject := delivery.Project{ID: "project-health-org-b", OrganizationID: "org-b", Name: "Cross tenant", Board: delivery.BoardResearchDelivery, Owner: "admin-b", CreatedAt: now, UpdatedAt: now}
+	if err := fixture.repository.CreateProject(t.Context(), crossTenantProject); err != nil {
+		t.Fatalf("seed cross-tenant project: %v", err)
+	}
+	for _, value := range []notification.Notification{
+		{DeliveryID: "notification-other", Channel: notification.LocalInboxChannelName, EventType: "delivery.work-item.created", Subject: otherItem.ID, OccurredAt: now, DeliveredAt: now},
+		{DeliveryID: "notification-visible", Channel: notification.LocalInboxChannelName, EventType: "delivery.work-item.created", Subject: item.ID, OccurredAt: now.Add(-time.Minute), DeliveredAt: now.Add(-time.Minute)},
+	} {
+		if err := fixture.notifications.Save(t.Context(), value); err != nil {
+			t.Fatalf("seed notification %q: %v", value.DeliveryID, err)
+		}
+	}
+	viewer := matrixPrincipal("viewer")
+	beforeOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil {
+		t.Fatalf("snapshot Outbox before project-health reads: %v", err)
+	}
+	for _, kind := range []string{"progress", "schedule"} {
+		t.Run(kind+" allowed", func(t *testing.T) {
+			statusCode, category := fixture.restProjectHealth(t, viewer, kind, project.ID)
+			grpcCode := fixture.grpcProjectHealth(t, viewer, kind, project.ID)
+			mcpResult := callMatrixMCPContext(t, t.Context(), fixture.operations, viewer, "delivery.get_project_"+kind, map[string]any{"projectId": project.ID})
+			if statusCode != http.StatusOK || category != "" || grpcCode != codes.OK || mcpResult.IsError {
+				t.Fatalf("allowed %s = REST(%d,%q) gRPC(%s) MCP(%#v)", kind, statusCode, category, grpcCode, mcpResult)
+			}
+		})
+		for _, deniedProject := range []string{otherProject.ID, crossTenantProject.ID} {
+			t.Run(kind+" denied "+deniedProject, func(t *testing.T) {
+				statusCode, category := fixture.restProjectHealth(t, viewer, kind, deniedProject)
+				grpcCode := fixture.grpcProjectHealth(t, viewer, kind, deniedProject)
+				mcpResult := callMatrixMCPContext(t, t.Context(), fixture.operations, viewer, "delivery.get_project_"+kind, map[string]any{"projectId": deniedProject})
+				if statusCode != http.StatusForbidden || category != "permission_denied" || grpcCode != codes.PermissionDenied || !mcpResult.IsError || matrixMCPError(mcpResult) != "permission_denied" {
+					t.Fatalf("denied %s = REST(%d,%q) gRPC(%s) MCP(%#v,%q)", kind, statusCode, category, grpcCode, mcpResult, matrixMCPError(mcpResult))
+				}
+			})
+		}
+	}
+	statusCode, category, restValues := fixture.restNotifications(t, viewer, 1)
+	grpcSubject, grpcCode := fixture.grpcNotifications(t, viewer, 1)
+	mcpResult := callMatrixMCPContext(t, t.Context(), fixture.operations, viewer, "delivery.list_notifications", map[string]any{"limit": 1})
+	mcpSubjects := matrixMCPNotificationSubjects(t, mcpResult)
+	if statusCode != http.StatusOK || category != "" || len(restValues) != 1 || restValues[0].Subject != item.ID || grpcCode != codes.OK || grpcSubject != item.ID || !reflect.DeepEqual(mcpSubjects, []string{item.ID}) {
+		t.Fatalf("scoped notifications = REST(%d,%q,%#v) gRPC(%s,%q) MCP(%#v)", statusCode, category, restValues, grpcCode, grpcSubject, mcpSubjects)
+	}
+	afterOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil || !reflect.DeepEqual(afterOutbox, beforeOutbox) {
+		t.Fatalf("project-health reads changed Outbox: before=%#v after=%#v err=%v", beforeOutbox, afterOutbox, err)
 	}
 }
 
@@ -1064,7 +1242,7 @@ func TestProductionRevisionConflictMatrixPreservesExactlyOneCrossTransportWrite(
 	}
 }
 
-func TestMCPRegistrationContainsExactlySixteenDictionaryPublicToolsAndFiveExcludedExtensions(t *testing.T) {
+func TestMCPRegistrationContainsExactlyTwentyTwoDictionaryPublicTools(t *testing.T) {
 	server := mcpserver.New(nil, identity.Principal{})
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
 	serverSession, err := server.Connect(t.Context(), serverTransport, nil)
@@ -1088,14 +1266,12 @@ func TestMCPRegistrationContainsExactlySixteenDictionaryPublicToolsAndFiveExclud
 		"delivery.close_work_item": true, "delivery.create_project": true, "delivery.list_projects": true, "delivery.create_release": true, "delivery.create_sprint": true, "delivery.create_milestone": true,
 		"delivery.list_releases": true, "delivery.list_sprints": true, "delivery.list_milestones": true,
 		"delivery.get_member_week": true, "delivery.save_view": true, "delivery.list_saved_views": true,
-	}
-	excluded := map[string]bool{
-		"delivery.get_project_progress": true, "delivery.get_project_schedule": true,
+		"delivery.get_project_progress": true, "delivery.get_project_schedule": true, "delivery.list_notifications": true,
 	}
 	seen := map[string]bool{}
 	for _, tool := range result.Tools {
 		seen[tool.Name] = true
-		if !public[tool.Name] && !excluded[tool.Name] {
+		if !public[tool.Name] {
 			t.Fatalf("MCP registered unclassified tool %q", tool.Name)
 		}
 	}
@@ -1104,13 +1280,8 @@ func TestMCPRegistrationContainsExactlySixteenDictionaryPublicToolsAndFiveExclud
 			t.Fatalf("MCP public dictionary tool %q is not registered", name)
 		}
 	}
-	for name := range excluded {
-		if !seen[name] {
-			t.Fatalf("MCP excluded extension tool %q is not registered", name)
-		}
-	}
-	if len(result.Tools) != len(public)+len(excluded) {
-		t.Fatalf("MCP tool registrations = %d, want %d public plus excluded", len(result.Tools), len(public)+len(excluded))
+	if len(result.Tools) != len(public) {
+		t.Fatalf("MCP tool registrations = %d, want %d public", len(result.Tools), len(public))
 	}
 }
 

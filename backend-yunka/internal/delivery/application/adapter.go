@@ -8,6 +8,7 @@ import (
 	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryauthz"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
 	"github.com/hvritual/yunka.io/gateway/authz"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -16,11 +17,19 @@ import (
 // into Yunka's generated DeliveryService port. Business rules remain in the
 // delivery service; the generated RPC executor owns policy and transactions.
 type Adapter struct {
-	service *delivery.Service
+	service       *delivery.Service
+	notifications notification.Reader
 }
 
-func NewAdapter(service *delivery.Service) *Adapter {
-	return &Adapter{service: service}
+func NewAdapter(service *delivery.Service, readers ...notification.Reader) *Adapter {
+	adapter := &Adapter{service: service}
+	for _, reader := range readers {
+		if reader != nil {
+			adapter.notifications = reader
+			break
+		}
+	}
+	return adapter
 }
 
 func (adapter *Adapter) GetDashboard(ctx context.Context, _ *deliveryv1.GetDashboardRequest) (*deliveryv1.GetDashboardResponse, error) {
@@ -379,6 +388,80 @@ func (adapter *Adapter) GetMemberWeek(ctx context.Context, request *deliveryv1.G
 	return &deliveryv1.MemberWeekResponse{Week: &deliveryv1.MemberWeek{Member: week.Member, WeekStart: week.WeekStart, WeekEnd: week.WeekEnd, Items: workItems(week.Items)}}, nil
 }
 
+func (adapter *Adapter) GetProjectProgress(ctx context.Context, request *deliveryv1.GetProjectProgressRequest) (*deliveryv1.ProjectProgressResponse, error) {
+	if request == nil {
+		return nil, errors.New("request is required")
+	}
+	service, err := adapter.deliveryService()
+	if err != nil {
+		return nil, err
+	}
+	progress, err := service.ProjectProgress(ctx, request.GetProjectId())
+	if err != nil {
+		return nil, err
+	}
+	return &deliveryv1.ProjectProgressResponse{Progress: projectProgressToProto(progress)}, nil
+}
+
+func (adapter *Adapter) GetProjectSchedule(ctx context.Context, request *deliveryv1.GetProjectScheduleRequest) (*deliveryv1.ProjectScheduleResponse, error) {
+	if request == nil {
+		return nil, errors.New("request is required")
+	}
+	service, err := adapter.deliveryService()
+	if err != nil {
+		return nil, err
+	}
+	schedule, err := service.ProjectSchedule(ctx, request.GetProjectId())
+	if err != nil {
+		return nil, err
+	}
+	return &deliveryv1.ProjectScheduleResponse{Schedule: projectScheduleToProto(schedule)}, nil
+}
+
+func (adapter *Adapter) ListNotifications(ctx context.Context, request *deliveryv1.ListNotificationsRequest) (*deliveryv1.ListNotificationsResponse, error) {
+	if request == nil {
+		return nil, errors.New("request is required")
+	}
+	if adapter == nil || adapter.notifications == nil {
+		return nil, errors.New("delivery notification reader is not configured")
+	}
+	limit := int(request.GetLimit())
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+	values, err := adapter.notifications.List(ctx, 200)
+	if err != nil {
+		return nil, err
+	}
+	projects, restricted := deliveryauthz.AuthorizedProjectsFromContext(ctx)
+	response := &deliveryv1.ListNotificationsResponse{Notifications: make([]*deliveryv1.Notification, 0, limit)}
+	for _, value := range values {
+		if restricted && !adapter.notificationAuthorized(ctx, value, projects) {
+			continue
+		}
+		response.Notifications = append(response.Notifications, notificationToProto(value))
+		if len(response.Notifications) == limit {
+			break
+		}
+	}
+	return response, nil
+}
+
+func (adapter *Adapter) notificationAuthorized(ctx context.Context, value notification.Notification, projects map[string]bool) bool {
+	if value.EventType == "delivery.project.created" {
+		return projects[value.Subject]
+	}
+	service, err := adapter.deliveryService()
+	if err != nil {
+		return false
+	}
+	item, err := service.Get(ctx, value.Subject)
+	return err == nil && projects[item.ProjectID]
+}
+
 // normalizeAuthorizationError retains domain sentinel matching while marking
 // high-risk separation-of-duties denials for the shared transport adapters.
 func normalizeAuthorizationError(err error) error {
@@ -525,6 +608,26 @@ func sprintToProto(value delivery.Sprint) *deliveryv1.Sprint {
 
 func milestoneToProto(value delivery.Milestone) *deliveryv1.Milestone {
 	return &deliveryv1.Milestone{Id: value.ID, ProjectId: value.ProjectID, Name: value.Name, TargetDate: value.TargetDate, Status: value.Status, Description: value.Description, CreatedAt: timestamp(value.CreatedAt), UpdatedAt: timestamp(value.UpdatedAt)}
+}
+
+func projectProgressToProto(value delivery.ProjectProgress) *deliveryv1.ProjectProgress {
+	return &deliveryv1.ProjectProgress{ProjectId: value.ProjectID, TotalItems: int32(value.TotalItems), CompletedItems: int32(value.CompletedItems), TotalWeight: value.TotalWeight, CompletedWeight: value.CompletedWeight, ProgressPercent: value.ProgressPercent}
+}
+
+func projectScheduleToProto(value delivery.ProjectSchedule) *deliveryv1.ProjectSchedule {
+	capacity := make([]*deliveryv1.OwnerCapacity, 0, len(value.Capacity))
+	for _, current := range value.Capacity {
+		capacity = append(capacity, &deliveryv1.OwnerCapacity{Owner: current.Owner, ItemCount: int32(current.ItemCount), BlockedItems: int32(current.BlockedItems), OverdueItems: int32(current.OverdueItems), TotalEstimatePoints: current.TotalEstimatePoints, CompletedEstimatePoints: current.CompletedEstimatePoints, RemainingEstimatePoints: current.RemainingEstimatePoints})
+	}
+	risks := make([]*deliveryv1.ScheduleRisk, 0, len(value.Risks))
+	for _, current := range value.Risks {
+		risks = append(risks, &deliveryv1.ScheduleRisk{ItemId: current.ItemID, Title: current.Title, Owner: current.Owner, DueDate: current.DueDate, Reason: current.Reason})
+	}
+	return &deliveryv1.ProjectSchedule{ProjectId: value.ProjectID, AsOfDate: value.AsOfDate, TotalItems: int32(value.TotalItems), ScheduledItems: int32(value.ScheduledItems), UnscheduledItems: int32(value.UnscheduledItems), BlockedItems: int32(value.BlockedItems), OverdueItems: int32(value.OverdueItems), DependencyBlockedItems: int32(value.DependencyBlockedItems), Capacity: capacity, Risks: risks}
+}
+
+func notificationToProto(value notification.Notification) *deliveryv1.Notification {
+	return &deliveryv1.Notification{DeliveryId: value.DeliveryID, Channel: value.Channel, EventType: value.EventType, Subject: value.Subject, Title: value.Title, Body: value.Body, OccurredAt: timestamp(value.OccurredAt), DeliveredAt: timestamp(value.DeliveredAt)}
 }
 
 func decisionFromProto(value *deliveryv1.Decision) *delivery.Decision {

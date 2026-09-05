@@ -174,6 +174,7 @@ func (guard *OperationGuard) Prepare(ctx context.Context, authorized authz.Autho
 	// application boundary, so every adapter can filter the same trusted set.
 	if authorized.Policy.Operation == "delivery.items.list" || authorized.Policy.Operation == "delivery.projects.list" ||
 		authorized.Policy.Operation == "delivery.views.save" || authorized.Policy.Operation == "delivery.views.list" || authorized.Policy.Operation == "delivery.members.week" ||
+		authorized.Policy.Operation == "delivery.notifications.list" ||
 		((authorized.Policy.Operation == "delivery.items.search" || authorized.Policy.Operation == "delivery.items.similarity") && itemReadProjectID(input) == "") {
 		projects, err := guard.allowedProjects(ctx, grants, permissions, operation, tenantID)
 		if err != nil {
@@ -527,6 +528,10 @@ func (guard *OperationGuard) projectAndObjectID(ctx context.Context, operation a
 		projectID = request.GetProjectId()
 	case *deliveryv1.ListMilestonesRequest:
 		projectID = request.GetProjectId()
+	case *deliveryv1.GetProjectProgressRequest:
+		projectID = request.GetProjectId()
+	case *deliveryv1.GetProjectScheduleRequest:
+		projectID = request.GetProjectId()
 	case *deliveryv1.UpdateItemRequest:
 		objectID = request.GetId()
 	case *deliveryv1.GetItemRequest:
@@ -632,6 +637,15 @@ func validInput(operation authz.OperationID, input any) bool {
 		return ok && request != nil
 	case "delivery.members.week":
 		request, ok := input.(*deliveryv1.GetMemberWeekRequest)
+		return ok && request != nil
+	case "delivery.projects.progress":
+		request, ok := input.(*deliveryv1.GetProjectProgressRequest)
+		return ok && request != nil
+	case "delivery.projects.schedule":
+		request, ok := input.(*deliveryv1.GetProjectScheduleRequest)
+		return ok && request != nil
+	case "delivery.notifications.list":
+		request, ok := input.(*deliveryv1.ListNotificationsRequest)
 		return ok && request != nil
 	default:
 		return false

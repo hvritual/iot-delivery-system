@@ -35,6 +35,8 @@ const ItemReadAuthorizationMigrationID = "S0-05-09_item_read_authorization_v1"
 
 const SavedViewAuthorizationMigrationID = "S0-06-12_saved_view_member_week_authorization_v1"
 
+const ProjectHealthNotificationMigrationID = "S0-06-13_project_health_notification_authorization_v1"
+
 const identitySchema = `
 CREATE TABLE organizations (
     id TEXT PRIMARY KEY NOT NULL CHECK (length(trim(id)) > 0),
@@ -331,6 +333,10 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("load saved view authorization migration definitions: %w", err)
 	}
+	projectHealthNotifications, err := loadProjectHealthNotificationAuthorizationDefinitions(dictionary)
+	if err != nil {
+		return fmt.Errorf("load project health notification authorization migration definitions: %w", err)
+	}
 	if _, err := database.ExecContext(ctx, `PRAGMA foreign_keys = ON`); err != nil {
 		return fmt.Errorf("enable identity foreign keys: %w", err)
 	}
@@ -357,6 +363,10 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	var personalReadsApplied int
 	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, SavedViewAuthorizationMigrationID).Scan(&personalReadsApplied); err != nil {
 		return fmt.Errorf("read saved view authorization migration ledger: %w", err)
+	}
+	var projectHealthNotificationsApplied int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, ProjectHealthNotificationMigrationID).Scan(&projectHealthNotificationsApplied); err != nil {
+		return fmt.Errorf("read project health notification authorization migration ledger: %w", err)
 	}
 	for _, migration := range []struct {
 		id     string
@@ -460,10 +470,47 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 			return fmt.Errorf("record saved view authorization migration: %w", err)
 		}
 	}
+	for _, definition := range projectHealthNotifications {
+		if err := ensureProjectReadServiceOperation(ctx, tx, definition, projectHealthNotificationsApplied == 0); err != nil {
+			return fmt.Errorf("ensure project health notification service operation migration: %w", err)
+		}
+	}
+	if projectHealthNotificationsApplied == 0 {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO iotd_schema_migrations (migration_id, applied_at) VALUES (?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`, ProjectHealthNotificationMigrationID); err != nil {
+			return fmt.Errorf("record project health notification authorization migration: %w", err)
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit identity migration: %w", err)
 	}
 	return nil
+}
+
+func loadProjectHealthNotificationAuthorizationDefinitions(dictionary authorization.Dictionary) ([]projectReadAuthorizationDefinition, error) {
+	want := map[string]struct {
+		permission string
+		scope      string
+	}{
+		"delivery.projects.progress":  {permission: "delivery.projects.read", scope: "project"},
+		"delivery.projects.schedule":  {permission: "delivery.projects.read", scope: "project"},
+		"delivery.notifications.list": {permission: "delivery.work-items.read", scope: "project"},
+	}
+	definitions := make([]projectReadAuthorizationDefinition, 0, len(want))
+	for _, operation := range dictionary.Operations {
+		specification, ok := want[operation.ID]
+		if !ok {
+			continue
+		}
+		if operation.Permission != specification.permission || operation.RequiredScope != specification.scope {
+			return nil, fmt.Errorf("project health operation %q has invalid dictionary semantics", operation.ID)
+		}
+		definitions = append(definitions, projectReadAuthorizationDefinition{operation: operation})
+		delete(want, operation.ID)
+	}
+	if len(want) != 0 {
+		return nil, fmt.Errorf("project health operation dictionary is incomplete: %v", want)
+	}
+	return definitions, nil
 }
 
 func loadSavedViewAuthorizationDefinitions(dictionary authorization.Dictionary) ([]projectReadAuthorizationDefinition, error) {

@@ -2,7 +2,7 @@ package backendyunka
 
 import "testing"
 
-func TestAuthorizationTransportMatrixHasTwentyTwoRPCAndNineteenMCPPublicOperations(t *testing.T) {
+func TestAuthorizationTransportMatrixHasTwentyFiveRPCAndTwentyTwoMCPPublicOperations(t *testing.T) {
 	dictionary := loadPermissionDictionary(t)
 	plans := loadGeneratedOperationPlans(t)
 	if err := validatePermissionDictionary(dictionary, plans); err != nil {
@@ -25,10 +25,10 @@ func TestAuthorizationTransportMatrixHasTwentyTwoRPCAndNineteenMCPPublicOperatio
 			mcpTools[tool] = definition.ID
 		}
 	}
-	if generatedOperations != 22 {
-		t.Fatalf("REST/gRPC operation count = %d, want 22", generatedOperations)
+	if generatedOperations != 25 {
+		t.Fatalf("REST/gRPC operation count = %d, want 25", generatedOperations)
 	}
-	if got := len(mcpTools); got != 19 {
-		t.Fatalf("public MCP operation count = %d, want 19", got)
+	if got := len(mcpTools); got != 22 {
+		t.Fatalf("public MCP operation count = %d, want 22", got)
 	}
 }

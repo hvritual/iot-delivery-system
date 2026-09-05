@@ -175,6 +175,14 @@ export interface Iot_Delivery_V1_GetMemberWeekRequest {
   weekStart?: string;
 }
 
+export interface Iot_Delivery_V1_GetProjectProgressRequest {
+  projectId?: string;
+}
+
+export interface Iot_Delivery_V1_GetProjectScheduleRequest {
+  projectId?: string;
+}
+
 export interface Iot_Delivery_V1_IoTBinding {
   kind?: string;
   reference?: string;
@@ -195,6 +203,14 @@ export interface Iot_Delivery_V1_ListMilestonesRequest {
 
 export interface Iot_Delivery_V1_ListMilestonesResponse {
   milestones?: readonly Iot_Delivery_V1_Milestone[];
+}
+
+export interface Iot_Delivery_V1_ListNotificationsRequest {
+  limit?: number;
+}
+
+export interface Iot_Delivery_V1_ListNotificationsResponse {
+  notifications?: readonly Iot_Delivery_V1_Notification[];
 }
 
 export interface Iot_Delivery_V1_ListProjectsRequest {
@@ -253,6 +269,27 @@ export interface Iot_Delivery_V1_MilestoneResponse {
   milestone?: Iot_Delivery_V1_Milestone;
 }
 
+export interface Iot_Delivery_V1_Notification {
+  deliveryId?: string;
+  channel?: string;
+  eventType?: string;
+  subject?: string;
+  title?: string;
+  body?: string;
+  occurredAt?: string;
+  deliveredAt?: string;
+}
+
+export interface Iot_Delivery_V1_OwnerCapacity {
+  owner?: string;
+  itemCount?: number;
+  blockedItems?: number;
+  overdueItems?: number;
+  totalEstimatePoints?: number;
+  completedEstimatePoints?: number;
+  remainingEstimatePoints?: number;
+}
+
 export interface Iot_Delivery_V1_Project {
   id?: string;
   name?: string;
@@ -263,8 +300,38 @@ export interface Iot_Delivery_V1_Project {
   description?: string;
 }
 
+export interface Iot_Delivery_V1_ProjectProgress {
+  projectId?: string;
+  totalItems?: number;
+  completedItems?: number;
+  totalWeight?: number;
+  completedWeight?: number;
+  progressPercent?: number;
+}
+
+export interface Iot_Delivery_V1_ProjectProgressResponse {
+  progress?: Iot_Delivery_V1_ProjectProgress;
+}
+
 export interface Iot_Delivery_V1_ProjectResponse {
   project?: Iot_Delivery_V1_Project;
+}
+
+export interface Iot_Delivery_V1_ProjectSchedule {
+  projectId?: string;
+  asOfDate?: string;
+  totalItems?: number;
+  scheduledItems?: number;
+  unscheduledItems?: number;
+  blockedItems?: number;
+  overdueItems?: number;
+  dependencyBlockedItems?: number;
+  capacity?: readonly Iot_Delivery_V1_OwnerCapacity[];
+  risks?: readonly Iot_Delivery_V1_ScheduleRisk[];
+}
+
+export interface Iot_Delivery_V1_ProjectScheduleResponse {
+  schedule?: Iot_Delivery_V1_ProjectSchedule;
 }
 
 export interface Iot_Delivery_V1_Release {
@@ -299,6 +366,14 @@ export interface Iot_Delivery_V1_SavedView {
 
 export interface Iot_Delivery_V1_SavedViewResponse {
   view?: Iot_Delivery_V1_SavedView;
+}
+
+export interface Iot_Delivery_V1_ScheduleRisk {
+  itemId?: string;
+  title?: string;
+  owner?: string;
+  dueDate?: string;
+  reason?: string;
 }
 
 export interface Iot_Delivery_V1_SearchItemsRequest {
@@ -506,6 +581,18 @@ export const operations = {
     requestType: "iot.delivery.v1.GetMemberWeekRequest",
     responseType: "iot.delivery.v1.MemberWeekResponse"
   },
+  "iot.delivery.v1.DeliveryService.GetProjectProgress": {
+    fullName: "iot.delivery.v1.DeliveryService.GetProjectProgress",
+    rpcPath: "/iot.delivery.v1.DeliveryService/GetProjectProgress",
+    requestType: "iot.delivery.v1.GetProjectProgressRequest",
+    responseType: "iot.delivery.v1.ProjectProgressResponse"
+  },
+  "iot.delivery.v1.DeliveryService.GetProjectSchedule": {
+    fullName: "iot.delivery.v1.DeliveryService.GetProjectSchedule",
+    rpcPath: "/iot.delivery.v1.DeliveryService/GetProjectSchedule",
+    requestType: "iot.delivery.v1.GetProjectScheduleRequest",
+    responseType: "iot.delivery.v1.ProjectScheduleResponse"
+  },
   "iot.delivery.v1.DeliveryService.ListItems": {
     fullName: "iot.delivery.v1.DeliveryService.ListItems",
     rpcPath: "/iot.delivery.v1.DeliveryService/ListItems",
@@ -517,6 +604,12 @@ export const operations = {
     rpcPath: "/iot.delivery.v1.DeliveryService/ListMilestones",
     requestType: "iot.delivery.v1.ListMilestonesRequest",
     responseType: "iot.delivery.v1.ListMilestonesResponse"
+  },
+  "iot.delivery.v1.DeliveryService.ListNotifications": {
+    fullName: "iot.delivery.v1.DeliveryService.ListNotifications",
+    rpcPath: "/iot.delivery.v1.DeliveryService/ListNotifications",
+    requestType: "iot.delivery.v1.ListNotificationsRequest",
+    responseType: "iot.delivery.v1.ListNotificationsResponse"
   },
   "iot.delivery.v1.DeliveryService.ListProjects": {
     fullName: "iot.delivery.v1.DeliveryService.ListProjects",
@@ -619,12 +712,24 @@ export class Iot_Delivery_V1_DeliveryServiceClient {
     return this.transport.call<Iot_Delivery_V1_GetMemberWeekRequest, Iot_Delivery_V1_MemberWeekResponse>(operations["iot.delivery.v1.DeliveryService.GetMemberWeek"], request);
   }
 
+  getProjectProgress(request: Iot_Delivery_V1_GetProjectProgressRequest): Promise<Iot_Delivery_V1_ProjectProgressResponse> {
+    return this.transport.call<Iot_Delivery_V1_GetProjectProgressRequest, Iot_Delivery_V1_ProjectProgressResponse>(operations["iot.delivery.v1.DeliveryService.GetProjectProgress"], request);
+  }
+
+  getProjectSchedule(request: Iot_Delivery_V1_GetProjectScheduleRequest): Promise<Iot_Delivery_V1_ProjectScheduleResponse> {
+    return this.transport.call<Iot_Delivery_V1_GetProjectScheduleRequest, Iot_Delivery_V1_ProjectScheduleResponse>(operations["iot.delivery.v1.DeliveryService.GetProjectSchedule"], request);
+  }
+
   listItems(request: Iot_Delivery_V1_ListItemsRequest): Promise<Iot_Delivery_V1_ListItemsResponse> {
     return this.transport.call<Iot_Delivery_V1_ListItemsRequest, Iot_Delivery_V1_ListItemsResponse>(operations["iot.delivery.v1.DeliveryService.ListItems"], request);
   }
 
   listMilestones(request: Iot_Delivery_V1_ListMilestonesRequest): Promise<Iot_Delivery_V1_ListMilestonesResponse> {
     return this.transport.call<Iot_Delivery_V1_ListMilestonesRequest, Iot_Delivery_V1_ListMilestonesResponse>(operations["iot.delivery.v1.DeliveryService.ListMilestones"], request);
+  }
+
+  listNotifications(request: Iot_Delivery_V1_ListNotificationsRequest): Promise<Iot_Delivery_V1_ListNotificationsResponse> {
+    return this.transport.call<Iot_Delivery_V1_ListNotificationsRequest, Iot_Delivery_V1_ListNotificationsResponse>(operations["iot.delivery.v1.DeliveryService.ListNotifications"], request);
   }
 
   listProjects(request: Iot_Delivery_V1_ListProjectsRequest): Promise<Iot_Delivery_V1_ListProjectsResponse> {

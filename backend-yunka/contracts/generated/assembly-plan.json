@@ -351,6 +351,27 @@
       }
     },
     {
+      "id": "delivery.notifications.list",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.notifications.list",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.notifications.list/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.notifications.list"
+      }
+    },
+    {
       "id": "delivery.projects.create",
       "application": "delivery/management",
       "bindings": [
@@ -390,6 +411,48 @@
         "ownership": "reused",
         "source": "operation-plans.json",
         "ref": "operations/delivery.projects.list"
+      }
+    },
+    {
+      "id": "delivery.projects.progress",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.projects.progress",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.projects.progress/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.projects.progress"
+      }
+    },
+    {
+      "id": "delivery.projects.schedule",
+      "application": "delivery/management",
+      "bindings": [
+        {
+          "operationId": "delivery.projects.schedule",
+          "transport": "rpc",
+          "index": 0,
+          "evidence": {
+            "ownership": "reused",
+            "source": "operation-plans.json",
+            "ref": "operations/delivery.projects.schedule/bindings/rpc"
+          }
+        }
+      ],
+      "evidence": {
+        "ownership": "reused",
+        "source": "operation-plans.json",
+        "ref": "operations/delivery.projects.schedule"
       }
     },
     {
@@ -566,8 +629,11 @@
         "delivery.members.week",
         "delivery.milestones.create",
         "delivery.milestones.list",
+        "delivery.notifications.list",
         "delivery.projects.create",
         "delivery.projects.list",
+        "delivery.projects.progress",
+        "delivery.projects.schedule",
         "delivery.releases.create",
         "delivery.releases.list",
         "delivery.sprints.create",

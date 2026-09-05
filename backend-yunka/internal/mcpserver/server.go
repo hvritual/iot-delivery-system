@@ -10,6 +10,7 @@ import (
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
 	"github.com/hvritual/yunka.io/framework/core/identity"
 	"github.com/hvritual/yunka.io/framework/core/runtimecontext"
 	"github.com/hvritual/yunka.io/gateway/authz"
@@ -58,6 +59,7 @@ func (server *server) addTools(target *mcp.Server) {
 	addTool(target, readTool("delivery.get_member_week", "查看成员周任务", "查看成员在指定自然周的任务事项。"), server.memberWeek)
 	addTool(target, readTool("delivery.get_project_progress", "查看项目进度", "按估算权重汇总项目任务进度。"), server.projectProgress)
 	addTool(target, readTool("delivery.get_project_schedule", "查看项目交付健康", "查看依赖阻塞、逾期、未排期和成员剩余估算。"), server.projectSchedule)
+	addTool(target, readTool("delivery.list_notifications", "列出交付通知", "列出当前身份有权访问的项目通知。"), server.listNotifications)
 	addTool(target, writeTool("delivery.save_view", "保存任务视图", "保存当前本地身份的任务筛选视图。"), server.saveView)
 	addTool(target, readTool("delivery.list_saved_views", "列出保存视图", "列出当前本地身份保存的任务筛选视图。"), server.listSavedViews)
 }
@@ -519,6 +521,23 @@ func (server *server) projectSchedule(ctx context.Context, _ *mcp.CallToolReques
 	}
 	schedule, err := server.operations.ProjectSchedule(ctx, args.ProjectID)
 	return nil, projectScheduleOutput{Schedule: schedule}, err
+}
+
+type listNotificationsArgs struct {
+	Limit int `json:"limit,omitempty"`
+}
+
+type notificationsOutput struct {
+	Notifications []notification.Notification `json:"notifications"`
+}
+
+func (server *server) listNotifications(ctx context.Context, _ *mcp.CallToolRequest, args listNotificationsArgs) (*mcp.CallToolResult, notificationsOutput, error) {
+	ctx, err := server.toolContext(ctx)
+	if err != nil {
+		return nil, notificationsOutput{}, err
+	}
+	values, err := server.operations.ListNotifications(ctx, args.Limit)
+	return nil, notificationsOutput{Notifications: values}, err
 }
 
 type saveViewArgs struct {

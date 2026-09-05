@@ -865,6 +865,38 @@
       }
     },
     {
+      "name": "GetProjectProgressRequest",
+      "fullName": "iot.delivery.v1.GetProjectProgressRequest",
+      "fields": [
+        {
+          "name": "project_id",
+          "jsonName": "projectId",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "GetProjectScheduleRequest",
+      "fullName": "iot.delivery.v1.GetProjectScheduleRequest",
+      "fields": [
+        {
+          "name": "project_id",
+          "jsonName": "projectId",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
       "name": "IoTBinding",
       "fullName": "iot.delivery.v1.IoTBinding",
       "fields": [
@@ -956,6 +988,39 @@
           "number": 1,
           "kind": "message",
           "type": "iot.delivery.v1.Milestone",
+          "repeated": true
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
+      "name": "ListNotificationsRequest",
+      "fullName": "iot.delivery.v1.ListNotificationsRequest",
+      "fields": [
+        {
+          "name": "limit",
+          "jsonName": "limit",
+          "number": 1,
+          "kind": "scalar",
+          "type": "int32"
+        }
+      ],
+      "dto": {
+        "kind": "input"
+      }
+    },
+    {
+      "name": "ListNotificationsResponse",
+      "fullName": "iot.delivery.v1.ListNotificationsResponse",
+      "fields": [
+        {
+          "name": "notifications",
+          "jsonName": "notifications",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.Notification",
           "repeated": true
         }
       ],
@@ -1215,6 +1280,129 @@
       }
     },
     {
+      "name": "Notification",
+      "fullName": "iot.delivery.v1.Notification",
+      "fields": [
+        {
+          "name": "delivery_id",
+          "jsonName": "deliveryId",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "channel",
+          "jsonName": "channel",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "event_type",
+          "jsonName": "eventType",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "subject",
+          "jsonName": "subject",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "jsonName": "title",
+          "number": 5,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "body",
+          "jsonName": "body",
+          "number": 6,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "occurred_at",
+          "jsonName": "occurredAt",
+          "number": 7,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        },
+        {
+          "name": "delivered_at",
+          "jsonName": "deliveredAt",
+          "number": 8,
+          "kind": "message",
+          "type": "google.protobuf.Timestamp"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
+      "name": "OwnerCapacity",
+      "fullName": "iot.delivery.v1.OwnerCapacity",
+      "fields": [
+        {
+          "name": "owner",
+          "jsonName": "owner",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "item_count",
+          "jsonName": "itemCount",
+          "number": 2,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "blocked_items",
+          "jsonName": "blockedItems",
+          "number": 3,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "overdue_items",
+          "jsonName": "overdueItems",
+          "number": 4,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "total_estimate_points",
+          "jsonName": "totalEstimatePoints",
+          "number": 5,
+          "kind": "scalar",
+          "type": "double"
+        },
+        {
+          "name": "completed_estimate_points",
+          "jsonName": "completedEstimatePoints",
+          "number": 6,
+          "kind": "scalar",
+          "type": "double"
+        },
+        {
+          "name": "remaining_estimate_points",
+          "jsonName": "remainingEstimatePoints",
+          "number": 7,
+          "kind": "scalar",
+          "type": "double"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
       "name": "Project",
       "fullName": "iot.delivery.v1.Project",
       "fields": [
@@ -1273,6 +1461,73 @@
       }
     },
     {
+      "name": "ProjectProgress",
+      "fullName": "iot.delivery.v1.ProjectProgress",
+      "fields": [
+        {
+          "name": "project_id",
+          "jsonName": "projectId",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "total_items",
+          "jsonName": "totalItems",
+          "number": 2,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "completed_items",
+          "jsonName": "completedItems",
+          "number": 3,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "total_weight",
+          "jsonName": "totalWeight",
+          "number": 4,
+          "kind": "scalar",
+          "type": "double"
+        },
+        {
+          "name": "completed_weight",
+          "jsonName": "completedWeight",
+          "number": 5,
+          "kind": "scalar",
+          "type": "double"
+        },
+        {
+          "name": "progress_percent",
+          "jsonName": "progressPercent",
+          "number": 6,
+          "kind": "scalar",
+          "type": "double"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
+      "name": "ProjectProgressResponse",
+      "fullName": "iot.delivery.v1.ProjectProgressResponse",
+      "fields": [
+        {
+          "name": "progress",
+          "jsonName": "progress",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.ProjectProgress"
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
       "name": "ProjectResponse",
       "fullName": "iot.delivery.v1.ProjectResponse",
       "fields": [
@@ -1282,6 +1537,103 @@
           "number": 1,
           "kind": "message",
           "type": "iot.delivery.v1.Project"
+        }
+      ],
+      "dto": {
+        "kind": "output"
+      }
+    },
+    {
+      "name": "ProjectSchedule",
+      "fullName": "iot.delivery.v1.ProjectSchedule",
+      "fields": [
+        {
+          "name": "project_id",
+          "jsonName": "projectId",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "as_of_date",
+          "jsonName": "asOfDate",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "total_items",
+          "jsonName": "totalItems",
+          "number": 3,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "scheduled_items",
+          "jsonName": "scheduledItems",
+          "number": 4,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "unscheduled_items",
+          "jsonName": "unscheduledItems",
+          "number": 5,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "blocked_items",
+          "jsonName": "blockedItems",
+          "number": 6,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "overdue_items",
+          "jsonName": "overdueItems",
+          "number": 7,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "dependency_blocked_items",
+          "jsonName": "dependencyBlockedItems",
+          "number": 8,
+          "kind": "scalar",
+          "type": "int32"
+        },
+        {
+          "name": "capacity",
+          "jsonName": "capacity",
+          "number": 9,
+          "kind": "message",
+          "type": "iot.delivery.v1.OwnerCapacity",
+          "repeated": true
+        },
+        {
+          "name": "risks",
+          "jsonName": "risks",
+          "number": 10,
+          "kind": "message",
+          "type": "iot.delivery.v1.ScheduleRisk",
+          "repeated": true
+        }
+      ],
+      "dto": {
+        "kind": "shared"
+      }
+    },
+    {
+      "name": "ProjectScheduleResponse",
+      "fullName": "iot.delivery.v1.ProjectScheduleResponse",
+      "fields": [
+        {
+          "name": "schedule",
+          "jsonName": "schedule",
+          "number": 1,
+          "kind": "message",
+          "type": "iot.delivery.v1.ProjectSchedule"
         }
       ],
       "dto": {
@@ -1464,6 +1816,50 @@
       ],
       "dto": {
         "kind": "output"
+      }
+    },
+    {
+      "name": "ScheduleRisk",
+      "fullName": "iot.delivery.v1.ScheduleRisk",
+      "fields": [
+        {
+          "name": "item_id",
+          "jsonName": "itemId",
+          "number": 1,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "title",
+          "jsonName": "title",
+          "number": 2,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "owner",
+          "jsonName": "owner",
+          "number": 3,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "due_date",
+          "jsonName": "dueDate",
+          "number": 4,
+          "kind": "scalar",
+          "type": "string"
+        },
+        {
+          "name": "reason",
+          "jsonName": "reason",
+          "number": 5,
+          "kind": "scalar",
+          "type": "string"
+        }
+      ],
+      "dto": {
+        "kind": "shared"
       }
     },
     {
@@ -2741,6 +3137,82 @@
           }
         },
         {
+          "name": "GetProjectProgress",
+          "fullName": "iot.delivery.v1.DeliveryService.GetProjectProgress",
+          "request": "iot.delivery.v1.GetProjectProgressRequest",
+          "response": "iot.delivery.v1.ProjectProgressResponse",
+          "operation": {
+            "id": "delivery.projects.progress",
+            "useCase": "get_project_progress",
+            "permissions": [
+              "delivery.projects.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt",
+              "service-token"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "read_only",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.projects.progress",
+            "permissions": [
+              "delivery.projects.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt",
+              "service-token"
+            ]
+          }
+        },
+        {
+          "name": "GetProjectSchedule",
+          "fullName": "iot.delivery.v1.DeliveryService.GetProjectSchedule",
+          "request": "iot.delivery.v1.GetProjectScheduleRequest",
+          "response": "iot.delivery.v1.ProjectScheduleResponse",
+          "operation": {
+            "id": "delivery.projects.schedule",
+            "useCase": "get_project_schedule",
+            "permissions": [
+              "delivery.projects.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt",
+              "service-token"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "read_only",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.projects.schedule",
+            "permissions": [
+              "delivery.projects.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt",
+              "service-token"
+            ]
+          }
+        },
+        {
           "name": "ListItems",
           "fullName": "iot.delivery.v1.DeliveryService.ListItems",
           "request": "iot.delivery.v1.ListItemsRequest",
@@ -2804,6 +3276,44 @@
             "operationId": "delivery.milestones.list",
             "permissions": [
               "delivery.milestones.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt",
+              "service-token"
+            ]
+          }
+        },
+        {
+          "name": "ListNotifications",
+          "fullName": "iot.delivery.v1.DeliveryService.ListNotifications",
+          "request": "iot.delivery.v1.ListNotificationsRequest",
+          "response": "iot.delivery.v1.ListNotificationsResponse",
+          "operation": {
+            "id": "delivery.notifications.list",
+            "useCase": "list_notifications",
+            "permissions": [
+              "delivery.work-items.read"
+            ],
+            "permissionMode": "all",
+            "tenantRequired": true,
+            "authentication": [
+              "api-key",
+              "jwt",
+              "service-token"
+            ],
+            "composition": "local",
+            "execution": {
+              "transaction": "read_only",
+              "idempotency": "none"
+            }
+          },
+          "authorization": {
+            "operationId": "delivery.notifications.list",
+            "permissions": [
+              "delivery.work-items.read"
             ],
             "permissionMode": "all",
             "tenantRequired": true,

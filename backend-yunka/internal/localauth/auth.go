@@ -212,7 +212,6 @@ var permissionsByRole = map[string][]authz.PermissionKey{
 		"delivery.sprints.read",
 		"delivery.milestones.read",
 		"delivery.work-items.read",
-		"delivery.items.read", // Development-only alias for legacy extension operations.
 	},
 	RoleContributor: {
 		"delivery.dashboard.read",
@@ -228,7 +227,6 @@ var permissionsByRole = map[string][]authz.PermissionKey{
 		"delivery.work-items.update",
 		"delivery.work-items.comment.create",
 		"delivery.work-items.context.update",
-		"delivery.items.read", // Development-only alias for legacy extension operations.
 	},
 	RoleReleaseManager: {
 		"delivery.dashboard.read",
@@ -246,7 +244,6 @@ var permissionsByRole = map[string][]authz.PermissionKey{
 		"delivery.work-items.context.update",
 		"delivery.work-items.gate.advance",
 		"delivery.work-items.close",
-		"delivery.items.read", // Development-only alias for legacy extension operations.
 	},
 	RoleLocalAdmin: {
 		"delivery.dashboard.read",
@@ -268,7 +265,6 @@ var permissionsByRole = map[string][]authz.PermissionKey{
 		"delivery.releases.create",
 		"delivery.sprints.create",
 		"delivery.milestones.create",
-		"delivery.items.read", // Development-only alias for legacy extension operations.
 	},
 }
 

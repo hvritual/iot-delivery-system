@@ -89,6 +89,7 @@ func TestOperationsUsesGeneratedPolicyForAuthorizationAndLocalOutbox(t *testing.
 	administrator := identity.WithPrincipal(ctx, identity.Principal{
 		Authenticated: true,
 		AuthMethod:    identity.AuthMethodAPIKey,
+		TenantID:      "local",
 		Roles:         []string{localauth.RoleLocalAdmin},
 	})
 	item, err := operations.Create(administrator, input)
@@ -444,7 +445,7 @@ func TestOperationsViewerWriteOperationsHaveNoSideEffects(t *testing.T) {
 	service := delivery.NewService(repository, nil, delivery.NewTransactionalOutboxStager(store))
 	operations := application.NewOperations(application.NewAdapter(service), operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())}))
 	admin := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, Roles: []string{localauth.RoleLocalAdmin}})
-	viewer := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, Roles: []string{localauth.RoleViewer}})
+	viewer := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, TenantID: "local", Roles: []string{localauth.RoleViewer}})
 	item, err := operations.Create(admin, delivery.CreateInput{Title: "existing", Board: delivery.BoardResearchDelivery, Owner: "admin"})
 	if err != nil {
 		t.Fatal(err)
@@ -835,13 +836,14 @@ func TestOperationsListsNotificationsInsideTheYunkaReadTransaction(t *testing.T)
 	}
 	service := delivery.NewService(repository, nil)
 	operations := application.NewOperations(
-		application.NewAdapter(service),
+		application.NewAdapter(service, store),
 		operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())}),
 		service,
-	).WithNotificationReader(store)
+	)
 	administrator := identity.WithPrincipal(ctx, identity.Principal{
 		Authenticated: true,
 		AuthMethod:    identity.AuthMethodAPIKey,
+		TenantID:      "local",
 		Roles:         []string{localauth.RoleLocalAdmin},
 	})
 
@@ -899,7 +901,7 @@ func TestOperationsReadsProjectScheduleThroughTheYunkaReadScope(t *testing.T) {
 		operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())}),
 		service,
 	)
-	viewer := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, Roles: []string{localauth.RoleViewer}})
+	viewer := identity.WithPrincipal(ctx, identity.Principal{Authenticated: true, AuthMethod: identity.AuthMethodAPIKey, TenantID: "local", Roles: []string{localauth.RoleViewer}})
 
 	schedule, err := operations.ProjectSchedule(viewer, project.ID)
 	if err != nil {

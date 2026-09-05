@@ -448,6 +448,24 @@
         "type": "object",
         "x-yunka-proto-full-name": "iot.delivery.v1.GetMemberWeekRequest"
       },
+      "iot_delivery_v1_GetProjectProgressRequest": {
+        "properties": {
+          "projectId": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.GetProjectProgressRequest"
+      },
+      "iot_delivery_v1_GetProjectScheduleRequest": {
+        "properties": {
+          "projectId": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.GetProjectScheduleRequest"
+      },
       "iot_delivery_v1_IoTBinding": {
         "properties": {
           "attributes": {
@@ -506,6 +524,28 @@
         },
         "type": "object",
         "x-yunka-proto-full-name": "iot.delivery.v1.ListMilestonesResponse"
+      },
+      "iot_delivery_v1_ListNotificationsRequest": {
+        "properties": {
+          "limit": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.ListNotificationsRequest"
+      },
+      "iot_delivery_v1_ListNotificationsResponse": {
+        "properties": {
+          "notifications": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_Notification"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.ListNotificationsResponse"
       },
       "iot_delivery_v1_ListProjectsRequest": {
         "properties": {},
@@ -654,6 +694,71 @@
         "type": "object",
         "x-yunka-proto-full-name": "iot.delivery.v1.MilestoneResponse"
       },
+      "iot_delivery_v1_Notification": {
+        "properties": {
+          "body": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "deliveredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "deliveryId": {
+            "type": "string"
+          },
+          "eventType": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.Notification"
+      },
+      "iot_delivery_v1_OwnerCapacity": {
+        "properties": {
+          "blockedItems": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "completedEstimatePoints": {
+            "format": "double",
+            "type": "number"
+          },
+          "itemCount": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "overdueItems": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "remainingEstimatePoints": {
+            "format": "double",
+            "type": "number"
+          },
+          "totalEstimatePoints": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.OwnerCapacity"
+      },
       "iot_delivery_v1_Project": {
         "properties": {
           "board": {
@@ -683,6 +788,44 @@
         "type": "object",
         "x-yunka-proto-full-name": "iot.delivery.v1.Project"
       },
+      "iot_delivery_v1_ProjectProgress": {
+        "properties": {
+          "completedItems": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "completedWeight": {
+            "format": "double",
+            "type": "number"
+          },
+          "progressPercent": {
+            "format": "double",
+            "type": "number"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "totalItems": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "totalWeight": {
+            "format": "double",
+            "type": "number"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.ProjectProgress"
+      },
+      "iot_delivery_v1_ProjectProgressResponse": {
+        "properties": {
+          "progress": {
+            "$ref": "#/components/schemas/iot_delivery_v1_ProjectProgress"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.ProjectProgressResponse"
+      },
       "iot_delivery_v1_ProjectResponse": {
         "properties": {
           "project": {
@@ -691,6 +834,63 @@
         },
         "type": "object",
         "x-yunka-proto-full-name": "iot.delivery.v1.ProjectResponse"
+      },
+      "iot_delivery_v1_ProjectSchedule": {
+        "properties": {
+          "asOfDate": {
+            "type": "string"
+          },
+          "blockedItems": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "capacity": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_OwnerCapacity"
+            },
+            "type": "array"
+          },
+          "dependencyBlockedItems": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "overdueItems": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "projectId": {
+            "type": "string"
+          },
+          "risks": {
+            "items": {
+              "$ref": "#/components/schemas/iot_delivery_v1_ScheduleRisk"
+            },
+            "type": "array"
+          },
+          "scheduledItems": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "totalItems": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "unscheduledItems": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.ProjectSchedule"
+      },
+      "iot_delivery_v1_ProjectScheduleResponse": {
+        "properties": {
+          "schedule": {
+            "$ref": "#/components/schemas/iot_delivery_v1_ProjectSchedule"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.ProjectScheduleResponse"
       },
       "iot_delivery_v1_Release": {
         "properties": {
@@ -782,6 +982,27 @@
         },
         "type": "object",
         "x-yunka-proto-full-name": "iot.delivery.v1.SavedViewResponse"
+      },
+      "iot_delivery_v1_ScheduleRisk": {
+        "properties": {
+          "dueDate": {
+            "type": "string"
+          },
+          "itemId": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-yunka-proto-full-name": "iot.delivery.v1.ScheduleRisk"
       },
       "iot_delivery_v1_SearchItemsRequest": {
         "properties": {
@@ -1278,6 +1499,18 @@
       "rpcPath": "/iot.delivery.v1.DeliveryService/GetMemberWeek"
     },
     {
+      "operationId": "iot.delivery.v1.DeliveryService.GetProjectProgress",
+      "request": "iot.delivery.v1.GetProjectProgressRequest",
+      "response": "iot.delivery.v1.ProjectProgressResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/GetProjectProgress"
+    },
+    {
+      "operationId": "iot.delivery.v1.DeliveryService.GetProjectSchedule",
+      "request": "iot.delivery.v1.GetProjectScheduleRequest",
+      "response": "iot.delivery.v1.ProjectScheduleResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/GetProjectSchedule"
+    },
+    {
       "operationId": "iot.delivery.v1.DeliveryService.ListItems",
       "request": "iot.delivery.v1.ListItemsRequest",
       "response": "iot.delivery.v1.ListItemsResponse",
@@ -1288,6 +1521,12 @@
       "request": "iot.delivery.v1.ListMilestonesRequest",
       "response": "iot.delivery.v1.ListMilestonesResponse",
       "rpcPath": "/iot.delivery.v1.DeliveryService/ListMilestones"
+    },
+    {
+      "operationId": "iot.delivery.v1.DeliveryService.ListNotifications",
+      "request": "iot.delivery.v1.ListNotificationsRequest",
+      "response": "iot.delivery.v1.ListNotificationsResponse",
+      "rpcPath": "/iot.delivery.v1.DeliveryService/ListNotifications"
     },
     {
       "operationId": "iot.delivery.v1.DeliveryService.ListProjects",

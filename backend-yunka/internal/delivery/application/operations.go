@@ -10,37 +10,18 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryauthz"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
 	"github.com/hvritual/yunka.io/framework/operation"
-	"github.com/hvritual/yunka.io/pkg/operationplan"
 )
 
 // Operations is the explicit local application assembly used by the legacy
 // HTTP adapter. It reuses the generated operation plans and executor, so HTTP
 // and generated gRPC share the same security and transaction boundary.
 type Operations struct {
-	application   DeliveryService
-	service       *delivery.Service
-	notifications notification.Reader
-	executor      operation.Executor
+	application DeliveryService
+	executor    operation.Executor
 }
 
-func NewOperations(application DeliveryService, executor operation.Executor, services ...*delivery.Service) *Operations {
-	var service *delivery.Service
-	for _, candidate := range services {
-		if candidate != nil {
-			service = candidate
-			break
-		}
-	}
-	return &Operations{application: application, service: service, executor: executor}
-}
-
-// WithNotificationReader attaches the durable, local notification read model
-// without coupling the generated delivery application to a transport adapter.
-func (operations *Operations) WithNotificationReader(reader notification.Reader) *Operations {
-	if operations != nil {
-		operations.notifications = reader
-	}
-	return operations
+func NewOperations(application DeliveryService, executor operation.Executor, _ ...*delivery.Service) *Operations {
+	return &Operations{application: application, executor: executor}
 }
 
 func (operations *Operations) Dashboard(ctx context.Context) ([]delivery.WorkItem, error) {
@@ -487,53 +468,74 @@ func (operations *Operations) MemberWeek(ctx context.Context, member, weekStart 
 }
 
 func (operations *Operations) ProjectProgress(ctx context.Context, projectID string) (delivery.ProjectProgress, error) {
-	return executeServiceExtension(operations, ctx, "delivery.projects.progress", "get_project_progress", "delivery.items.read", "read_only", projectID, func(callContext context.Context) (delivery.ProjectProgress, error) {
-		return operations.service.ProjectProgress(callContext, projectID)
-	})
+	if err := operations.ready(); err != nil {
+		return delivery.ProjectProgress{}, err
+	}
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanGetProjectProgress(), &deliveryv1.GetProjectProgressRequest{ProjectId: projectID}, operations.application.GetProjectProgress)
+	if err != nil {
+		return delivery.ProjectProgress{}, err
+	}
+	return projectProgressFromProto(response.GetProgress()), nil
 }
 
 // ProjectSchedule exposes the same read-only, authenticated project-health
 // calculation to HTTP and MCP callers without letting those transports access
 // the repository directly.
 func (operations *Operations) ProjectSchedule(ctx context.Context, projectID string) (delivery.ProjectSchedule, error) {
-	return executeServiceExtension(operations, ctx, "delivery.projects.schedule", "get_project_schedule", "delivery.items.read", "read_only", projectID, func(callContext context.Context) (delivery.ProjectSchedule, error) {
-		return operations.service.ProjectSchedule(callContext, projectID)
-	})
+	if err := operations.ready(); err != nil {
+		return delivery.ProjectSchedule{}, err
+	}
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanGetProjectSchedule(), &deliveryv1.GetProjectScheduleRequest{ProjectId: projectID}, operations.application.GetProjectSchedule)
+	if err != nil {
+		return delivery.ProjectSchedule{}, err
+	}
+	return projectScheduleFromProto(response.GetSchedule()), nil
 }
 
 func (operations *Operations) ListNotifications(ctx context.Context, limit int) ([]notification.Notification, error) {
-	if err := operations.notificationsReady(); err != nil {
+	if err := operations.ready(); err != nil {
 		return nil, err
 	}
-	value, err := operations.executor.Execute(ctx, extensionPlan("delivery.notifications.list", "list_notifications", "delivery.items.read", "read_only"), limit, func(callContext context.Context) (any, error) {
-		return operations.notifications.List(callContext, limit)
-	})
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanListNotifications(), &deliveryv1.ListNotificationsRequest{Limit: int32(limit)}, operations.application.ListNotifications)
 	if err != nil {
 		return nil, err
 	}
-	notifications, ok := value.([]notification.Notification)
-	if !ok {
-		return nil, errors.New("delivery notification list operation returned an unexpected result")
+	values := make([]notification.Notification, 0, len(response.GetNotifications()))
+	for _, value := range response.GetNotifications() {
+		if value != nil {
+			values = append(values, notificationFromProto(value))
+		}
 	}
-	return notifications, nil
+	return values, nil
 }
 
-func executeServiceExtension[T any](operations *Operations, ctx context.Context, operationID, useCase, permission, transaction string, input any, action func(context.Context) (T, error)) (T, error) {
-	var zero T
-	if err := operations.extensionReady(); err != nil {
-		return zero, err
+func projectProgressFromProto(value *deliveryv1.ProjectProgress) delivery.ProjectProgress {
+	if value == nil {
+		return delivery.ProjectProgress{}
 	}
-	value, err := operations.executor.Execute(ctx, extensionPlan(operationID, useCase, permission, transaction), input, func(callContext context.Context) (any, error) {
-		return action(callContext)
-	})
-	if err != nil {
-		return zero, err
+	return delivery.ProjectProgress{ProjectID: value.GetProjectId(), TotalItems: int(value.GetTotalItems()), CompletedItems: int(value.GetCompletedItems()), TotalWeight: value.GetTotalWeight(), CompletedWeight: value.GetCompletedWeight(), ProgressPercent: value.GetProgressPercent()}
+}
+
+func projectScheduleFromProto(value *deliveryv1.ProjectSchedule) delivery.ProjectSchedule {
+	if value == nil {
+		return delivery.ProjectSchedule{}
 	}
-	result, ok := value.(T)
-	if !ok {
-		return zero, errors.New("delivery extension operation returned an unexpected result")
+	result := delivery.ProjectSchedule{ProjectID: value.GetProjectId(), AsOfDate: value.GetAsOfDate(), TotalItems: int(value.GetTotalItems()), ScheduledItems: int(value.GetScheduledItems()), UnscheduledItems: int(value.GetUnscheduledItems()), BlockedItems: int(value.GetBlockedItems()), OverdueItems: int(value.GetOverdueItems()), DependencyBlockedItems: int(value.GetDependencyBlockedItems())}
+	for _, current := range value.GetCapacity() {
+		if current != nil {
+			result.Capacity = append(result.Capacity, delivery.OwnerCapacity{Owner: current.GetOwner(), ItemCount: int(current.GetItemCount()), BlockedItems: int(current.GetBlockedItems()), OverdueItems: int(current.GetOverdueItems()), TotalEstimatePoints: current.GetTotalEstimatePoints(), CompletedEstimatePoints: current.GetCompletedEstimatePoints(), RemainingEstimatePoints: current.GetRemainingEstimatePoints()})
+		}
 	}
-	return result, nil
+	for _, current := range value.GetRisks() {
+		if current != nil {
+			result.Risks = append(result.Risks, delivery.ScheduleRisk{ItemID: current.GetItemId(), Title: current.GetTitle(), Owner: current.GetOwner(), DueDate: current.GetDueDate(), Reason: current.GetReason()})
+		}
+	}
+	return result
+}
+
+func notificationFromProto(value *deliveryv1.Notification) notification.Notification {
+	return notification.Notification{DeliveryID: value.GetDeliveryId(), Channel: value.GetChannel(), EventType: value.GetEventType(), Subject: value.GetSubject(), Title: value.GetTitle(), Body: value.GetBody(), OccurredAt: timeFromProto(value.GetOccurredAt()), DeliveredAt: timeFromProto(value.GetDeliveredAt())}
 }
 
 func savedViewFromProto(value *deliveryv1.SavedView) delivery.SavedView {
@@ -551,43 +553,6 @@ func (operations *Operations) ready() error {
 		return errors.New("delivery operations executor is not configured")
 	}
 	return nil
-}
-
-func (operations *Operations) extensionReady() error {
-	if err := operations.ready(); err != nil {
-		return err
-	}
-	if operations.service == nil {
-		return errors.New("delivery extension service is not configured")
-	}
-	return nil
-}
-
-func (operations *Operations) notificationsReady() error {
-	if err := operations.extensionReady(); err != nil {
-		return err
-	}
-	if operations.notifications == nil {
-		return errors.New("delivery notification reader is not configured")
-	}
-	return nil
-}
-
-func extensionPlan(operationID, useCase, permission, transaction string) operationplan.Plan {
-	return operationplan.Plan{
-		OperationID: operationID,
-		Domain:      "delivery",
-		Application: "management",
-		UseCase:     useCase,
-		Execution:   operationplan.Execution{Transaction: transaction, Idempotency: "none"},
-		Security: operationplan.Security{
-			Public:         false,
-			Authentication: []string{"api-key", "jwt"},
-			Permissions:    []string{permission},
-			PermissionMode: "all",
-		},
-		Composition: operationplan.Composition{Boundary: "local"},
-	}
 }
 
 func workItemsFromProto(values []*deliveryv1.WorkItem) []delivery.WorkItem {

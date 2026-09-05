@@ -67,7 +67,7 @@ func TestGrantResolverMapsRolesToExplicitPermissions(t *testing.T) {
 	}
 }
 
-func TestGrantResolverKeepsDevelopmentOnlyLegacyExtensionAlias(t *testing.T) {
+func TestGrantResolverRejectsRetiredLegacyExtensionAlias(t *testing.T) {
 	resolver := localauth.NewGrantResolver()
 	grants, err := resolver.ResolveGrants(context.Background(), authz.GrantRequest{
 		Principal: identity.Principal{
@@ -79,10 +79,10 @@ func TestGrantResolverKeepsDevelopmentOnlyLegacyExtensionAlias(t *testing.T) {
 		Permissions: []authz.PermissionKey{"delivery.items.read"},
 	})
 	if err != nil {
-		t.Fatalf("resolve legacy development extension grant: %v", err)
+		t.Fatalf("resolve retired extension grant: %v", err)
 	}
-	if len(grants) != 1 || grants[0].Permission != "delivery.items.read" || grants[0].RoleID != localauth.RoleViewer || grants[0].Scope != "local" {
-		t.Fatalf("legacy extension grants = %#v, want development-only local read alias", grants)
+	if len(grants) != 0 {
+		t.Fatalf("retired extension grants = %#v, want none", grants)
 	}
 }
 

@@ -420,6 +420,36 @@
       }
     },
     {
+      "operationId": "delivery.notifications.list",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "list_notifications",
+      "requestType": "iot.delivery.v1.ListNotificationsRequest",
+      "responseType": "iot.delivery.v1.ListNotificationsResponse",
+      "security": {
+        "tenantRequired": true,
+        "authentication": [
+          "api-key",
+          "jwt",
+          "service-token"
+        ],
+        "permissions": [
+          "delivery.work-items.read"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "read_only",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/ListNotifications"
+      }
+    },
+    {
       "operationId": "delivery.projects.create",
       "domain": "delivery",
       "application": "management",
@@ -477,6 +507,66 @@
       },
       "bindings": {
         "rpc": "/iot.delivery.v1.DeliveryService/ListProjects"
+      }
+    },
+    {
+      "operationId": "delivery.projects.progress",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "get_project_progress",
+      "requestType": "iot.delivery.v1.GetProjectProgressRequest",
+      "responseType": "iot.delivery.v1.ProjectProgressResponse",
+      "security": {
+        "tenantRequired": true,
+        "authentication": [
+          "api-key",
+          "jwt",
+          "service-token"
+        ],
+        "permissions": [
+          "delivery.projects.read"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "read_only",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/GetProjectProgress"
+      }
+    },
+    {
+      "operationId": "delivery.projects.schedule",
+      "domain": "delivery",
+      "application": "management",
+      "useCase": "get_project_schedule",
+      "requestType": "iot.delivery.v1.GetProjectScheduleRequest",
+      "responseType": "iot.delivery.v1.ProjectScheduleResponse",
+      "security": {
+        "tenantRequired": true,
+        "authentication": [
+          "api-key",
+          "jwt",
+          "service-token"
+        ],
+        "permissions": [
+          "delivery.projects.read"
+        ],
+        "permissionMode": "all"
+      },
+      "execution": {
+        "transaction": "read_only",
+        "idempotency": "none"
+      },
+      "composition": {
+        "boundary": "local"
+      },
+      "bindings": {
+        "rpc": "/iot.delivery.v1.DeliveryService/GetProjectSchedule"
       }
     },
     {

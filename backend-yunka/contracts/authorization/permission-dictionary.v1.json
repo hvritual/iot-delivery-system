@@ -683,6 +683,66 @@
       }
     },
     {
+      "id": "delivery.projects.progress",
+      "resource": "delivery.projects",
+      "permission": "delivery.projects.read",
+      "requiredScope": "project",
+      "risk": "low",
+      "writes": false,
+      "transports": {
+        "grpc": "/iot.delivery.v1.DeliveryService/GetProjectProgress",
+        "rest": [
+          {
+            "method": "GET",
+            "path": "/api/projects/{project_id}/progress"
+          }
+        ],
+        "mcp": [
+          "delivery.get_project_progress"
+        ]
+      }
+    },
+    {
+      "id": "delivery.projects.schedule",
+      "resource": "delivery.projects",
+      "permission": "delivery.projects.read",
+      "requiredScope": "project",
+      "risk": "low",
+      "writes": false,
+      "transports": {
+        "grpc": "/iot.delivery.v1.DeliveryService/GetProjectSchedule",
+        "rest": [
+          {
+            "method": "GET",
+            "path": "/api/projects/{project_id}/schedule"
+          }
+        ],
+        "mcp": [
+          "delivery.get_project_schedule"
+        ]
+      }
+    },
+    {
+      "id": "delivery.notifications.list",
+      "resource": "delivery.work-items",
+      "permission": "delivery.work-items.read",
+      "requiredScope": "project",
+      "risk": "low",
+      "writes": false,
+      "transports": {
+        "grpc": "/iot.delivery.v1.DeliveryService/ListNotifications",
+        "rest": [
+          {
+            "method": "GET",
+            "path": "/api/notifications"
+          }
+        ],
+        "mcp": [
+          "delivery.list_notifications"
+        ]
+      }
+    },
+    {
       "id": "delivery.releases.list",
       "resource": "delivery.releases",
       "permission": "delivery.releases.read",
@@ -1358,8 +1418,7 @@
           "delivery.milestones.create",
           "delivery.views.write",
           "delivery.views.read",
-          "delivery.members.read",
-          "delivery.items.read"
+          "delivery.members.read"
         ]
       },
       {
@@ -1373,8 +1432,7 @@
           "delivery.milestones.read",
           "delivery.views.write",
           "delivery.views.read",
-          "delivery.members.read",
-          "delivery.items.read"
+          "delivery.members.read"
         ]
       },
       {
@@ -1392,8 +1450,7 @@
           "delivery.work-items.context.update",
           "delivery.views.write",
           "delivery.views.read",
-          "delivery.members.read",
-          "delivery.items.read"
+          "delivery.members.read"
         ]
       },
       {
@@ -1413,17 +1470,10 @@
           "delivery.work-items.close",
           "delivery.views.write",
           "delivery.views.read",
-          "delivery.members.read",
-          "delivery.items.read"
+          "delivery.members.read"
         ]
       }
     ],
-    "legacyExtensionPermissionAliases": [
-      {
-        "legacyPermission": "delivery.items.read",
-        "replacement": "delivery.work-items.read",
-        "reason": "existing ungenerated read extensions"
-      }
-    ]
+    "legacyExtensionPermissionAliases": []
   }
 }

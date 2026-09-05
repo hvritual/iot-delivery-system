@@ -3645,6 +3645,740 @@ func (x *ListMilestonesResponse) GetMilestones() []*Milestone {
 	return nil
 }
 
+type GetProjectProgressRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ProjectId     string                 `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetProjectProgressRequest) Reset() {
+	*x = GetProjectProgressRequest{}
+	mi := &file_iot_delivery_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetProjectProgressRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetProjectProgressRequest) ProtoMessage() {}
+
+func (x *GetProjectProgressRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetProjectProgressRequest.ProtoReflect.Descriptor instead.
+func (*GetProjectProgressRequest) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *GetProjectProgressRequest) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+type ProjectProgressResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Progress      *ProjectProgress       `protobuf:"bytes,1,opt,name=progress,proto3" json:"progress,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProjectProgressResponse) Reset() {
+	*x = ProjectProgressResponse{}
+	mi := &file_iot_delivery_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProjectProgressResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProjectProgressResponse) ProtoMessage() {}
+
+func (x *ProjectProgressResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProjectProgressResponse.ProtoReflect.Descriptor instead.
+func (*ProjectProgressResponse) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *ProjectProgressResponse) GetProgress() *ProjectProgress {
+	if x != nil {
+		return x.Progress
+	}
+	return nil
+}
+
+type ProjectProgress struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ProjectId       string                 `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	TotalItems      int32                  `protobuf:"varint,2,opt,name=total_items,json=totalItems,proto3" json:"total_items,omitempty"`
+	CompletedItems  int32                  `protobuf:"varint,3,opt,name=completed_items,json=completedItems,proto3" json:"completed_items,omitempty"`
+	TotalWeight     float64                `protobuf:"fixed64,4,opt,name=total_weight,json=totalWeight,proto3" json:"total_weight,omitempty"`
+	CompletedWeight float64                `protobuf:"fixed64,5,opt,name=completed_weight,json=completedWeight,proto3" json:"completed_weight,omitempty"`
+	ProgressPercent float64                `protobuf:"fixed64,6,opt,name=progress_percent,json=progressPercent,proto3" json:"progress_percent,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ProjectProgress) Reset() {
+	*x = ProjectProgress{}
+	mi := &file_iot_delivery_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProjectProgress) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProjectProgress) ProtoMessage() {}
+
+func (x *ProjectProgress) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProjectProgress.ProtoReflect.Descriptor instead.
+func (*ProjectProgress) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *ProjectProgress) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+func (x *ProjectProgress) GetTotalItems() int32 {
+	if x != nil {
+		return x.TotalItems
+	}
+	return 0
+}
+
+func (x *ProjectProgress) GetCompletedItems() int32 {
+	if x != nil {
+		return x.CompletedItems
+	}
+	return 0
+}
+
+func (x *ProjectProgress) GetTotalWeight() float64 {
+	if x != nil {
+		return x.TotalWeight
+	}
+	return 0
+}
+
+func (x *ProjectProgress) GetCompletedWeight() float64 {
+	if x != nil {
+		return x.CompletedWeight
+	}
+	return 0
+}
+
+func (x *ProjectProgress) GetProgressPercent() float64 {
+	if x != nil {
+		return x.ProgressPercent
+	}
+	return 0
+}
+
+type GetProjectScheduleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ProjectId     string                 `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetProjectScheduleRequest) Reset() {
+	*x = GetProjectScheduleRequest{}
+	mi := &file_iot_delivery_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetProjectScheduleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetProjectScheduleRequest) ProtoMessage() {}
+
+func (x *GetProjectScheduleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetProjectScheduleRequest.ProtoReflect.Descriptor instead.
+func (*GetProjectScheduleRequest) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *GetProjectScheduleRequest) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+type ProjectScheduleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Schedule      *ProjectSchedule       `protobuf:"bytes,1,opt,name=schedule,proto3" json:"schedule,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProjectScheduleResponse) Reset() {
+	*x = ProjectScheduleResponse{}
+	mi := &file_iot_delivery_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProjectScheduleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProjectScheduleResponse) ProtoMessage() {}
+
+func (x *ProjectScheduleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProjectScheduleResponse.ProtoReflect.Descriptor instead.
+func (*ProjectScheduleResponse) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *ProjectScheduleResponse) GetSchedule() *ProjectSchedule {
+	if x != nil {
+		return x.Schedule
+	}
+	return nil
+}
+
+type ProjectSchedule struct {
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	ProjectId              string                 `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	AsOfDate               string                 `protobuf:"bytes,2,opt,name=as_of_date,json=asOfDate,proto3" json:"as_of_date,omitempty"`
+	TotalItems             int32                  `protobuf:"varint,3,opt,name=total_items,json=totalItems,proto3" json:"total_items,omitempty"`
+	ScheduledItems         int32                  `protobuf:"varint,4,opt,name=scheduled_items,json=scheduledItems,proto3" json:"scheduled_items,omitempty"`
+	UnscheduledItems       int32                  `protobuf:"varint,5,opt,name=unscheduled_items,json=unscheduledItems,proto3" json:"unscheduled_items,omitempty"`
+	BlockedItems           int32                  `protobuf:"varint,6,opt,name=blocked_items,json=blockedItems,proto3" json:"blocked_items,omitempty"`
+	OverdueItems           int32                  `protobuf:"varint,7,opt,name=overdue_items,json=overdueItems,proto3" json:"overdue_items,omitempty"`
+	DependencyBlockedItems int32                  `protobuf:"varint,8,opt,name=dependency_blocked_items,json=dependencyBlockedItems,proto3" json:"dependency_blocked_items,omitempty"`
+	Capacity               []*OwnerCapacity       `protobuf:"bytes,9,rep,name=capacity,proto3" json:"capacity,omitempty"`
+	Risks                  []*ScheduleRisk        `protobuf:"bytes,10,rep,name=risks,proto3" json:"risks,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *ProjectSchedule) Reset() {
+	*x = ProjectSchedule{}
+	mi := &file_iot_delivery_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProjectSchedule) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProjectSchedule) ProtoMessage() {}
+
+func (x *ProjectSchedule) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProjectSchedule.ProtoReflect.Descriptor instead.
+func (*ProjectSchedule) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *ProjectSchedule) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+func (x *ProjectSchedule) GetAsOfDate() string {
+	if x != nil {
+		return x.AsOfDate
+	}
+	return ""
+}
+
+func (x *ProjectSchedule) GetTotalItems() int32 {
+	if x != nil {
+		return x.TotalItems
+	}
+	return 0
+}
+
+func (x *ProjectSchedule) GetScheduledItems() int32 {
+	if x != nil {
+		return x.ScheduledItems
+	}
+	return 0
+}
+
+func (x *ProjectSchedule) GetUnscheduledItems() int32 {
+	if x != nil {
+		return x.UnscheduledItems
+	}
+	return 0
+}
+
+func (x *ProjectSchedule) GetBlockedItems() int32 {
+	if x != nil {
+		return x.BlockedItems
+	}
+	return 0
+}
+
+func (x *ProjectSchedule) GetOverdueItems() int32 {
+	if x != nil {
+		return x.OverdueItems
+	}
+	return 0
+}
+
+func (x *ProjectSchedule) GetDependencyBlockedItems() int32 {
+	if x != nil {
+		return x.DependencyBlockedItems
+	}
+	return 0
+}
+
+func (x *ProjectSchedule) GetCapacity() []*OwnerCapacity {
+	if x != nil {
+		return x.Capacity
+	}
+	return nil
+}
+
+func (x *ProjectSchedule) GetRisks() []*ScheduleRisk {
+	if x != nil {
+		return x.Risks
+	}
+	return nil
+}
+
+type OwnerCapacity struct {
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	Owner                   string                 `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	ItemCount               int32                  `protobuf:"varint,2,opt,name=item_count,json=itemCount,proto3" json:"item_count,omitempty"`
+	BlockedItems            int32                  `protobuf:"varint,3,opt,name=blocked_items,json=blockedItems,proto3" json:"blocked_items,omitempty"`
+	OverdueItems            int32                  `protobuf:"varint,4,opt,name=overdue_items,json=overdueItems,proto3" json:"overdue_items,omitempty"`
+	TotalEstimatePoints     float64                `protobuf:"fixed64,5,opt,name=total_estimate_points,json=totalEstimatePoints,proto3" json:"total_estimate_points,omitempty"`
+	CompletedEstimatePoints float64                `protobuf:"fixed64,6,opt,name=completed_estimate_points,json=completedEstimatePoints,proto3" json:"completed_estimate_points,omitempty"`
+	RemainingEstimatePoints float64                `protobuf:"fixed64,7,opt,name=remaining_estimate_points,json=remainingEstimatePoints,proto3" json:"remaining_estimate_points,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *OwnerCapacity) Reset() {
+	*x = OwnerCapacity{}
+	mi := &file_iot_delivery_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OwnerCapacity) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OwnerCapacity) ProtoMessage() {}
+
+func (x *OwnerCapacity) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OwnerCapacity.ProtoReflect.Descriptor instead.
+func (*OwnerCapacity) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *OwnerCapacity) GetOwner() string {
+	if x != nil {
+		return x.Owner
+	}
+	return ""
+}
+
+func (x *OwnerCapacity) GetItemCount() int32 {
+	if x != nil {
+		return x.ItemCount
+	}
+	return 0
+}
+
+func (x *OwnerCapacity) GetBlockedItems() int32 {
+	if x != nil {
+		return x.BlockedItems
+	}
+	return 0
+}
+
+func (x *OwnerCapacity) GetOverdueItems() int32 {
+	if x != nil {
+		return x.OverdueItems
+	}
+	return 0
+}
+
+func (x *OwnerCapacity) GetTotalEstimatePoints() float64 {
+	if x != nil {
+		return x.TotalEstimatePoints
+	}
+	return 0
+}
+
+func (x *OwnerCapacity) GetCompletedEstimatePoints() float64 {
+	if x != nil {
+		return x.CompletedEstimatePoints
+	}
+	return 0
+}
+
+func (x *OwnerCapacity) GetRemainingEstimatePoints() float64 {
+	if x != nil {
+		return x.RemainingEstimatePoints
+	}
+	return 0
+}
+
+type ScheduleRisk struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ItemId        string                 `protobuf:"bytes,1,opt,name=item_id,json=itemId,proto3" json:"item_id,omitempty"`
+	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Owner         string                 `protobuf:"bytes,3,opt,name=owner,proto3" json:"owner,omitempty"`
+	DueDate       string                 `protobuf:"bytes,4,opt,name=due_date,json=dueDate,proto3" json:"due_date,omitempty"`
+	Reason        string                 `protobuf:"bytes,5,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ScheduleRisk) Reset() {
+	*x = ScheduleRisk{}
+	mi := &file_iot_delivery_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ScheduleRisk) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ScheduleRisk) ProtoMessage() {}
+
+func (x *ScheduleRisk) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ScheduleRisk.ProtoReflect.Descriptor instead.
+func (*ScheduleRisk) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *ScheduleRisk) GetItemId() string {
+	if x != nil {
+		return x.ItemId
+	}
+	return ""
+}
+
+func (x *ScheduleRisk) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *ScheduleRisk) GetOwner() string {
+	if x != nil {
+		return x.Owner
+	}
+	return ""
+}
+
+func (x *ScheduleRisk) GetDueDate() string {
+	if x != nil {
+		return x.DueDate
+	}
+	return ""
+}
+
+func (x *ScheduleRisk) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+// ListNotificationsRequest intentionally carries no caller-controlled project
+// scope. Durable grants determine which project subjects are visible.
+type ListNotificationsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Limit         int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListNotificationsRequest) Reset() {
+	*x = ListNotificationsRequest{}
+	mi := &file_iot_delivery_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListNotificationsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListNotificationsRequest) ProtoMessage() {}
+
+func (x *ListNotificationsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListNotificationsRequest.ProtoReflect.Descriptor instead.
+func (*ListNotificationsRequest) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *ListNotificationsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type ListNotificationsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Notifications []*Notification        `protobuf:"bytes,1,rep,name=notifications,proto3" json:"notifications,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListNotificationsResponse) Reset() {
+	*x = ListNotificationsResponse{}
+	mi := &file_iot_delivery_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListNotificationsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListNotificationsResponse) ProtoMessage() {}
+
+func (x *ListNotificationsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListNotificationsResponse.ProtoReflect.Descriptor instead.
+func (*ListNotificationsResponse) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *ListNotificationsResponse) GetNotifications() []*Notification {
+	if x != nil {
+		return x.Notifications
+	}
+	return nil
+}
+
+type Notification struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DeliveryId    string                 `protobuf:"bytes,1,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"`
+	Channel       string                 `protobuf:"bytes,2,opt,name=channel,proto3" json:"channel,omitempty"`
+	EventType     string                 `protobuf:"bytes,3,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
+	Subject       string                 `protobuf:"bytes,4,opt,name=subject,proto3" json:"subject,omitempty"`
+	Title         string                 `protobuf:"bytes,5,opt,name=title,proto3" json:"title,omitempty"`
+	Body          string                 `protobuf:"bytes,6,opt,name=body,proto3" json:"body,omitempty"`
+	OccurredAt    *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
+	DeliveredAt   *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=delivered_at,json=deliveredAt,proto3" json:"delivered_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Notification) Reset() {
+	*x = Notification{}
+	mi := &file_iot_delivery_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Notification) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Notification) ProtoMessage() {}
+
+func (x *Notification) ProtoReflect() protoreflect.Message {
+	mi := &file_iot_delivery_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Notification.ProtoReflect.Descriptor instead.
+func (*Notification) Descriptor() ([]byte, []int) {
+	return file_iot_delivery_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *Notification) GetDeliveryId() string {
+	if x != nil {
+		return x.DeliveryId
+	}
+	return ""
+}
+
+func (x *Notification) GetChannel() string {
+	if x != nil {
+		return x.Channel
+	}
+	return ""
+}
+
+func (x *Notification) GetEventType() string {
+	if x != nil {
+		return x.EventType
+	}
+	return ""
+}
+
+func (x *Notification) GetSubject() string {
+	if x != nil {
+		return x.Subject
+	}
+	return ""
+}
+
+func (x *Notification) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *Notification) GetBody() string {
+	if x != nil {
+		return x.Body
+	}
+	return ""
+}
+
+func (x *Notification) GetOccurredAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.OccurredAt
+	}
+	return nil
+}
+
+func (x *Notification) GetDeliveredAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DeliveredAt
+	}
+	return nil
+}
+
 type GetItemRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -3654,7 +4388,7 @@ type GetItemRequest struct {
 
 func (x *GetItemRequest) Reset() {
 	*x = GetItemRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[51]
+	mi := &file_iot_delivery_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3666,7 +4400,7 @@ func (x *GetItemRequest) String() string {
 func (*GetItemRequest) ProtoMessage() {}
 
 func (x *GetItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[51]
+	mi := &file_iot_delivery_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3679,7 +4413,7 @@ func (x *GetItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetItemRequest.ProtoReflect.Descriptor instead.
 func (*GetItemRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{51}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *GetItemRequest) GetId() string {
@@ -3706,7 +4440,7 @@ type SearchItemsRequest struct {
 
 func (x *SearchItemsRequest) Reset() {
 	*x = SearchItemsRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[52]
+	mi := &file_iot_delivery_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3718,7 +4452,7 @@ func (x *SearchItemsRequest) String() string {
 func (*SearchItemsRequest) ProtoMessage() {}
 
 func (x *SearchItemsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[52]
+	mi := &file_iot_delivery_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3731,7 +4465,7 @@ func (x *SearchItemsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchItemsRequest.ProtoReflect.Descriptor instead.
 func (*SearchItemsRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{52}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *SearchItemsRequest) GetProjectId() string {
@@ -3806,7 +4540,7 @@ type SearchItemsResponse struct {
 
 func (x *SearchItemsResponse) Reset() {
 	*x = SearchItemsResponse{}
-	mi := &file_iot_delivery_proto_msgTypes[53]
+	mi := &file_iot_delivery_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3818,7 +4552,7 @@ func (x *SearchItemsResponse) String() string {
 func (*SearchItemsResponse) ProtoMessage() {}
 
 func (x *SearchItemsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[53]
+	mi := &file_iot_delivery_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3831,7 +4565,7 @@ func (x *SearchItemsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchItemsResponse.ProtoReflect.Descriptor instead.
 func (*SearchItemsResponse) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{53}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *SearchItemsResponse) GetItems() []*WorkItem {
@@ -3854,7 +4588,7 @@ type FindSimilarItemsRequest struct {
 
 func (x *FindSimilarItemsRequest) Reset() {
 	*x = FindSimilarItemsRequest{}
-	mi := &file_iot_delivery_proto_msgTypes[54]
+	mi := &file_iot_delivery_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3866,7 +4600,7 @@ func (x *FindSimilarItemsRequest) String() string {
 func (*FindSimilarItemsRequest) ProtoMessage() {}
 
 func (x *FindSimilarItemsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[54]
+	mi := &file_iot_delivery_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3879,7 +4613,7 @@ func (x *FindSimilarItemsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindSimilarItemsRequest.ProtoReflect.Descriptor instead.
 func (*FindSimilarItemsRequest) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{54}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *FindSimilarItemsRequest) GetTitle() string {
@@ -3926,7 +4660,7 @@ type FindSimilarItemsResponse struct {
 
 func (x *FindSimilarItemsResponse) Reset() {
 	*x = FindSimilarItemsResponse{}
-	mi := &file_iot_delivery_proto_msgTypes[55]
+	mi := &file_iot_delivery_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3938,7 +4672,7 @@ func (x *FindSimilarItemsResponse) String() string {
 func (*FindSimilarItemsResponse) ProtoMessage() {}
 
 func (x *FindSimilarItemsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[55]
+	mi := &file_iot_delivery_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3951,7 +4685,7 @@ func (x *FindSimilarItemsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindSimilarItemsResponse.ProtoReflect.Descriptor instead.
 func (*FindSimilarItemsResponse) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{55}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *FindSimilarItemsResponse) GetCandidates() []*SimilarityCandidate {
@@ -3972,7 +4706,7 @@ type SimilarityCandidate struct {
 
 func (x *SimilarityCandidate) Reset() {
 	*x = SimilarityCandidate{}
-	mi := &file_iot_delivery_proto_msgTypes[56]
+	mi := &file_iot_delivery_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3984,7 +4718,7 @@ func (x *SimilarityCandidate) String() string {
 func (*SimilarityCandidate) ProtoMessage() {}
 
 func (x *SimilarityCandidate) ProtoReflect() protoreflect.Message {
-	mi := &file_iot_delivery_proto_msgTypes[56]
+	mi := &file_iot_delivery_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3997,7 +4731,7 @@ func (x *SimilarityCandidate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SimilarityCandidate.ProtoReflect.Descriptor instead.
 func (*SimilarityCandidate) Descriptor() ([]byte, []int) {
-	return file_iot_delivery_proto_rawDescGZIP(), []int{56}
+	return file_iot_delivery_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *SimilarityCandidate) GetItem() *WorkItem {
@@ -4366,7 +5100,72 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\x16ListMilestonesResponse\x12:\n" +
 	"\n" +
 	"milestones\x18\x01 \x03(\v2\x1a.iot.delivery.v1.MilestoneR\n" +
-	"milestones:\x06\xd2\xf3\x18\x02\b\x02\"(\n" +
+	"milestones:\x06\xd2\xf3\x18\x02\b\x02\"B\n" +
+	"\x19GetProjectProgressRequest\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\x01 \x01(\tR\tprojectId:\x06\xd2\xf3\x18\x02\b\x01\"_\n" +
+	"\x17ProjectProgressResponse\x12<\n" +
+	"\bprogress\x18\x01 \x01(\v2 .iot.delivery.v1.ProjectProgressR\bprogress:\x06\xd2\xf3\x18\x02\b\x02\"\xfb\x01\n" +
+	"\x0fProjectProgress\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\x01 \x01(\tR\tprojectId\x12\x1f\n" +
+	"\vtotal_items\x18\x02 \x01(\x05R\n" +
+	"totalItems\x12'\n" +
+	"\x0fcompleted_items\x18\x03 \x01(\x05R\x0ecompletedItems\x12!\n" +
+	"\ftotal_weight\x18\x04 \x01(\x01R\vtotalWeight\x12)\n" +
+	"\x10completed_weight\x18\x05 \x01(\x01R\x0fcompletedWeight\x12)\n" +
+	"\x10progress_percent\x18\x06 \x01(\x01R\x0fprogressPercent:\x06\xd2\xf3\x18\x02\b\x03\"B\n" +
+	"\x19GetProjectScheduleRequest\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\x01 \x01(\tR\tprojectId:\x06\xd2\xf3\x18\x02\b\x01\"_\n" +
+	"\x17ProjectScheduleResponse\x12<\n" +
+	"\bschedule\x18\x01 \x01(\v2 .iot.delivery.v1.ProjectScheduleR\bschedule:\x06\xd2\xf3\x18\x02\b\x02\"\xc2\x03\n" +
+	"\x0fProjectSchedule\x12\x1d\n" +
+	"\n" +
+	"project_id\x18\x01 \x01(\tR\tprojectId\x12\x1c\n" +
+	"\n" +
+	"as_of_date\x18\x02 \x01(\tR\basOfDate\x12\x1f\n" +
+	"\vtotal_items\x18\x03 \x01(\x05R\n" +
+	"totalItems\x12'\n" +
+	"\x0fscheduled_items\x18\x04 \x01(\x05R\x0escheduledItems\x12+\n" +
+	"\x11unscheduled_items\x18\x05 \x01(\x05R\x10unscheduledItems\x12#\n" +
+	"\rblocked_items\x18\x06 \x01(\x05R\fblockedItems\x12#\n" +
+	"\roverdue_items\x18\a \x01(\x05R\foverdueItems\x128\n" +
+	"\x18dependency_blocked_items\x18\b \x01(\x05R\x16dependencyBlockedItems\x12:\n" +
+	"\bcapacity\x18\t \x03(\v2\x1e.iot.delivery.v1.OwnerCapacityR\bcapacity\x123\n" +
+	"\x05risks\x18\n" +
+	" \x03(\v2\x1d.iot.delivery.v1.ScheduleRiskR\x05risks:\x06\xd2\xf3\x18\x02\b\x03\"\xc2\x02\n" +
+	"\rOwnerCapacity\x12\x14\n" +
+	"\x05owner\x18\x01 \x01(\tR\x05owner\x12\x1d\n" +
+	"\n" +
+	"item_count\x18\x02 \x01(\x05R\titemCount\x12#\n" +
+	"\rblocked_items\x18\x03 \x01(\x05R\fblockedItems\x12#\n" +
+	"\roverdue_items\x18\x04 \x01(\x05R\foverdueItems\x122\n" +
+	"\x15total_estimate_points\x18\x05 \x01(\x01R\x13totalEstimatePoints\x12:\n" +
+	"\x19completed_estimate_points\x18\x06 \x01(\x01R\x17completedEstimatePoints\x12:\n" +
+	"\x19remaining_estimate_points\x18\a \x01(\x01R\x17remainingEstimatePoints:\x06\xd2\xf3\x18\x02\b\x03\"\x8e\x01\n" +
+	"\fScheduleRisk\x12\x17\n" +
+	"\aitem_id\x18\x01 \x01(\tR\x06itemId\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12\x14\n" +
+	"\x05owner\x18\x03 \x01(\tR\x05owner\x12\x19\n" +
+	"\bdue_date\x18\x04 \x01(\tR\adueDate\x12\x16\n" +
+	"\x06reason\x18\x05 \x01(\tR\x06reason:\x06\xd2\xf3\x18\x02\b\x03\"8\n" +
+	"\x18ListNotificationsRequest\x12\x14\n" +
+	"\x05limit\x18\x01 \x01(\x05R\x05limit:\x06\xd2\xf3\x18\x02\b\x01\"h\n" +
+	"\x19ListNotificationsResponse\x12C\n" +
+	"\rnotifications\x18\x01 \x03(\v2\x1d.iot.delivery.v1.NotificationR\rnotifications:\x06\xd2\xf3\x18\x02\b\x02\"\xb0\x02\n" +
+	"\fNotification\x12\x1f\n" +
+	"\vdelivery_id\x18\x01 \x01(\tR\n" +
+	"deliveryId\x12\x18\n" +
+	"\achannel\x18\x02 \x01(\tR\achannel\x12\x1d\n" +
+	"\n" +
+	"event_type\x18\x03 \x01(\tR\teventType\x12\x18\n" +
+	"\asubject\x18\x04 \x01(\tR\asubject\x12\x14\n" +
+	"\x05title\x18\x05 \x01(\tR\x05title\x12\x12\n" +
+	"\x04body\x18\x06 \x01(\tR\x04body\x12;\n" +
+	"\voccurred_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"occurredAt\x12=\n" +
+	"\fdelivered_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\vdeliveredAt:\x06\xd2\xf3\x18\x02\b\x03\"(\n" +
 	"\x0eGetItemRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id:\x06\xd2\xf3\x18\x02\b\x01\"\x88\x02\n" +
 	"\x12SearchItemsRequest\x12\x1d\n" +
@@ -4397,7 +5196,7 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\x13SimilarityCandidate\x12-\n" +
 	"\x04item\x18\x01 \x01(\v2\x19.iot.delivery.v1.WorkItemR\x04item\x12\x14\n" +
 	"\x05score\x18\x02 \x01(\x01R\x05score\x12\x14\n" +
-	"\x05exact\x18\x03 \x01(\bR\x05exact:\x06\xd2\xf3\x18\x02\b\x032\xfc\"\n" +
+	"\x05exact\x18\x03 \x01(\bR\x05exact:\x06\xd2\xf3\x18\x02\b\x032\xe1'\n" +
 	"\x0fDeliveryService\x12\xae\x01\n" +
 	"\fGetDashboard\x12$.iot.delivery.v1.GetDashboardRequest\x1a%.iot.delivery.v1.GetDashboardResponse\"Q\xe2\xf3\x18M\n" +
 	"\x16delivery.dashboard.get\x12\rget_dashboard\x1a\x17delivery.dashboard.read2\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\xa0\x01\n" +
@@ -4446,7 +5245,13 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\vSearchItems\x12#.iot.delivery.v1.SearchItemsRequest\x1a$.iot.delivery.v1.SearchItemsResponse\"R\xe2\xf3\x18N\n" +
 	"\x15delivery.items.search\x12\fsearch_items\x1a\x18delivery.work-items.read(\x012\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\xc5\x01\n" +
 	"\x10FindSimilarItems\x12(.iot.delivery.v1.FindSimilarItemsRequest\x1a).iot.delivery.v1.FindSimilarItemsResponse\"\\\xe2\xf3\x18X\n" +
-	"\x19delivery.items.similarity\x12\x12find_similar_items\x1a\x18delivery.work-items.read(\x012\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x1a\xd7\x03\xda\xf3\x18\xd2\x03\n" +
+	"\x19delivery.items.similarity\x12\x12find_similar_items\x1a\x18delivery.work-items.read(\x012\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\xc9\x01\n" +
+	"\x12GetProjectProgress\x12*.iot.delivery.v1.GetProjectProgressRequest\x1a(.iot.delivery.v1.ProjectProgressResponse\"]\xe2\xf3\x18Y\n" +
+	"\x1adelivery.projects.progress\x12\x14get_project_progress\x1a\x16delivery.projects.read(\x012\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\xc9\x01\n" +
+	"\x12GetProjectSchedule\x12*.iot.delivery.v1.GetProjectScheduleRequest\x1a(.iot.delivery.v1.ProjectScheduleResponse\"]\xe2\xf3\x18Y\n" +
+	"\x1adelivery.projects.schedule\x12\x14get_project_schedule\x1a\x16delivery.projects.read(\x012\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\xca\x01\n" +
+	"\x11ListNotifications\x12).iot.delivery.v1.ListNotificationsRequest\x1a*.iot.delivery.v1.ListNotificationsResponse\"^\xe2\xf3\x18Z\n" +
+	"\x1bdelivery.notifications.list\x12\x12list_notifications\x1a\x18delivery.work-items.read(\x012\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x1a\xd7\x03\xda\xf3\x18\xd2\x03\n" +
 	"\n" +
 	"management\"m\n" +
 	"\x1asqlite.transaction-factory\x12Fgithub.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx\x1a\aFactory\"i\n" +
@@ -4468,67 +5273,78 @@ func file_iot_delivery_proto_rawDescGZIP() []byte {
 	return file_iot_delivery_proto_rawDescData
 }
 
-var file_iot_delivery_proto_msgTypes = make([]protoimpl.MessageInfo, 58)
+var file_iot_delivery_proto_msgTypes = make([]protoimpl.MessageInfo, 69)
 var file_iot_delivery_proto_goTypes = []any{
-	(*GetDashboardRequest)(nil),      // 0: iot.delivery.v1.GetDashboardRequest
-	(*GetDashboardResponse)(nil),     // 1: iot.delivery.v1.GetDashboardResponse
-	(*ListItemsRequest)(nil),         // 2: iot.delivery.v1.ListItemsRequest
-	(*ListItemsResponse)(nil),        // 3: iot.delivery.v1.ListItemsResponse
-	(*WorkItemResponse)(nil),         // 4: iot.delivery.v1.WorkItemResponse
-	(*CommentResponse)(nil),          // 5: iot.delivery.v1.CommentResponse
-	(*ProjectResponse)(nil),          // 6: iot.delivery.v1.ProjectResponse
-	(*ReleaseResponse)(nil),          // 7: iot.delivery.v1.ReleaseResponse
-	(*SprintResponse)(nil),           // 8: iot.delivery.v1.SprintResponse
-	(*MilestoneResponse)(nil),        // 9: iot.delivery.v1.MilestoneResponse
-	(*Dashboard)(nil),                // 10: iot.delivery.v1.Dashboard
-	(*BoardSummary)(nil),             // 11: iot.delivery.v1.BoardSummary
-	(*Project)(nil),                  // 12: iot.delivery.v1.Project
-	(*Release)(nil),                  // 13: iot.delivery.v1.Release
-	(*Sprint)(nil),                   // 14: iot.delivery.v1.Sprint
-	(*Milestone)(nil),                // 15: iot.delivery.v1.Milestone
-	(*WorkItem)(nil),                 // 16: iot.delivery.v1.WorkItem
-	(*WorkItemDependency)(nil),       // 17: iot.delivery.v1.WorkItemDependency
-	(*IoTBinding)(nil),               // 18: iot.delivery.v1.IoTBinding
-	(*TraceLink)(nil),                // 19: iot.delivery.v1.TraceLink
-	(*Comment)(nil),                  // 20: iot.delivery.v1.Comment
-	(*Activity)(nil),                 // 21: iot.delivery.v1.Activity
-	(*SavedView)(nil),                // 22: iot.delivery.v1.SavedView
-	(*MemberWeek)(nil),               // 23: iot.delivery.v1.MemberWeek
-	(*Evidence)(nil),                 // 24: iot.delivery.v1.Evidence
-	(*Decision)(nil),                 // 25: iot.delivery.v1.Decision
-	(*CreateItemRequest)(nil),        // 26: iot.delivery.v1.CreateItemRequest
-	(*UpdateItemRequest)(nil),        // 27: iot.delivery.v1.UpdateItemRequest
-	(*CreateItemCommentRequest)(nil), // 28: iot.delivery.v1.CreateItemCommentRequest
-	(*CreateProjectRequest)(nil),     // 29: iot.delivery.v1.CreateProjectRequest
-	(*CreateReleaseRequest)(nil),     // 30: iot.delivery.v1.CreateReleaseRequest
-	(*CreateSprintRequest)(nil),      // 31: iot.delivery.v1.CreateSprintRequest
-	(*CreateMilestoneRequest)(nil),   // 32: iot.delivery.v1.CreateMilestoneRequest
-	(*UpdateItemContextRequest)(nil), // 33: iot.delivery.v1.UpdateItemContextRequest
-	(*AdvanceGateRequest)(nil),       // 34: iot.delivery.v1.AdvanceGateRequest
-	(*CloseItemRequest)(nil),         // 35: iot.delivery.v1.CloseItemRequest
-	(*WorkItemFilter)(nil),           // 36: iot.delivery.v1.WorkItemFilter
-	(*SaveViewRequest)(nil),          // 37: iot.delivery.v1.SaveViewRequest
-	(*ListSavedViewsRequest)(nil),    // 38: iot.delivery.v1.ListSavedViewsRequest
-	(*GetMemberWeekRequest)(nil),     // 39: iot.delivery.v1.GetMemberWeekRequest
-	(*SavedViewResponse)(nil),        // 40: iot.delivery.v1.SavedViewResponse
-	(*ListSavedViewsResponse)(nil),   // 41: iot.delivery.v1.ListSavedViewsResponse
-	(*MemberWeekResponse)(nil),       // 42: iot.delivery.v1.MemberWeekResponse
-	(*ListProjectsRequest)(nil),      // 43: iot.delivery.v1.ListProjectsRequest
-	(*ListProjectsResponse)(nil),     // 44: iot.delivery.v1.ListProjectsResponse
-	(*ListReleasesRequest)(nil),      // 45: iot.delivery.v1.ListReleasesRequest
-	(*ListReleasesResponse)(nil),     // 46: iot.delivery.v1.ListReleasesResponse
-	(*ListSprintsRequest)(nil),       // 47: iot.delivery.v1.ListSprintsRequest
-	(*ListSprintsResponse)(nil),      // 48: iot.delivery.v1.ListSprintsResponse
-	(*ListMilestonesRequest)(nil),    // 49: iot.delivery.v1.ListMilestonesRequest
-	(*ListMilestonesResponse)(nil),   // 50: iot.delivery.v1.ListMilestonesResponse
-	(*GetItemRequest)(nil),           // 51: iot.delivery.v1.GetItemRequest
-	(*SearchItemsRequest)(nil),       // 52: iot.delivery.v1.SearchItemsRequest
-	(*SearchItemsResponse)(nil),      // 53: iot.delivery.v1.SearchItemsResponse
-	(*FindSimilarItemsRequest)(nil),  // 54: iot.delivery.v1.FindSimilarItemsRequest
-	(*FindSimilarItemsResponse)(nil), // 55: iot.delivery.v1.FindSimilarItemsResponse
-	(*SimilarityCandidate)(nil),      // 56: iot.delivery.v1.SimilarityCandidate
-	nil,                              // 57: iot.delivery.v1.IoTBinding.AttributesEntry
-	(*timestamppb.Timestamp)(nil),    // 58: google.protobuf.Timestamp
+	(*GetDashboardRequest)(nil),       // 0: iot.delivery.v1.GetDashboardRequest
+	(*GetDashboardResponse)(nil),      // 1: iot.delivery.v1.GetDashboardResponse
+	(*ListItemsRequest)(nil),          // 2: iot.delivery.v1.ListItemsRequest
+	(*ListItemsResponse)(nil),         // 3: iot.delivery.v1.ListItemsResponse
+	(*WorkItemResponse)(nil),          // 4: iot.delivery.v1.WorkItemResponse
+	(*CommentResponse)(nil),           // 5: iot.delivery.v1.CommentResponse
+	(*ProjectResponse)(nil),           // 6: iot.delivery.v1.ProjectResponse
+	(*ReleaseResponse)(nil),           // 7: iot.delivery.v1.ReleaseResponse
+	(*SprintResponse)(nil),            // 8: iot.delivery.v1.SprintResponse
+	(*MilestoneResponse)(nil),         // 9: iot.delivery.v1.MilestoneResponse
+	(*Dashboard)(nil),                 // 10: iot.delivery.v1.Dashboard
+	(*BoardSummary)(nil),              // 11: iot.delivery.v1.BoardSummary
+	(*Project)(nil),                   // 12: iot.delivery.v1.Project
+	(*Release)(nil),                   // 13: iot.delivery.v1.Release
+	(*Sprint)(nil),                    // 14: iot.delivery.v1.Sprint
+	(*Milestone)(nil),                 // 15: iot.delivery.v1.Milestone
+	(*WorkItem)(nil),                  // 16: iot.delivery.v1.WorkItem
+	(*WorkItemDependency)(nil),        // 17: iot.delivery.v1.WorkItemDependency
+	(*IoTBinding)(nil),                // 18: iot.delivery.v1.IoTBinding
+	(*TraceLink)(nil),                 // 19: iot.delivery.v1.TraceLink
+	(*Comment)(nil),                   // 20: iot.delivery.v1.Comment
+	(*Activity)(nil),                  // 21: iot.delivery.v1.Activity
+	(*SavedView)(nil),                 // 22: iot.delivery.v1.SavedView
+	(*MemberWeek)(nil),                // 23: iot.delivery.v1.MemberWeek
+	(*Evidence)(nil),                  // 24: iot.delivery.v1.Evidence
+	(*Decision)(nil),                  // 25: iot.delivery.v1.Decision
+	(*CreateItemRequest)(nil),         // 26: iot.delivery.v1.CreateItemRequest
+	(*UpdateItemRequest)(nil),         // 27: iot.delivery.v1.UpdateItemRequest
+	(*CreateItemCommentRequest)(nil),  // 28: iot.delivery.v1.CreateItemCommentRequest
+	(*CreateProjectRequest)(nil),      // 29: iot.delivery.v1.CreateProjectRequest
+	(*CreateReleaseRequest)(nil),      // 30: iot.delivery.v1.CreateReleaseRequest
+	(*CreateSprintRequest)(nil),       // 31: iot.delivery.v1.CreateSprintRequest
+	(*CreateMilestoneRequest)(nil),    // 32: iot.delivery.v1.CreateMilestoneRequest
+	(*UpdateItemContextRequest)(nil),  // 33: iot.delivery.v1.UpdateItemContextRequest
+	(*AdvanceGateRequest)(nil),        // 34: iot.delivery.v1.AdvanceGateRequest
+	(*CloseItemRequest)(nil),          // 35: iot.delivery.v1.CloseItemRequest
+	(*WorkItemFilter)(nil),            // 36: iot.delivery.v1.WorkItemFilter
+	(*SaveViewRequest)(nil),           // 37: iot.delivery.v1.SaveViewRequest
+	(*ListSavedViewsRequest)(nil),     // 38: iot.delivery.v1.ListSavedViewsRequest
+	(*GetMemberWeekRequest)(nil),      // 39: iot.delivery.v1.GetMemberWeekRequest
+	(*SavedViewResponse)(nil),         // 40: iot.delivery.v1.SavedViewResponse
+	(*ListSavedViewsResponse)(nil),    // 41: iot.delivery.v1.ListSavedViewsResponse
+	(*MemberWeekResponse)(nil),        // 42: iot.delivery.v1.MemberWeekResponse
+	(*ListProjectsRequest)(nil),       // 43: iot.delivery.v1.ListProjectsRequest
+	(*ListProjectsResponse)(nil),      // 44: iot.delivery.v1.ListProjectsResponse
+	(*ListReleasesRequest)(nil),       // 45: iot.delivery.v1.ListReleasesRequest
+	(*ListReleasesResponse)(nil),      // 46: iot.delivery.v1.ListReleasesResponse
+	(*ListSprintsRequest)(nil),        // 47: iot.delivery.v1.ListSprintsRequest
+	(*ListSprintsResponse)(nil),       // 48: iot.delivery.v1.ListSprintsResponse
+	(*ListMilestonesRequest)(nil),     // 49: iot.delivery.v1.ListMilestonesRequest
+	(*ListMilestonesResponse)(nil),    // 50: iot.delivery.v1.ListMilestonesResponse
+	(*GetProjectProgressRequest)(nil), // 51: iot.delivery.v1.GetProjectProgressRequest
+	(*ProjectProgressResponse)(nil),   // 52: iot.delivery.v1.ProjectProgressResponse
+	(*ProjectProgress)(nil),           // 53: iot.delivery.v1.ProjectProgress
+	(*GetProjectScheduleRequest)(nil), // 54: iot.delivery.v1.GetProjectScheduleRequest
+	(*ProjectScheduleResponse)(nil),   // 55: iot.delivery.v1.ProjectScheduleResponse
+	(*ProjectSchedule)(nil),           // 56: iot.delivery.v1.ProjectSchedule
+	(*OwnerCapacity)(nil),             // 57: iot.delivery.v1.OwnerCapacity
+	(*ScheduleRisk)(nil),              // 58: iot.delivery.v1.ScheduleRisk
+	(*ListNotificationsRequest)(nil),  // 59: iot.delivery.v1.ListNotificationsRequest
+	(*ListNotificationsResponse)(nil), // 60: iot.delivery.v1.ListNotificationsResponse
+	(*Notification)(nil),              // 61: iot.delivery.v1.Notification
+	(*GetItemRequest)(nil),            // 62: iot.delivery.v1.GetItemRequest
+	(*SearchItemsRequest)(nil),        // 63: iot.delivery.v1.SearchItemsRequest
+	(*SearchItemsResponse)(nil),       // 64: iot.delivery.v1.SearchItemsResponse
+	(*FindSimilarItemsRequest)(nil),   // 65: iot.delivery.v1.FindSimilarItemsRequest
+	(*FindSimilarItemsResponse)(nil),  // 66: iot.delivery.v1.FindSimilarItemsResponse
+	(*SimilarityCandidate)(nil),       // 67: iot.delivery.v1.SimilarityCandidate
+	nil,                               // 68: iot.delivery.v1.IoTBinding.AttributesEntry
+	(*timestamppb.Timestamp)(nil),     // 69: google.protobuf.Timestamp
 }
 var file_iot_delivery_proto_depIdxs = []int32{
 	10, // 0: iot.delivery.v1.GetDashboardResponse.dashboard:type_name -> iot.delivery.v1.Dashboard
@@ -4541,34 +5357,34 @@ var file_iot_delivery_proto_depIdxs = []int32{
 	15, // 7: iot.delivery.v1.MilestoneResponse.milestone:type_name -> iot.delivery.v1.Milestone
 	11, // 8: iot.delivery.v1.Dashboard.boards:type_name -> iot.delivery.v1.BoardSummary
 	16, // 9: iot.delivery.v1.Dashboard.items:type_name -> iot.delivery.v1.WorkItem
-	58, // 10: iot.delivery.v1.Dashboard.generated_at:type_name -> google.protobuf.Timestamp
-	58, // 11: iot.delivery.v1.Project.created_at:type_name -> google.protobuf.Timestamp
-	58, // 12: iot.delivery.v1.Project.updated_at:type_name -> google.protobuf.Timestamp
-	58, // 13: iot.delivery.v1.Release.created_at:type_name -> google.protobuf.Timestamp
-	58, // 14: iot.delivery.v1.Release.updated_at:type_name -> google.protobuf.Timestamp
-	58, // 15: iot.delivery.v1.Sprint.created_at:type_name -> google.protobuf.Timestamp
-	58, // 16: iot.delivery.v1.Sprint.updated_at:type_name -> google.protobuf.Timestamp
-	58, // 17: iot.delivery.v1.Milestone.created_at:type_name -> google.protobuf.Timestamp
-	58, // 18: iot.delivery.v1.Milestone.updated_at:type_name -> google.protobuf.Timestamp
+	69, // 10: iot.delivery.v1.Dashboard.generated_at:type_name -> google.protobuf.Timestamp
+	69, // 11: iot.delivery.v1.Project.created_at:type_name -> google.protobuf.Timestamp
+	69, // 12: iot.delivery.v1.Project.updated_at:type_name -> google.protobuf.Timestamp
+	69, // 13: iot.delivery.v1.Release.created_at:type_name -> google.protobuf.Timestamp
+	69, // 14: iot.delivery.v1.Release.updated_at:type_name -> google.protobuf.Timestamp
+	69, // 15: iot.delivery.v1.Sprint.created_at:type_name -> google.protobuf.Timestamp
+	69, // 16: iot.delivery.v1.Sprint.updated_at:type_name -> google.protobuf.Timestamp
+	69, // 17: iot.delivery.v1.Milestone.created_at:type_name -> google.protobuf.Timestamp
+	69, // 18: iot.delivery.v1.Milestone.updated_at:type_name -> google.protobuf.Timestamp
 	25, // 19: iot.delivery.v1.WorkItem.decisions:type_name -> iot.delivery.v1.Decision
 	24, // 20: iot.delivery.v1.WorkItem.evidence:type_name -> iot.delivery.v1.Evidence
-	58, // 21: iot.delivery.v1.WorkItem.created_at:type_name -> google.protobuf.Timestamp
-	58, // 22: iot.delivery.v1.WorkItem.updated_at:type_name -> google.protobuf.Timestamp
+	69, // 21: iot.delivery.v1.WorkItem.created_at:type_name -> google.protobuf.Timestamp
+	69, // 22: iot.delivery.v1.WorkItem.updated_at:type_name -> google.protobuf.Timestamp
 	17, // 23: iot.delivery.v1.WorkItem.dependencies:type_name -> iot.delivery.v1.WorkItemDependency
 	18, // 24: iot.delivery.v1.WorkItem.iot_bindings:type_name -> iot.delivery.v1.IoTBinding
 	19, // 25: iot.delivery.v1.WorkItem.trace_links:type_name -> iot.delivery.v1.TraceLink
 	20, // 26: iot.delivery.v1.WorkItem.comments:type_name -> iot.delivery.v1.Comment
 	21, // 27: iot.delivery.v1.WorkItem.activities:type_name -> iot.delivery.v1.Activity
-	57, // 28: iot.delivery.v1.IoTBinding.attributes:type_name -> iot.delivery.v1.IoTBinding.AttributesEntry
-	58, // 29: iot.delivery.v1.TraceLink.recorded_at:type_name -> google.protobuf.Timestamp
-	58, // 30: iot.delivery.v1.Comment.created_at:type_name -> google.protobuf.Timestamp
-	58, // 31: iot.delivery.v1.Activity.occurred_at:type_name -> google.protobuf.Timestamp
+	68, // 28: iot.delivery.v1.IoTBinding.attributes:type_name -> iot.delivery.v1.IoTBinding.AttributesEntry
+	69, // 29: iot.delivery.v1.TraceLink.recorded_at:type_name -> google.protobuf.Timestamp
+	69, // 30: iot.delivery.v1.Comment.created_at:type_name -> google.protobuf.Timestamp
+	69, // 31: iot.delivery.v1.Activity.occurred_at:type_name -> google.protobuf.Timestamp
 	36, // 32: iot.delivery.v1.SavedView.filter:type_name -> iot.delivery.v1.WorkItemFilter
-	58, // 33: iot.delivery.v1.SavedView.created_at:type_name -> google.protobuf.Timestamp
-	58, // 34: iot.delivery.v1.SavedView.updated_at:type_name -> google.protobuf.Timestamp
+	69, // 33: iot.delivery.v1.SavedView.created_at:type_name -> google.protobuf.Timestamp
+	69, // 34: iot.delivery.v1.SavedView.updated_at:type_name -> google.protobuf.Timestamp
 	16, // 35: iot.delivery.v1.MemberWeek.items:type_name -> iot.delivery.v1.WorkItem
-	58, // 36: iot.delivery.v1.Evidence.recorded_at:type_name -> google.protobuf.Timestamp
-	58, // 37: iot.delivery.v1.Decision.created_at:type_name -> google.protobuf.Timestamp
+	69, // 36: iot.delivery.v1.Evidence.recorded_at:type_name -> google.protobuf.Timestamp
+	69, // 37: iot.delivery.v1.Decision.created_at:type_name -> google.protobuf.Timestamp
 	17, // 38: iot.delivery.v1.CreateItemRequest.dependencies:type_name -> iot.delivery.v1.WorkItemDependency
 	18, // 39: iot.delivery.v1.CreateItemRequest.iot_bindings:type_name -> iot.delivery.v1.IoTBinding
 	19, // 40: iot.delivery.v1.CreateItemRequest.trace_links:type_name -> iot.delivery.v1.TraceLink
@@ -4585,58 +5401,71 @@ var file_iot_delivery_proto_depIdxs = []int32{
 	13, // 51: iot.delivery.v1.ListReleasesResponse.releases:type_name -> iot.delivery.v1.Release
 	14, // 52: iot.delivery.v1.ListSprintsResponse.sprints:type_name -> iot.delivery.v1.Sprint
 	15, // 53: iot.delivery.v1.ListMilestonesResponse.milestones:type_name -> iot.delivery.v1.Milestone
-	16, // 54: iot.delivery.v1.SearchItemsResponse.items:type_name -> iot.delivery.v1.WorkItem
-	56, // 55: iot.delivery.v1.FindSimilarItemsResponse.candidates:type_name -> iot.delivery.v1.SimilarityCandidate
-	16, // 56: iot.delivery.v1.SimilarityCandidate.item:type_name -> iot.delivery.v1.WorkItem
-	0,  // 57: iot.delivery.v1.DeliveryService.GetDashboard:input_type -> iot.delivery.v1.GetDashboardRequest
-	2,  // 58: iot.delivery.v1.DeliveryService.ListItems:input_type -> iot.delivery.v1.ListItemsRequest
-	26, // 59: iot.delivery.v1.DeliveryService.CreateItem:input_type -> iot.delivery.v1.CreateItemRequest
-	27, // 60: iot.delivery.v1.DeliveryService.UpdateItem:input_type -> iot.delivery.v1.UpdateItemRequest
-	28, // 61: iot.delivery.v1.DeliveryService.CreateItemComment:input_type -> iot.delivery.v1.CreateItemCommentRequest
-	33, // 62: iot.delivery.v1.DeliveryService.UpdateItemContext:input_type -> iot.delivery.v1.UpdateItemContextRequest
-	34, // 63: iot.delivery.v1.DeliveryService.AdvanceGate:input_type -> iot.delivery.v1.AdvanceGateRequest
-	35, // 64: iot.delivery.v1.DeliveryService.CloseItem:input_type -> iot.delivery.v1.CloseItemRequest
-	37, // 65: iot.delivery.v1.DeliveryService.SaveView:input_type -> iot.delivery.v1.SaveViewRequest
-	38, // 66: iot.delivery.v1.DeliveryService.ListSavedViews:input_type -> iot.delivery.v1.ListSavedViewsRequest
-	39, // 67: iot.delivery.v1.DeliveryService.GetMemberWeek:input_type -> iot.delivery.v1.GetMemberWeekRequest
-	29, // 68: iot.delivery.v1.DeliveryService.CreateProject:input_type -> iot.delivery.v1.CreateProjectRequest
-	30, // 69: iot.delivery.v1.DeliveryService.CreateRelease:input_type -> iot.delivery.v1.CreateReleaseRequest
-	31, // 70: iot.delivery.v1.DeliveryService.CreateSprint:input_type -> iot.delivery.v1.CreateSprintRequest
-	32, // 71: iot.delivery.v1.DeliveryService.CreateMilestone:input_type -> iot.delivery.v1.CreateMilestoneRequest
-	43, // 72: iot.delivery.v1.DeliveryService.ListProjects:input_type -> iot.delivery.v1.ListProjectsRequest
-	45, // 73: iot.delivery.v1.DeliveryService.ListReleases:input_type -> iot.delivery.v1.ListReleasesRequest
-	47, // 74: iot.delivery.v1.DeliveryService.ListSprints:input_type -> iot.delivery.v1.ListSprintsRequest
-	49, // 75: iot.delivery.v1.DeliveryService.ListMilestones:input_type -> iot.delivery.v1.ListMilestonesRequest
-	51, // 76: iot.delivery.v1.DeliveryService.GetItem:input_type -> iot.delivery.v1.GetItemRequest
-	52, // 77: iot.delivery.v1.DeliveryService.SearchItems:input_type -> iot.delivery.v1.SearchItemsRequest
-	54, // 78: iot.delivery.v1.DeliveryService.FindSimilarItems:input_type -> iot.delivery.v1.FindSimilarItemsRequest
-	1,  // 79: iot.delivery.v1.DeliveryService.GetDashboard:output_type -> iot.delivery.v1.GetDashboardResponse
-	3,  // 80: iot.delivery.v1.DeliveryService.ListItems:output_type -> iot.delivery.v1.ListItemsResponse
-	4,  // 81: iot.delivery.v1.DeliveryService.CreateItem:output_type -> iot.delivery.v1.WorkItemResponse
-	4,  // 82: iot.delivery.v1.DeliveryService.UpdateItem:output_type -> iot.delivery.v1.WorkItemResponse
-	5,  // 83: iot.delivery.v1.DeliveryService.CreateItemComment:output_type -> iot.delivery.v1.CommentResponse
-	4,  // 84: iot.delivery.v1.DeliveryService.UpdateItemContext:output_type -> iot.delivery.v1.WorkItemResponse
-	4,  // 85: iot.delivery.v1.DeliveryService.AdvanceGate:output_type -> iot.delivery.v1.WorkItemResponse
-	4,  // 86: iot.delivery.v1.DeliveryService.CloseItem:output_type -> iot.delivery.v1.WorkItemResponse
-	40, // 87: iot.delivery.v1.DeliveryService.SaveView:output_type -> iot.delivery.v1.SavedViewResponse
-	41, // 88: iot.delivery.v1.DeliveryService.ListSavedViews:output_type -> iot.delivery.v1.ListSavedViewsResponse
-	42, // 89: iot.delivery.v1.DeliveryService.GetMemberWeek:output_type -> iot.delivery.v1.MemberWeekResponse
-	6,  // 90: iot.delivery.v1.DeliveryService.CreateProject:output_type -> iot.delivery.v1.ProjectResponse
-	7,  // 91: iot.delivery.v1.DeliveryService.CreateRelease:output_type -> iot.delivery.v1.ReleaseResponse
-	8,  // 92: iot.delivery.v1.DeliveryService.CreateSprint:output_type -> iot.delivery.v1.SprintResponse
-	9,  // 93: iot.delivery.v1.DeliveryService.CreateMilestone:output_type -> iot.delivery.v1.MilestoneResponse
-	44, // 94: iot.delivery.v1.DeliveryService.ListProjects:output_type -> iot.delivery.v1.ListProjectsResponse
-	46, // 95: iot.delivery.v1.DeliveryService.ListReleases:output_type -> iot.delivery.v1.ListReleasesResponse
-	48, // 96: iot.delivery.v1.DeliveryService.ListSprints:output_type -> iot.delivery.v1.ListSprintsResponse
-	50, // 97: iot.delivery.v1.DeliveryService.ListMilestones:output_type -> iot.delivery.v1.ListMilestonesResponse
-	4,  // 98: iot.delivery.v1.DeliveryService.GetItem:output_type -> iot.delivery.v1.WorkItemResponse
-	53, // 99: iot.delivery.v1.DeliveryService.SearchItems:output_type -> iot.delivery.v1.SearchItemsResponse
-	55, // 100: iot.delivery.v1.DeliveryService.FindSimilarItems:output_type -> iot.delivery.v1.FindSimilarItemsResponse
-	79, // [79:101] is the sub-list for method output_type
-	57, // [57:79] is the sub-list for method input_type
-	57, // [57:57] is the sub-list for extension type_name
-	57, // [57:57] is the sub-list for extension extendee
-	0,  // [0:57] is the sub-list for field type_name
+	53, // 54: iot.delivery.v1.ProjectProgressResponse.progress:type_name -> iot.delivery.v1.ProjectProgress
+	56, // 55: iot.delivery.v1.ProjectScheduleResponse.schedule:type_name -> iot.delivery.v1.ProjectSchedule
+	57, // 56: iot.delivery.v1.ProjectSchedule.capacity:type_name -> iot.delivery.v1.OwnerCapacity
+	58, // 57: iot.delivery.v1.ProjectSchedule.risks:type_name -> iot.delivery.v1.ScheduleRisk
+	61, // 58: iot.delivery.v1.ListNotificationsResponse.notifications:type_name -> iot.delivery.v1.Notification
+	69, // 59: iot.delivery.v1.Notification.occurred_at:type_name -> google.protobuf.Timestamp
+	69, // 60: iot.delivery.v1.Notification.delivered_at:type_name -> google.protobuf.Timestamp
+	16, // 61: iot.delivery.v1.SearchItemsResponse.items:type_name -> iot.delivery.v1.WorkItem
+	67, // 62: iot.delivery.v1.FindSimilarItemsResponse.candidates:type_name -> iot.delivery.v1.SimilarityCandidate
+	16, // 63: iot.delivery.v1.SimilarityCandidate.item:type_name -> iot.delivery.v1.WorkItem
+	0,  // 64: iot.delivery.v1.DeliveryService.GetDashboard:input_type -> iot.delivery.v1.GetDashboardRequest
+	2,  // 65: iot.delivery.v1.DeliveryService.ListItems:input_type -> iot.delivery.v1.ListItemsRequest
+	26, // 66: iot.delivery.v1.DeliveryService.CreateItem:input_type -> iot.delivery.v1.CreateItemRequest
+	27, // 67: iot.delivery.v1.DeliveryService.UpdateItem:input_type -> iot.delivery.v1.UpdateItemRequest
+	28, // 68: iot.delivery.v1.DeliveryService.CreateItemComment:input_type -> iot.delivery.v1.CreateItemCommentRequest
+	33, // 69: iot.delivery.v1.DeliveryService.UpdateItemContext:input_type -> iot.delivery.v1.UpdateItemContextRequest
+	34, // 70: iot.delivery.v1.DeliveryService.AdvanceGate:input_type -> iot.delivery.v1.AdvanceGateRequest
+	35, // 71: iot.delivery.v1.DeliveryService.CloseItem:input_type -> iot.delivery.v1.CloseItemRequest
+	37, // 72: iot.delivery.v1.DeliveryService.SaveView:input_type -> iot.delivery.v1.SaveViewRequest
+	38, // 73: iot.delivery.v1.DeliveryService.ListSavedViews:input_type -> iot.delivery.v1.ListSavedViewsRequest
+	39, // 74: iot.delivery.v1.DeliveryService.GetMemberWeek:input_type -> iot.delivery.v1.GetMemberWeekRequest
+	29, // 75: iot.delivery.v1.DeliveryService.CreateProject:input_type -> iot.delivery.v1.CreateProjectRequest
+	30, // 76: iot.delivery.v1.DeliveryService.CreateRelease:input_type -> iot.delivery.v1.CreateReleaseRequest
+	31, // 77: iot.delivery.v1.DeliveryService.CreateSprint:input_type -> iot.delivery.v1.CreateSprintRequest
+	32, // 78: iot.delivery.v1.DeliveryService.CreateMilestone:input_type -> iot.delivery.v1.CreateMilestoneRequest
+	43, // 79: iot.delivery.v1.DeliveryService.ListProjects:input_type -> iot.delivery.v1.ListProjectsRequest
+	45, // 80: iot.delivery.v1.DeliveryService.ListReleases:input_type -> iot.delivery.v1.ListReleasesRequest
+	47, // 81: iot.delivery.v1.DeliveryService.ListSprints:input_type -> iot.delivery.v1.ListSprintsRequest
+	49, // 82: iot.delivery.v1.DeliveryService.ListMilestones:input_type -> iot.delivery.v1.ListMilestonesRequest
+	62, // 83: iot.delivery.v1.DeliveryService.GetItem:input_type -> iot.delivery.v1.GetItemRequest
+	63, // 84: iot.delivery.v1.DeliveryService.SearchItems:input_type -> iot.delivery.v1.SearchItemsRequest
+	65, // 85: iot.delivery.v1.DeliveryService.FindSimilarItems:input_type -> iot.delivery.v1.FindSimilarItemsRequest
+	51, // 86: iot.delivery.v1.DeliveryService.GetProjectProgress:input_type -> iot.delivery.v1.GetProjectProgressRequest
+	54, // 87: iot.delivery.v1.DeliveryService.GetProjectSchedule:input_type -> iot.delivery.v1.GetProjectScheduleRequest
+	59, // 88: iot.delivery.v1.DeliveryService.ListNotifications:input_type -> iot.delivery.v1.ListNotificationsRequest
+	1,  // 89: iot.delivery.v1.DeliveryService.GetDashboard:output_type -> iot.delivery.v1.GetDashboardResponse
+	3,  // 90: iot.delivery.v1.DeliveryService.ListItems:output_type -> iot.delivery.v1.ListItemsResponse
+	4,  // 91: iot.delivery.v1.DeliveryService.CreateItem:output_type -> iot.delivery.v1.WorkItemResponse
+	4,  // 92: iot.delivery.v1.DeliveryService.UpdateItem:output_type -> iot.delivery.v1.WorkItemResponse
+	5,  // 93: iot.delivery.v1.DeliveryService.CreateItemComment:output_type -> iot.delivery.v1.CommentResponse
+	4,  // 94: iot.delivery.v1.DeliveryService.UpdateItemContext:output_type -> iot.delivery.v1.WorkItemResponse
+	4,  // 95: iot.delivery.v1.DeliveryService.AdvanceGate:output_type -> iot.delivery.v1.WorkItemResponse
+	4,  // 96: iot.delivery.v1.DeliveryService.CloseItem:output_type -> iot.delivery.v1.WorkItemResponse
+	40, // 97: iot.delivery.v1.DeliveryService.SaveView:output_type -> iot.delivery.v1.SavedViewResponse
+	41, // 98: iot.delivery.v1.DeliveryService.ListSavedViews:output_type -> iot.delivery.v1.ListSavedViewsResponse
+	42, // 99: iot.delivery.v1.DeliveryService.GetMemberWeek:output_type -> iot.delivery.v1.MemberWeekResponse
+	6,  // 100: iot.delivery.v1.DeliveryService.CreateProject:output_type -> iot.delivery.v1.ProjectResponse
+	7,  // 101: iot.delivery.v1.DeliveryService.CreateRelease:output_type -> iot.delivery.v1.ReleaseResponse
+	8,  // 102: iot.delivery.v1.DeliveryService.CreateSprint:output_type -> iot.delivery.v1.SprintResponse
+	9,  // 103: iot.delivery.v1.DeliveryService.CreateMilestone:output_type -> iot.delivery.v1.MilestoneResponse
+	44, // 104: iot.delivery.v1.DeliveryService.ListProjects:output_type -> iot.delivery.v1.ListProjectsResponse
+	46, // 105: iot.delivery.v1.DeliveryService.ListReleases:output_type -> iot.delivery.v1.ListReleasesResponse
+	48, // 106: iot.delivery.v1.DeliveryService.ListSprints:output_type -> iot.delivery.v1.ListSprintsResponse
+	50, // 107: iot.delivery.v1.DeliveryService.ListMilestones:output_type -> iot.delivery.v1.ListMilestonesResponse
+	4,  // 108: iot.delivery.v1.DeliveryService.GetItem:output_type -> iot.delivery.v1.WorkItemResponse
+	64, // 109: iot.delivery.v1.DeliveryService.SearchItems:output_type -> iot.delivery.v1.SearchItemsResponse
+	66, // 110: iot.delivery.v1.DeliveryService.FindSimilarItems:output_type -> iot.delivery.v1.FindSimilarItemsResponse
+	52, // 111: iot.delivery.v1.DeliveryService.GetProjectProgress:output_type -> iot.delivery.v1.ProjectProgressResponse
+	55, // 112: iot.delivery.v1.DeliveryService.GetProjectSchedule:output_type -> iot.delivery.v1.ProjectScheduleResponse
+	60, // 113: iot.delivery.v1.DeliveryService.ListNotifications:output_type -> iot.delivery.v1.ListNotificationsResponse
+	89, // [89:114] is the sub-list for method output_type
+	64, // [64:89] is the sub-list for method input_type
+	64, // [64:64] is the sub-list for extension type_name
+	64, // [64:64] is the sub-list for extension extendee
+	0,  // [0:64] is the sub-list for field type_name
 }
 
 func init() { file_iot_delivery_proto_init() }
@@ -4651,7 +5480,7 @@ func file_iot_delivery_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_iot_delivery_proto_rawDesc), len(file_iot_delivery_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   58,
+			NumMessages:   69,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

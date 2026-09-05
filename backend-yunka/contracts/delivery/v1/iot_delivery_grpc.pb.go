@@ -19,28 +19,31 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	DeliveryService_GetDashboard_FullMethodName      = "/iot.delivery.v1.DeliveryService/GetDashboard"
-	DeliveryService_ListItems_FullMethodName         = "/iot.delivery.v1.DeliveryService/ListItems"
-	DeliveryService_CreateItem_FullMethodName        = "/iot.delivery.v1.DeliveryService/CreateItem"
-	DeliveryService_UpdateItem_FullMethodName        = "/iot.delivery.v1.DeliveryService/UpdateItem"
-	DeliveryService_CreateItemComment_FullMethodName = "/iot.delivery.v1.DeliveryService/CreateItemComment"
-	DeliveryService_UpdateItemContext_FullMethodName = "/iot.delivery.v1.DeliveryService/UpdateItemContext"
-	DeliveryService_AdvanceGate_FullMethodName       = "/iot.delivery.v1.DeliveryService/AdvanceGate"
-	DeliveryService_CloseItem_FullMethodName         = "/iot.delivery.v1.DeliveryService/CloseItem"
-	DeliveryService_SaveView_FullMethodName          = "/iot.delivery.v1.DeliveryService/SaveView"
-	DeliveryService_ListSavedViews_FullMethodName    = "/iot.delivery.v1.DeliveryService/ListSavedViews"
-	DeliveryService_GetMemberWeek_FullMethodName     = "/iot.delivery.v1.DeliveryService/GetMemberWeek"
-	DeliveryService_CreateProject_FullMethodName     = "/iot.delivery.v1.DeliveryService/CreateProject"
-	DeliveryService_CreateRelease_FullMethodName     = "/iot.delivery.v1.DeliveryService/CreateRelease"
-	DeliveryService_CreateSprint_FullMethodName      = "/iot.delivery.v1.DeliveryService/CreateSprint"
-	DeliveryService_CreateMilestone_FullMethodName   = "/iot.delivery.v1.DeliveryService/CreateMilestone"
-	DeliveryService_ListProjects_FullMethodName      = "/iot.delivery.v1.DeliveryService/ListProjects"
-	DeliveryService_ListReleases_FullMethodName      = "/iot.delivery.v1.DeliveryService/ListReleases"
-	DeliveryService_ListSprints_FullMethodName       = "/iot.delivery.v1.DeliveryService/ListSprints"
-	DeliveryService_ListMilestones_FullMethodName    = "/iot.delivery.v1.DeliveryService/ListMilestones"
-	DeliveryService_GetItem_FullMethodName           = "/iot.delivery.v1.DeliveryService/GetItem"
-	DeliveryService_SearchItems_FullMethodName       = "/iot.delivery.v1.DeliveryService/SearchItems"
-	DeliveryService_FindSimilarItems_FullMethodName  = "/iot.delivery.v1.DeliveryService/FindSimilarItems"
+	DeliveryService_GetDashboard_FullMethodName       = "/iot.delivery.v1.DeliveryService/GetDashboard"
+	DeliveryService_ListItems_FullMethodName          = "/iot.delivery.v1.DeliveryService/ListItems"
+	DeliveryService_CreateItem_FullMethodName         = "/iot.delivery.v1.DeliveryService/CreateItem"
+	DeliveryService_UpdateItem_FullMethodName         = "/iot.delivery.v1.DeliveryService/UpdateItem"
+	DeliveryService_CreateItemComment_FullMethodName  = "/iot.delivery.v1.DeliveryService/CreateItemComment"
+	DeliveryService_UpdateItemContext_FullMethodName  = "/iot.delivery.v1.DeliveryService/UpdateItemContext"
+	DeliveryService_AdvanceGate_FullMethodName        = "/iot.delivery.v1.DeliveryService/AdvanceGate"
+	DeliveryService_CloseItem_FullMethodName          = "/iot.delivery.v1.DeliveryService/CloseItem"
+	DeliveryService_SaveView_FullMethodName           = "/iot.delivery.v1.DeliveryService/SaveView"
+	DeliveryService_ListSavedViews_FullMethodName     = "/iot.delivery.v1.DeliveryService/ListSavedViews"
+	DeliveryService_GetMemberWeek_FullMethodName      = "/iot.delivery.v1.DeliveryService/GetMemberWeek"
+	DeliveryService_CreateProject_FullMethodName      = "/iot.delivery.v1.DeliveryService/CreateProject"
+	DeliveryService_CreateRelease_FullMethodName      = "/iot.delivery.v1.DeliveryService/CreateRelease"
+	DeliveryService_CreateSprint_FullMethodName       = "/iot.delivery.v1.DeliveryService/CreateSprint"
+	DeliveryService_CreateMilestone_FullMethodName    = "/iot.delivery.v1.DeliveryService/CreateMilestone"
+	DeliveryService_ListProjects_FullMethodName       = "/iot.delivery.v1.DeliveryService/ListProjects"
+	DeliveryService_ListReleases_FullMethodName       = "/iot.delivery.v1.DeliveryService/ListReleases"
+	DeliveryService_ListSprints_FullMethodName        = "/iot.delivery.v1.DeliveryService/ListSprints"
+	DeliveryService_ListMilestones_FullMethodName     = "/iot.delivery.v1.DeliveryService/ListMilestones"
+	DeliveryService_GetItem_FullMethodName            = "/iot.delivery.v1.DeliveryService/GetItem"
+	DeliveryService_SearchItems_FullMethodName        = "/iot.delivery.v1.DeliveryService/SearchItems"
+	DeliveryService_FindSimilarItems_FullMethodName   = "/iot.delivery.v1.DeliveryService/FindSimilarItems"
+	DeliveryService_GetProjectProgress_FullMethodName = "/iot.delivery.v1.DeliveryService/GetProjectProgress"
+	DeliveryService_GetProjectSchedule_FullMethodName = "/iot.delivery.v1.DeliveryService/GetProjectSchedule"
+	DeliveryService_ListNotifications_FullMethodName  = "/iot.delivery.v1.DeliveryService/ListNotifications"
 )
 
 // DeliveryServiceClient is the client API for DeliveryService service.
@@ -73,6 +76,9 @@ type DeliveryServiceClient interface {
 	GetItem(ctx context.Context, in *GetItemRequest, opts ...grpc.CallOption) (*WorkItemResponse, error)
 	SearchItems(ctx context.Context, in *SearchItemsRequest, opts ...grpc.CallOption) (*SearchItemsResponse, error)
 	FindSimilarItems(ctx context.Context, in *FindSimilarItemsRequest, opts ...grpc.CallOption) (*FindSimilarItemsResponse, error)
+	GetProjectProgress(ctx context.Context, in *GetProjectProgressRequest, opts ...grpc.CallOption) (*ProjectProgressResponse, error)
+	GetProjectSchedule(ctx context.Context, in *GetProjectScheduleRequest, opts ...grpc.CallOption) (*ProjectScheduleResponse, error)
+	ListNotifications(ctx context.Context, in *ListNotificationsRequest, opts ...grpc.CallOption) (*ListNotificationsResponse, error)
 }
 
 type deliveryServiceClient struct {
@@ -303,6 +309,36 @@ func (c *deliveryServiceClient) FindSimilarItems(ctx context.Context, in *FindSi
 	return out, nil
 }
 
+func (c *deliveryServiceClient) GetProjectProgress(ctx context.Context, in *GetProjectProgressRequest, opts ...grpc.CallOption) (*ProjectProgressResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ProjectProgressResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_GetProjectProgress_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *deliveryServiceClient) GetProjectSchedule(ctx context.Context, in *GetProjectScheduleRequest, opts ...grpc.CallOption) (*ProjectScheduleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ProjectScheduleResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_GetProjectSchedule_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *deliveryServiceClient) ListNotifications(ctx context.Context, in *ListNotificationsRequest, opts ...grpc.CallOption) (*ListNotificationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListNotificationsResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_ListNotifications_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DeliveryServiceServer is the server API for DeliveryService service.
 // All implementations should embed UnimplementedDeliveryServiceServer
 // for forward compatibility.
@@ -333,6 +369,9 @@ type DeliveryServiceServer interface {
 	GetItem(context.Context, *GetItemRequest) (*WorkItemResponse, error)
 	SearchItems(context.Context, *SearchItemsRequest) (*SearchItemsResponse, error)
 	FindSimilarItems(context.Context, *FindSimilarItemsRequest) (*FindSimilarItemsResponse, error)
+	GetProjectProgress(context.Context, *GetProjectProgressRequest) (*ProjectProgressResponse, error)
+	GetProjectSchedule(context.Context, *GetProjectScheduleRequest) (*ProjectScheduleResponse, error)
+	ListNotifications(context.Context, *ListNotificationsRequest) (*ListNotificationsResponse, error)
 }
 
 // UnimplementedDeliveryServiceServer should be embedded to have
@@ -407,6 +446,15 @@ func (UnimplementedDeliveryServiceServer) SearchItems(context.Context, *SearchIt
 }
 func (UnimplementedDeliveryServiceServer) FindSimilarItems(context.Context, *FindSimilarItemsRequest) (*FindSimilarItemsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method FindSimilarItems not implemented")
+}
+func (UnimplementedDeliveryServiceServer) GetProjectProgress(context.Context, *GetProjectProgressRequest) (*ProjectProgressResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetProjectProgress not implemented")
+}
+func (UnimplementedDeliveryServiceServer) GetProjectSchedule(context.Context, *GetProjectScheduleRequest) (*ProjectScheduleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetProjectSchedule not implemented")
+}
+func (UnimplementedDeliveryServiceServer) ListNotifications(context.Context, *ListNotificationsRequest) (*ListNotificationsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListNotifications not implemented")
 }
 func (UnimplementedDeliveryServiceServer) testEmbeddedByValue() {}
 
@@ -824,6 +872,60 @@ func _DeliveryService_FindSimilarItems_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DeliveryService_GetProjectProgress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetProjectProgressRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).GetProjectProgress(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_GetProjectProgress_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).GetProjectProgress(ctx, req.(*GetProjectProgressRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DeliveryService_GetProjectSchedule_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetProjectScheduleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).GetProjectSchedule(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_GetProjectSchedule_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).GetProjectSchedule(ctx, req.(*GetProjectScheduleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DeliveryService_ListNotifications_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListNotificationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).ListNotifications(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_ListNotifications_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).ListNotifications(ctx, req.(*ListNotificationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DeliveryService_ServiceDesc is the grpc.ServiceDesc for DeliveryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -918,6 +1020,18 @@ var DeliveryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FindSimilarItems",
 			Handler:    _DeliveryService_FindSimilarItems_Handler,
+		},
+		{
+			MethodName: "GetProjectProgress",
+			Handler:    _DeliveryService_GetProjectProgress_Handler,
+		},
+		{
+			MethodName: "GetProjectSchedule",
+			Handler:    _DeliveryService_GetProjectSchedule_Handler,
+		},
+		{
+			MethodName: "ListNotifications",
+			Handler:    _DeliveryService_ListNotifications_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

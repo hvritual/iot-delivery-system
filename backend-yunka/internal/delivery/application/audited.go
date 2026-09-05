@@ -251,6 +251,18 @@ func (service *auditedDeliveryService) GetMemberWeek(ctx context.Context, reques
 	return service.delegate.GetMemberWeek(ctx, request)
 }
 
+func (service *auditedDeliveryService) GetProjectProgress(ctx context.Context, request *deliveryv1.GetProjectProgressRequest) (*deliveryv1.ProjectProgressResponse, error) {
+	return service.delegate.GetProjectProgress(ctx, request)
+}
+
+func (service *auditedDeliveryService) GetProjectSchedule(ctx context.Context, request *deliveryv1.GetProjectScheduleRequest) (*deliveryv1.ProjectScheduleResponse, error) {
+	return service.delegate.GetProjectSchedule(ctx, request)
+}
+
+func (service *auditedDeliveryService) ListNotifications(ctx context.Context, request *deliveryv1.ListNotificationsRequest) (*deliveryv1.ListNotificationsResponse, error) {
+	return service.delegate.ListNotifications(ctx, request)
+}
+
 func (service *auditedDeliveryService) CreateProject(ctx context.Context, request *deliveryv1.CreateProjectRequest) (*deliveryv1.ProjectResponse, error) {
 	operationID, metadata, err := verifiedWriteOperation(ctx, policy.OperationPlanCreateProject().OperationID)
 	if err != nil {
