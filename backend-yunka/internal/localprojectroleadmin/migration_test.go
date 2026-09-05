@@ -100,6 +100,9 @@ func TestYU24PersistentBindingInvariantsRejectBypassWrites(t *testing.T) {
 	if _, err := database.Exec(`UPDATE role_bindings SET status = 'active', revision = 3 WHERE id = 'binding-a'`); err == nil || !strings.Contains(strings.ToLower(err.Error()), strings.ToLower(bindingReactivationAbort)) {
 		t.Fatalf("binding reactivation error=%v", err)
 	}
+	if _, err := database.Exec(`DELETE FROM role_bindings WHERE id = 'binding-a'`); err == nil || !strings.Contains(strings.ToLower(err.Error()), strings.ToLower(bindingDeleteAbort)) {
+		t.Fatalf("binding history delete error=%v", err)
+	}
 	// YU-24 owns only user-scoped project RoleBindings. Organization bindings
 	// keep their pre-YU-24 lifecycle semantics and are not frozen by these CAS triggers.
 	if _, err := database.Exec(`UPDATE role_bindings SET status = 'disabled' WHERE id = 'organization-binding-a'`); err != nil {
