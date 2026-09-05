@@ -334,7 +334,7 @@
       "allowedScopes": [
         "project"
       ],
-      "status": "reserved"
+      "status": "active"
     },
     {
       "id": "identity.users.manage",
