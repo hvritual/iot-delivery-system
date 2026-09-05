@@ -53,13 +53,13 @@
 
 ## 下一原子任务派发说明
 
-**建议下一侧边栏任务：YU-20「管理员创建、停用、重置成员凭据的应用操作与 CAS」**。
+**建议下一侧边栏任务：YU-21「本地密码登录、服务端不透明 session 与内部短期 JWT」**。
 
-- 固定 parent：使用 YU-19 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
-- 输入：YU-19 一次性管理员与永久 bootstrap latch、YU-18 `localcredential` CAS/Argon2id、既有 `identitycore` User/RoleBinding、durable human GrantResolver/OperationGuard、YU-16 audit 脱敏与 YU-17 root Executor/UoW。
-- 允许：消费者侧管理员成员管理 application operations、必要的权限字典/内部 canonical plan、User 状态 CAS、localcredential 创建/重置 CAS、事务 audit/Outbox、真实 JWT Principal + durable system-administrator 授权回归与 YU-20 证据文档。
-- 禁止：修改 Yunka 源码、手改 generated 文件、实现密码登录/session/JWT（YU-21）、当前成员/本人改密/退出（YU-22）、BFF local-auth routes（YU-26）或 UI。
-- RED：必须由真实可执行路径证明管理员成员管理可绕过 durable human authorization、跨租户修改、用 Owner/邮箱/显示名错误合并身份、CAS 冲突产生部分状态，或 User/credential/audit/Outbox 不能原子提交；环境缺工具不算 RED。
-- GREEN：只有真实 JWT system-administrator durable grant 可创建/停用/重置成员；每个成员保持独立 User 与独立 credential；Owner/邮箱/显示名不参与身份合并；User/credential 写入使用显式 CAS；拒绝、冲突、audit 或 Outbox 失败均无部分业务状态/业务事件；敏感密码不进入日志/audit/Outbox。
+- 固定 parent：使用 YU-20 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
+- 输入：YU-18 `localcredential` Argon2id/rehash contract、YU-20 User lifecycle revision/active-state/member operations、既有 audit 脱敏边界与 runtime identity Principal contract。
+- 允许：消费者侧 local login application capability、opaque session schema/repository、session secret 的安全随机生成与单向存储、短期内部 JWT 签发/验证、issuer/audience/key/version contract、active User + credential verification、成功登录 rehash、认证成功/失败 audit、YU-21 证据文档。
+- 禁止：修改 Yunka 源码、手改 generated 文件、实现 logout/current-member/self-password-change/session-version revocation（YU-22）、将 local auth 接入全部 HTTP/gRPC/MCP durable chain（YU-23）、BFF auth routes（YU-26）或 UI。
+- RED：必须由真实可执行路径证明未验证 JWT 可形成 Principal、密码匹配但 disabled/cross-tenant User 可登录、session secret 明文落库、JWT 伪造/错误 issuer/audience/key 被接受，或登录失败泄露账号存在性/密码/token；环境缺工具不算 RED。
+- GREEN：只有 active tenant-bound User + 正确 Argon2id credential 可建立 session；session cookie/value使用高熵不透明随机值且数据库只存单向摘要；内部 JWT 短期、签名验证、issuer/audience/key/version 明确且验证通过后才建立真实 UserID/TenantID Principal；错误密码、disabled User、未知 User/tenant 对外保持统一失败类别；成功登录可按 YU-18 `NeedsRehash` 原子升级密码 hash；密码/session/JWT/签名密钥不进入日志/audit/Outbox。
 - 框架问题：如复现 Yunka 缺陷，只创建/更新框架 Issue，不修改框架源码；消费者绕过不得表述为框架修复。
-- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-21。
+- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-22。
