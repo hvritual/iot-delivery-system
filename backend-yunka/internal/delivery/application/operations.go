@@ -393,9 +393,18 @@ func (operations *Operations) CreateRelease(ctx context.Context, input delivery.
 }
 
 func (operations *Operations) ListReleases(ctx context.Context, projectID string) ([]delivery.Release, error) {
-	return executeServiceExtension(operations, ctx, "delivery.releases.list", "list_releases", "delivery.items.read", "read_only", projectID, func(callContext context.Context) ([]delivery.Release, error) {
-		return operations.service.ListReleases(callContext, projectID)
-	})
+	if err := operations.ready(); err != nil {
+		return nil, err
+	}
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanListReleases(), &deliveryv1.ListReleasesRequest{ProjectId: projectID}, operations.application.ListReleases)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]delivery.Release, 0, len(response.GetReleases()))
+	for _, value := range response.GetReleases() {
+		result = append(result, releaseFromProto(value))
+	}
+	return result, nil
 }
 
 func (operations *Operations) CreateSprint(ctx context.Context, input delivery.SprintInput) (delivery.Sprint, error) {
@@ -410,9 +419,18 @@ func (operations *Operations) CreateSprint(ctx context.Context, input delivery.S
 }
 
 func (operations *Operations) ListSprints(ctx context.Context, projectID string) ([]delivery.Sprint, error) {
-	return executeServiceExtension(operations, ctx, "delivery.sprints.list", "list_sprints", "delivery.items.read", "read_only", projectID, func(callContext context.Context) ([]delivery.Sprint, error) {
-		return operations.service.ListSprints(callContext, projectID)
-	})
+	if err := operations.ready(); err != nil {
+		return nil, err
+	}
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanListSprints(), &deliveryv1.ListSprintsRequest{ProjectId: projectID}, operations.application.ListSprints)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]delivery.Sprint, 0, len(response.GetSprints()))
+	for _, value := range response.GetSprints() {
+		result = append(result, sprintFromProto(value))
+	}
+	return result, nil
 }
 
 func (operations *Operations) CreateMilestone(ctx context.Context, input delivery.MilestoneInput) (delivery.Milestone, error) {
@@ -427,9 +445,18 @@ func (operations *Operations) CreateMilestone(ctx context.Context, input deliver
 }
 
 func (operations *Operations) ListMilestones(ctx context.Context, projectID string) ([]delivery.Milestone, error) {
-	return executeServiceExtension(operations, ctx, "delivery.milestones.list", "list_milestones", "delivery.items.read", "read_only", projectID, func(callContext context.Context) ([]delivery.Milestone, error) {
-		return operations.service.ListMilestones(callContext, projectID)
-	})
+	if err := operations.ready(); err != nil {
+		return nil, err
+	}
+	response, err := operation.ExecuteTyped(ctx, operations.executor, policy.OperationPlanListMilestones(), &deliveryv1.ListMilestonesRequest{ProjectId: projectID}, operations.application.ListMilestones)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]delivery.Milestone, 0, len(response.GetMilestones()))
+	for _, value := range response.GetMilestones() {
+		result = append(result, milestoneFromProto(value))
+	}
+	return result, nil
 }
 
 func (operations *Operations) SaveView(ctx context.Context, input delivery.SavedViewInput) (delivery.SavedView, error) {

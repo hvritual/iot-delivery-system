@@ -3416,7 +3416,7 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\x16ListMilestonesResponse\x12:\n" +
 	"\n" +
 	"milestones\x18\x01 \x03(\v2\x1a.iot.delivery.v1.MilestoneR\n" +
-	"milestones:\x06\xd2\xf3\x18\x02\b\x022\x9d\x1a\n" +
+	"milestones:\x06\xd2\xf3\x18\x02\b\x022\xa0\x1a\n" +
 	"\x0fDeliveryService\x12\xae\x01\n" +
 	"\fGetDashboard\x12$.iot.delivery.v1.GetDashboardRequest\x1a%.iot.delivery.v1.GetDashboardResponse\"Q\xe2\xf3\x18M\n" +
 	"\x16delivery.dashboard.get\x12\rget_dashboard\x1a\x17delivery.dashboard.read2\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\xa0\x01\n" +
@@ -3447,13 +3447,13 @@ const file_iot_delivery_proto_rawDesc = "" +
 	"\x0fCreateMilestone\x12'.iot.delivery.v1.CreateMilestoneRequest\x1a\".iot.delivery.v1.MilestoneResponse\"[\xe2\xf3\x18W\n" +
 	"\x1adelivery.milestones.create\x12\x10create_milestone\x1a\x1adelivery.milestones.create2\x03\x02\x01\x03H\x01R\x04\b\x03\x10\x01\x12\xaf\x01\n" +
 	"\fListProjects\x12$.iot.delivery.v1.ListProjectsRequest\x1a%.iot.delivery.v1.ListProjectsResponse\"R\xe2\xf3\x18N\n" +
-	"\x16delivery.projects.list\x12\rlist_projects\x1a\x16delivery.projects.read(\x012\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\xae\x01\n" +
-	"\fListReleases\x12$.iot.delivery.v1.ListReleasesRequest\x1a%.iot.delivery.v1.ListReleasesResponse\"Q\xe2\xf3\x18M\n" +
-	"\x16delivery.releases.list\x12\rlist_releases\x1a\x16delivery.releases.read(\x012\x02\x02\x01H\x01R\x04\b\x02\x10\x01\x12\xa8\x01\n" +
-	"\vListSprints\x12#.iot.delivery.v1.ListSprintsRequest\x1a$.iot.delivery.v1.ListSprintsResponse\"N\xe2\xf3\x18J\n" +
-	"\x15delivery.sprints.list\x12\flist_sprints\x1a\x15delivery.sprints.read(\x012\x02\x02\x01H\x01R\x04\b\x02\x10\x01\x12\xba\x01\n" +
-	"\x0eListMilestones\x12&.iot.delivery.v1.ListMilestonesRequest\x1a'.iot.delivery.v1.ListMilestonesResponse\"W\xe2\xf3\x18S\n" +
-	"\x18delivery.milestones.list\x12\x0flist_milestones\x1a\x18delivery.milestones.read(\x012\x02\x02\x01H\x01R\x04\b\x02\x10\x01\x1a\xd7\x03\xda\xf3\x18\xd2\x03\n" +
+	"\x16delivery.projects.list\x12\rlist_projects\x1a\x16delivery.projects.read(\x012\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\xaf\x01\n" +
+	"\fListReleases\x12$.iot.delivery.v1.ListReleasesRequest\x1a%.iot.delivery.v1.ListReleasesResponse\"R\xe2\xf3\x18N\n" +
+	"\x16delivery.releases.list\x12\rlist_releases\x1a\x16delivery.releases.read(\x012\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\xa9\x01\n" +
+	"\vListSprints\x12#.iot.delivery.v1.ListSprintsRequest\x1a$.iot.delivery.v1.ListSprintsResponse\"O\xe2\xf3\x18K\n" +
+	"\x15delivery.sprints.list\x12\flist_sprints\x1a\x15delivery.sprints.read(\x012\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x12\xbb\x01\n" +
+	"\x0eListMilestones\x12&.iot.delivery.v1.ListMilestonesRequest\x1a'.iot.delivery.v1.ListMilestonesResponse\"X\xe2\xf3\x18T\n" +
+	"\x18delivery.milestones.list\x12\x0flist_milestones\x1a\x18delivery.milestones.read(\x012\x03\x02\x01\x03H\x01R\x04\b\x02\x10\x01\x1a\xd7\x03\xda\xf3\x18\xd2\x03\n" +
 	"\n" +
 	"management\"m\n" +
 	"\x1asqlite.transaction-factory\x12Fgithub.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx\x1a\aFactory\"i\n" +

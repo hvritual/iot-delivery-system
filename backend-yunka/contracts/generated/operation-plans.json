@@ -273,7 +273,8 @@
         "tenantRequired": true,
         "authentication": [
           "api-key",
-          "jwt"
+          "jwt",
+          "service-token"
         ],
         "permissions": [
           "delivery.milestones.read"
@@ -391,7 +392,8 @@
         "tenantRequired": true,
         "authentication": [
           "api-key",
-          "jwt"
+          "jwt",
+          "service-token"
         ],
         "permissions": [
           "delivery.releases.read"
@@ -449,7 +451,8 @@
         "tenantRequired": true,
         "authentication": [
           "api-key",
-          "jwt"
+          "jwt",
+          "service-token"
         ],
         "permissions": [
           "delivery.sprints.read"

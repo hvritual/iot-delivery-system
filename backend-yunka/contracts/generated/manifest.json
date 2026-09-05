@@ -2217,7 +2217,8 @@
             "tenantRequired": true,
             "authentication": [
               "api-key",
-              "jwt"
+              "jwt",
+              "service-token"
             ],
             "composition": "local",
             "execution": {
@@ -2234,7 +2235,8 @@
             "tenantRequired": true,
             "authentication": [
               "api-key",
-              "jwt"
+              "jwt",
+              "service-token"
             ]
           }
         },
@@ -2291,7 +2293,8 @@
             "tenantRequired": true,
             "authentication": [
               "api-key",
-              "jwt"
+              "jwt",
+              "service-token"
             ],
             "composition": "local",
             "execution": {
@@ -2308,7 +2311,8 @@
             "tenantRequired": true,
             "authentication": [
               "api-key",
-              "jwt"
+              "jwt",
+              "service-token"
             ]
           }
         },
@@ -2327,7 +2331,8 @@
             "tenantRequired": true,
             "authentication": [
               "api-key",
-              "jwt"
+              "jwt",
+              "service-token"
             ],
             "composition": "local",
             "execution": {
@@ -2344,7 +2349,8 @@
             "tenantRequired": true,
             "authentication": [
               "api-key",
-              "jwt"
+              "jwt",
+              "service-token"
             ]
           }
         },
