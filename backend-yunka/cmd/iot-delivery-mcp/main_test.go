@@ -1,11 +1,31 @@
 package main
 
 import (
+	"encoding/base64"
 	"strings"
 	"testing"
 )
 
+func clearMCPAuthEnvironment(t *testing.T) {
+	t.Helper()
+	for _, name := range []string{
+		mcpAPIKeyEnvironment,
+		mcpAccessTokenEnvironment,
+		mcpSessionTokenEnvironment,
+		localAuthKeyEnvironment,
+		"IOT_DELIVERY_LOCAL_API_KEY",
+		"IOT_DELIVERY_LOCAL_VIEWER_API_KEY",
+		"IOT_DELIVERY_LOCAL_CONTRIBUTOR_API_KEY",
+		"IOT_DELIVERY_LOCAL_RELEASE_MANAGER_API_KEY",
+		"IOT_DELIVERY_BFF_ORGANIZATION_ID",
+		"IOT_DELIVERY_BFF_ASSERTION_KEY",
+	} {
+		t.Setenv(name, "")
+	}
+}
+
 func TestConfigurationRejectsProductionLegacyLocalAPIKey(t *testing.T) {
+	clearMCPAuthEnvironment(t)
 	const sentinelCredential = "S0_02_08_MCP_SENTINEL_DO_NOT_LOG"
 	t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "production")
 	t.Setenv("IOT_DELIVERY_BOOTSTRAP_MODE", "disabled")
@@ -21,9 +41,12 @@ func TestConfigurationRejectsProductionLegacyLocalAPIKey(t *testing.T) {
 }
 
 func TestConfigurationRejectsProductionInsecureServiceCredentialFlag(t *testing.T) {
+	clearMCPAuthEnvironment(t)
 	t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "production")
 	t.Setenv("IOT_DELIVERY_BOOTSTRAP_MODE", "disabled")
 	t.Setenv("IOT_DELIVERY_ALLOW_INSECURE_SERVICE_CREDENTIALS_FOR_DEVELOPMENT", "true")
+	t.Setenv(mcpAccessTokenEnvironment, "access-token-sentinel")
+	t.Setenv(localAuthKeyEnvironment, base64.RawURLEncoding.EncodeToString(make([]byte, 32)))
 
 	_, err := configurationFromEnv()
 	if err == nil || !strings.Contains(err.Error(), "insecure service credentials") {
@@ -31,13 +54,53 @@ func TestConfigurationRejectsProductionInsecureServiceCredentialFlag(t *testing.
 	}
 }
 
-func TestConfigurationRejectsProductionBeforeLocalMCPAuthentication(t *testing.T) {
+func TestYU23ProductionMCPAcceptsLocalAccessOrSessionCredentialMode(t *testing.T) {
+	for _, scenario := range []struct {
+		name string
+		env  string
+		kind mcpCredentialKind
+	}{
+		{name: "access JWT", env: mcpAccessTokenEnvironment, kind: mcpCredentialAccess},
+		{name: "opaque session", env: mcpSessionTokenEnvironment, kind: mcpCredentialSession},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			clearMCPAuthEnvironment(t)
+			t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "production")
+			t.Setenv("IOT_DELIVERY_BOOTSTRAP_MODE", "disabled")
+			t.Setenv(scenario.env, "YU23-local-member-credential-sentinel")
+			key := base64.RawURLEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef"))
+			t.Setenv(localAuthKeyEnvironment, key)
+			configuration, err := configurationFromEnv()
+			if err != nil {
+				t.Fatalf("production local-member MCP configuration error=%v", err)
+			}
+			credential, err := mcpCredentialFromEnv()
+			if err != nil || credential.kind != scenario.kind || configuration.RuntimeEnvironment != "production" || configuration.LocalAuthJWTSigningKey != key {
+				t.Fatalf("credential=%#v configuration=%#v error=%v", credential, configuration, err)
+			}
+		})
+	}
+}
+
+func TestYU23MCPRejectsMissingOrMixedCredentialFamiliesWithoutLeakingValues(t *testing.T) {
+	clearMCPAuthEnvironment(t)
 	t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "production")
 	t.Setenv("IOT_DELIVERY_BOOTSTRAP_MODE", "disabled")
-	t.Setenv("IOT_DELIVERY_LOCAL_API_KEY", "")
-
+	if _, err := configurationFromEnv(); err == nil || !strings.Contains(err.Error(), "exactly one MCP credential family") {
+		t.Fatalf("missing MCP credential error=%v", err)
+	}
+	clearMCPAuthEnvironment(t)
+	t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "production")
+	t.Setenv("IOT_DELIVERY_BOOTSTRAP_MODE", "disabled")
+	const accessSentinel = "YU23-access-secret-must-not-leak"
+	const sessionSentinel = "YU23-session-secret-must-not-leak"
+	t.Setenv(mcpAccessTokenEnvironment, accessSentinel)
+	t.Setenv(mcpSessionTokenEnvironment, sessionSentinel)
 	_, err := configurationFromEnv()
-	if err == nil || !strings.Contains(err.Error(), "development-only") {
-		t.Fatalf("production MCP configuration error = %v, want explicit development-only rejection", err)
+	if err == nil || !strings.Contains(err.Error(), "exactly one MCP credential family") {
+		t.Fatalf("mixed MCP credential error=%v", err)
+	}
+	if strings.Contains(err.Error(), accessSentinel) || strings.Contains(err.Error(), sessionSentinel) {
+		t.Fatalf("mixed MCP credential error leaked secret: %q", err)
 	}
 }
