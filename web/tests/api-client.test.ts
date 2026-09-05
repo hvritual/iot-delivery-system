@@ -3,8 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   addComment,
   advanceGate,
+  assignLocalProjectRole,
+  changeLocalPassword,
   closeItem,
+  createLocalMember,
   fetchProjects,
+  localLogin,
   updateItemContext,
   updateWorkItem,
 } from "@/src/api.js";
@@ -123,5 +127,56 @@ describe("delivery API client", () => {
     });
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/auth/session");
+  });
+
+  it("allows local login to establish the first session without a CSRF preflight", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => "application/json" },
+      json: async () => ({ authenticated: true, organizationId: "org-a", userId: "user-a" }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await localLogin({ organizationId: "org-a", userId: "user-a", password: "secret" });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/auth/local/login");
+    const options = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    const headers = options.headers as Headers;
+    expect(headers.get("x-csrf-token")).toBeNull();
+    expect(options).toEqual(expect.objectContaining({ method: "POST", credentials: "same-origin" }));
+  });
+
+  it("reuses the YU-27 current-session CSRF source for local password and admin writes", async () => {
+    const csrfToken = "local_session_csrf_1234567890_ABCDEFGH";
+    const fetchMock = vi.fn(async (path: string) => {
+      if (path === "/auth/session") {
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => "application/json" },
+          json: async () => ({ authenticated: true, csrfToken }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => "application/json" },
+        json: async () => ({}),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await changeLocalPassword({ currentPassword: "old", newPassword: "new" });
+    await createLocalMember({ displayName: "Member", email: "", password: "temp" });
+    await assignLocalProjectRole({ projectId: "project-a", userId: "user-a", roleId: "contributor" });
+
+    const protectedCalls = fetchMock.mock.calls.filter(([path]) => String(path).startsWith("/auth/local/") && path !== "/auth/local/login");
+    expect(protectedCalls).toHaveLength(3);
+    expect(fetchMock.mock.calls.filter(([path]) => path === "/auth/session")).toHaveLength(3);
+    for (const [, options] of protectedCalls) {
+      expect((options?.headers as Headers).get("x-csrf-token")).toBe(csrfToken);
+    }
   });
 });
