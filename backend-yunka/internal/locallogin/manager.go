@@ -146,6 +146,7 @@ func (manager *Manager) login(ctx context.Context, input LoginInput) (LoginResul
 	}
 	if err := requireActiveUser(ctx, transaction, input.OrganizationID, input.UserID); err != nil {
 		if errors.Is(err, ErrAuthenticationFailed) {
+			manager.consumeSyntheticPasswordWork(input.Password)
 			return LoginResult{}, ErrAuthenticationFailed
 		}
 		return LoginResult{}, err
@@ -158,6 +159,7 @@ func (manager *Manager) login(ctx context.Context, input LoginInput) (LoginResul
 			errors.Is(err, localcredential.ErrInvalidPassword),
 			errors.Is(err, localcredential.ErrUnsupportedCredential),
 			errors.Is(err, localcredential.ErrCredentialCorrupt):
+			manager.consumeSyntheticPasswordWork(input.Password)
 			return LoginResult{}, ErrAuthenticationFailed
 		default:
 			return LoginResult{}, err
@@ -265,6 +267,10 @@ WHERE organizations.id = ? AND organizations.status = 'active'
 		return ErrAuthenticationFailed
 	}
 	return nil
+}
+
+func (manager *Manager) consumeSyntheticPasswordWork(password []byte) {
+	_ = manager.credentials.VerifyPasswordAgainstSyntheticCredential(password)
 }
 
 func (manager *Manager) recordSuccess(ctx context.Context, transaction *sql.Tx, result LoginResult, credentialRevision int64, rehashed bool, occurredAt time.Time) error {
