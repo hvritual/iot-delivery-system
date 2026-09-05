@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localauth"
 	"github.com/hvritual/yunka.io/framework/core/identity"
 	coremiddleware "github.com/hvritual/yunka.io/framework/core/middleware"
 	yunkagrpc "github.com/hvritual/yunka.io/gateway/rpc/transport/grpc"
@@ -17,9 +18,6 @@ import (
 
 const endUserAuthorizationMetadata = "authorization"
 
-// Verify implements Yunka's CredentialVerifier contract with the service
-// credential stored in SQLite. It uses Yunka's standard Bearer metadata,
-// generic errors, token limits, and privacy-and-integrity requirement.
 func (manager *Manager) Verify(ctx context.Context) (identity.Principal, error) {
 	if manager == nil || manager.database == nil {
 		return identity.Principal{}, yunkagrpc.ErrServiceCredentialInvalid
@@ -53,17 +51,16 @@ func (manager *Manager) recordAuthenticationFailureFor(ctx context.Context, oper
 }
 
 // GRPCUnaryServerInterceptor selects exactly one credential family. Yunka's
-// service metadata and end-user Authorization metadata are mutually exclusive;
-// a caller cannot smuggle both and choose a Principal by interceptor precedence.
-// When service metadata is absent, the supplied fallback owns local-member JWT
-// authentication and, in development only, legacy API-key compatibility.
+// service metadata is mutually exclusive with both end-user local JWT and
+// development API-key metadata, so interceptor order never selects identity.
 func (manager *Manager) GRPCUnaryServerInterceptor(fallback stdgrpc.UnaryServerInterceptor) stdgrpc.UnaryServerInterceptor {
 	service := yunkagrpc.AuthenticatedUnaryServerInterceptor(coremiddleware.New(), manager)
 	return func(ctx context.Context, request any, info *stdgrpc.UnaryServerInfo, handler stdgrpc.UnaryHandler) (any, error) {
 		incoming, _ := grpcmetadata.FromIncomingContext(ctx)
 		serviceValues := incoming.Get(yunkagrpc.ServiceAuthorizationMetadata)
 		userValues := incoming.Get(endUserAuthorizationMetadata)
-		if len(serviceValues) > 0 && len(userValues) > 0 {
+		legacyValues := incoming.Get(strings.ToLower(localauth.APIKeyHeader))
+		if len(serviceValues) > 0 && (len(userValues) > 0 || len(legacyValues) > 0) {
 			manager.recordAuthenticationFailureFor(ctx, "authentication.grpc_credential_selection", "authentication.mixed_credentials")
 			return nil, status.Error(codes.Unauthenticated, "unauthenticated")
 		}
