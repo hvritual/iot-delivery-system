@@ -24,9 +24,13 @@ CONTEXT="$EVIDENCE/context.json" python3 - <<'PY'
 import json, os
 from pathlib import Path
 value = json.loads(Path(os.environ['CONTEXT']).read_text())
-assert value.get('profiled') is True, value
-profile = value.get('profile') or ''
+project = value.get('project') or {}
+assert project.get('profiled') is True, value
+profile = project.get('profile') or ''
 assert profile.endswith('.yunka/project.json'), value
+for location in value.get('locations') or []:
+    path = location.get('path', '')
+    assert not path.startswith('backend-yunka/'), location
 PY
 
 PROTOC_GEN_GO="$(command -v protoc-gen-go)" \
