@@ -124,6 +124,9 @@ func (binder *applicationRuntimeBinder) Bind(
 	if err != nil {
 		return generatedassembly.RuntimeBindings{}, fmt.Errorf("configure project role administration: %w", err)
 	}
+	if err := registerLocalAuthBFF(httpMux, binder.application.localLogin, memberAdmin, projectRoleAdmin, binder.securityRecorder); err != nil {
+		return generatedassembly.RuntimeBindings{}, fmt.Errorf("configure local auth BFF routes: %w", err)
+	}
 	operations := deliveryapplication.NewOperations(auditedAdapter, executor, service)
 	if binder.bootstrapMode == BootstrapModeExample {
 		if err := seedExample(ctx, operations); err != nil {
