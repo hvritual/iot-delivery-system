@@ -25,6 +25,8 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitybinding"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/identitycore"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localauth"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localbootstrap"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localcredential"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localoutbox"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
@@ -38,6 +40,7 @@ import (
 	"github.com/hvritual/yunka.io/framework/event"
 	frameworkoutbox "github.com/hvritual/yunka.io/framework/event/outbox"
 	"github.com/hvritual/yunka.io/framework/kernel"
+	"github.com/hvritual/yunka.io/framework/operation"
 	"github.com/hvritual/yunka.io/framework/platform"
 	"github.com/hvritual/yunka.io/framework/runtimehost"
 	"github.com/hvritual/yunka.io/gateway/authz"
@@ -142,11 +145,12 @@ func (policy StartupPolicy) ValidateLocalStdio() error {
 }
 
 type Application struct {
-	operations    *deliveryapplication.Operations
-	configOps     *configapplication.Operations
-	serviceAuth   *serviceauth.Manager
-	serviceGrants *serviceauthz.Manager
-	app           *core.App
+	operations     *deliveryapplication.Operations
+	configOps      *configapplication.Operations
+	serviceAuth    *serviceauth.Manager
+	serviceGrants  *serviceauthz.Manager
+	adminBootstrap *localbootstrap.Manager
+	app            *core.App
 
 	httpAddress string
 	grpcAddress string
@@ -180,6 +184,14 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	if err := identitycore.ApplyMigrations(ctx, repository.Database()); err != nil {
 		_ = repository.Close()
 		return nil, fmt.Errorf("initialize identity core schema: %w", err)
+	}
+	if err := localcredential.ApplyMigrations(ctx, repository.Database()); err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("initialize local credential schema: %w", err)
+	}
+	if err := localbootstrap.ApplyMigrations(ctx, repository.Database()); err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("initialize local administrator bootstrap schema: %w", err)
 	}
 	if err := configrevision.ApplyMigrations(ctx, repository.Database()); err != nil {
 		_ = repository.Close()
@@ -249,6 +261,21 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		return nil, fmt.Errorf("create operation security: %w", err)
 	}
 	transactionFactory := localtx.NewSQLiteFactory(repository.Database())
+	localCredentialRepository, err := localcredential.NewSQLiteRepository(repository.Database())
+	if err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("configure local credential repository: %w", err)
+	}
+	adminBootstrap, err := localbootstrap.NewManager(
+		repository.Database(),
+		localCredentialRepository,
+		auditStore,
+		operation.NewExecutorWithOptions(nil, operation.ExecutorOptions{Transactions: transactionFactory}),
+	)
+	if err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("configure local administrator bootstrap: %w", err)
+	}
 	broker := event.NewLocalBroker(nil)
 	dispatcher, err := frameworkoutbox.NewDispatcher(outboxStore, broker, frameworkoutbox.DispatcherConfig{
 		WorkerID:       "iot-delivery-local-outbox",
@@ -283,8 +310,9 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	}
 
 	application := &Application{
-		serviceAuth:   serviceCredentialManager,
-		serviceGrants: serviceGrantManager,
+		serviceAuth:    serviceCredentialManager,
+		serviceGrants:  serviceGrantManager,
+		adminBootstrap: adminBootstrap,
 	}
 	binder := &applicationRuntimeBinder{
 		repository: repository, auditStore: auditStore, securityRecorder: securityRecorder,
@@ -454,6 +482,16 @@ func (application *Application) Operations() *deliveryapplication.Operations {
 		return nil
 	}
 	return application.operations
+}
+
+// AdministratorBootstrap is an intentionally in-process first-run port. It has
+// no HTTP/gRPC/MCP binding in YU-19; a later local-auth transport may call it
+// only while the durable one-time bootstrap latch is still open.
+func (application *Application) AdministratorBootstrap() *localbootstrap.Manager {
+	if application == nil {
+		return nil
+	}
+	return application.adminBootstrap
 }
 
 // ServiceCredentials is the intentionally in-process management port for
