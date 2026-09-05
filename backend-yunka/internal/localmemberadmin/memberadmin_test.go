@@ -393,7 +393,7 @@ func (fixture *memberAdminFixture) latestAudit(t *testing.T, operationID string)
 	if len(page.Entries) == 0 {
 		t.Fatalf("no audit entry for %s", operationID)
 	}
-	return page.Entries[len(page.Entries)-1]
+	return page.Entries[0]
 }
 
 func (fixture *memberAdminFixture) assertNoSensitiveEventData(t *testing.T, sentinels []string) {
