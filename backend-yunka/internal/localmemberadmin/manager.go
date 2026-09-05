@@ -26,14 +26,16 @@ var (
 	ErrMemberNotFound         = errors.New("local member was not found")
 	ErrMemberRevisionConflict = errors.New("local member revision conflict")
 	ErrMemberDisabled         = errors.New("local member is disabled")
+	ErrLastAdministrator      = errors.New("last active system administrator cannot be disabled")
 )
 
 const (
-	memberEventTopic          = "identity.members"
-	memberCreatedEvent        = "identity.member.created"
-	memberDisabledEvent       = "identity.member.disabled"
+	memberEventTopic           = "identity.members"
+	memberCreatedEvent         = "identity.member.created"
+	memberDisabledEvent        = "identity.member.disabled"
 	memberCredentialResetEvent = "identity.member.credential-reset"
-	correlationIDAttribute    = "correlation_id"
+	correlationIDAttribute     = "correlation_id"
+	lastAdministratorAbort     = "cannot disable last system administrator"
 )
 
 type CreateInput struct {
@@ -179,6 +181,9 @@ func (manager *Manager) Disable(ctx context.Context, input DisableInput) (Member
 		if err != nil {
 			return nil, err
 		}
+		if err := ensureNotLastAdministrator(callContext, transaction, organizationID, input.UserID); err != nil {
+			return nil, err
+		}
 		now, err := manager.now()
 		if err != nil {
 			return nil, err
@@ -187,6 +192,9 @@ func (manager *Manager) Disable(ctx context.Context, input DisableInput) (Member
 SET status = 'disabled', revision = revision + 1, updated_at = ?
 WHERE organization_id = ? AND id = ? AND status = 'active' AND revision = ?`, formatTime(now), organizationID, input.UserID, input.ExpectedRevision)
 		if err != nil {
+			if strings.Contains(strings.ToLower(err.Error()), lastAdministratorAbort) {
+				return nil, ErrLastAdministrator
+			}
 			return nil, errors.New("disable local member")
 		}
 		changed, err := result.RowsAffected()
@@ -329,6 +337,79 @@ func classifyMemberCAS(ctx context.Context, transaction *sql.Tx, organizationID,
 	}
 	return ErrMemberRevisionConflict
 }
+
+func ensureNotLastAdministrator(ctx context.Context, transaction *sql.Tx, organizationID, userID string) error {
+	var targetAdministrator int
+	if err := transaction.QueryRowContext(ctx, administratorMembershipQuery, organizationID, userID).Scan(&targetAdministrator); err != nil {
+		return errors.New("inspect local member administrator binding")
+	}
+	if targetAdministrator == 0 {
+		return nil
+	}
+	var activeAdministrators int
+	if err := transaction.QueryRowContext(ctx, activeAdministratorCountQuery, organizationID).Scan(&activeAdministrators); err != nil {
+		return errors.New("count active local member administrators")
+	}
+	if activeAdministrators <= 1 {
+		return ErrLastAdministrator
+	}
+	return nil
+}
+
+const administratorMembershipQuery = `
+SELECT COUNT(*)
+FROM users candidate
+WHERE candidate.organization_id = ?
+  AND candidate.id = ?
+  AND candidate.status = 'active'
+  AND EXISTS (
+    SELECT 1 FROM role_bindings binding
+    WHERE binding.organization_id = candidate.organization_id
+      AND binding.role_id = 'system-administrator'
+      AND binding.scope_type = 'organization'
+      AND binding.scope_id = candidate.organization_id
+      AND binding.status = 'active'
+      AND (
+        binding.user_id = candidate.id
+        OR EXISTS (
+          SELECT 1 FROM teams
+          JOIN team_memberships
+            ON team_memberships.team_id = teams.id
+           AND team_memberships.organization_id = teams.organization_id
+          WHERE teams.id = binding.team_id
+            AND teams.organization_id = candidate.organization_id
+            AND teams.status = 'active'
+            AND team_memberships.user_id = candidate.id
+        )
+      )
+  )`
+
+const activeAdministratorCountQuery = `
+SELECT COUNT(*)
+FROM users candidate
+WHERE candidate.organization_id = ?
+  AND candidate.status = 'active'
+  AND EXISTS (
+    SELECT 1 FROM role_bindings binding
+    WHERE binding.organization_id = candidate.organization_id
+      AND binding.role_id = 'system-administrator'
+      AND binding.scope_type = 'organization'
+      AND binding.scope_id = candidate.organization_id
+      AND binding.status = 'active'
+      AND (
+        binding.user_id = candidate.id
+        OR EXISTS (
+          SELECT 1 FROM teams
+          JOIN team_memberships
+            ON team_memberships.team_id = teams.id
+           AND team_memberships.organization_id = teams.organization_id
+          WHERE teams.id = binding.team_id
+            AND teams.organization_id = candidate.organization_id
+            AND teams.status = 'active'
+            AND team_memberships.user_id = candidate.id
+        )
+      )
+  )`
 
 func (manager *Manager) appendAudit(ctx context.Context, actorID, operationID, reasonCode, change string, fields []string, result MemberResult, occurredAt time.Time) error {
 	id, err := manager.nextID()
