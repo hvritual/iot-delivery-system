@@ -27,6 +27,7 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localauth"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localbootstrap"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localcredential"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/locallogin"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localmemberadmin"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localoutbox"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
@@ -69,6 +70,11 @@ type Config struct {
 	DueReminder              delivery.DueReminderConfig
 	BFFOrganizationID        string
 	BFFAssertionKey          string
+	// LocalAuthJWTSigningKey is a dedicated canonical base64url HMAC key for
+	// YU-21 internal JWTs. It is intentionally distinct from BFFAssertionKey.
+	// Until YU-26 exposes local-auth routes, an empty value leaves the in-process
+	// LocalAuthentication capability disabled while still applying session schema.
+	LocalAuthJWTSigningKey   string
 	RuntimeEnvironment       RuntimeEnvironment
 	BootstrapMode            BootstrapMode
 	LegacyLocalAPIKeyEnabled bool
@@ -152,6 +158,7 @@ type Application struct {
 	serviceGrants  *serviceauthz.Manager
 	adminBootstrap *localbootstrap.Manager
 	memberAdmin    *localmemberadmin.Manager
+	localLogin     *locallogin.Manager
 	app            *core.App
 
 	httpAddress string
@@ -166,6 +173,9 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		return nil, err
 	}
 	if err := validateBFFConfiguration(configuration); err != nil {
+		return nil, err
+	}
+	if err := validateLocalAuthConfiguration(configuration); err != nil {
 		return nil, err
 	}
 	configuration.HTTPAddress = strings.TrimSpace(configuration.HTTPAddress)
@@ -198,6 +208,10 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	if err := localmemberadmin.ApplyMigrations(ctx, repository.Database()); err != nil {
 		_ = repository.Close()
 		return nil, fmt.Errorf("initialize local member administration schema: %w", err)
+	}
+	if err := locallogin.ApplyMigrations(ctx, repository.Database()); err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("initialize local login session schema: %w", err)
 	}
 	if err := configrevision.ApplyMigrations(ctx, repository.Database()); err != nil {
 		_ = repository.Close()
@@ -282,6 +296,11 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		_ = repository.Close()
 		return nil, fmt.Errorf("configure local administrator bootstrap: %w", err)
 	}
+	localLogin, err := configuredLocalLogin(configuration, repository.Database(), localCredentialRepository, auditStore, transactionFactory)
+	if err != nil {
+		_ = repository.Close()
+		return nil, err
+	}
 	broker := event.NewLocalBroker(nil)
 	dispatcher, err := frameworkoutbox.NewDispatcher(outboxStore, broker, frameworkoutbox.DispatcherConfig{
 		WorkerID:       "iot-delivery-local-outbox",
@@ -319,6 +338,7 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		serviceAuth:    serviceCredentialManager,
 		serviceGrants:  serviceGrantManager,
 		adminBootstrap: adminBootstrap,
+		localLogin:     localLogin,
 	}
 	binder := &applicationRuntimeBinder{
 		repository: repository, auditStore: auditStore, securityRecorder: securityRecorder,
@@ -400,6 +420,26 @@ func configuredAuthorization(ctx context.Context, configuration Config, reposito
 	return authorizer, guardResolverMux{memberGuard.GuardResolver(), deliveryGuard.GuardResolver()}, nil
 }
 
+func configuredLocalLogin(configuration Config, database *sql.DB, credentials *localcredential.SQLiteRepository, auditStore *audit.SQLiteStore, transactions *localtx.SQLiteFactory) (*locallogin.Manager, error) {
+	encodedKey := strings.TrimSpace(configuration.LocalAuthJWTSigningKey)
+	if encodedKey == "" {
+		return nil, nil
+	}
+	key, err := base64.RawURLEncoding.DecodeString(encodedKey)
+	if err != nil || base64.RawURLEncoding.EncodeToString(key) != encodedKey {
+		return nil, errors.New("local auth JWT signing key must be canonical base64url")
+	}
+	manager, err := locallogin.NewManager(
+		database, credentials, auditStore,
+		operation.NewExecutorWithOptions(nil, operation.ExecutorOptions{Transactions: transactions}),
+		locallogin.DefaultConfig(key),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("configure local authentication manager: %w", err)
+	}
+	return manager, nil
+}
+
 func validateStartupPolicy(configuration Config) error {
 	switch configuration.RuntimeEnvironment {
 	case RuntimeEnvironmentDevelopment, RuntimeEnvironmentProduction:
@@ -438,6 +478,18 @@ func validateBFFConfiguration(configuration Config) error {
 	key, err := base64.RawURLEncoding.DecodeString(encodedKey)
 	if err != nil || len(key) < 32 || base64.RawURLEncoding.EncodeToString(key) != encodedKey {
 		return errors.New("BFF assertion key must be base64url and at least 32 bytes")
+	}
+	return nil
+}
+
+func validateLocalAuthConfiguration(configuration Config) error {
+	encodedKey := strings.TrimSpace(configuration.LocalAuthJWTSigningKey)
+	if encodedKey == "" {
+		return nil
+	}
+	key, err := base64.RawURLEncoding.DecodeString(encodedKey)
+	if err != nil || len(key) < 32 || base64.RawURLEncoding.EncodeToString(key) != encodedKey {
+		return errors.New("local auth JWT signing key must be canonical base64url and at least 32 bytes")
 	}
 	return nil
 }
@@ -511,6 +563,15 @@ func (application *Application) MemberAdministration() *localmemberadmin.Manager
 		return nil
 	}
 	return application.memberAdmin
+}
+
+// LocalAuthentication is the optional in-process YU-21 login/session/JWT
+// capability. It has no HTTP/gRPC/MCP binding in this task.
+func (application *Application) LocalAuthentication() *locallogin.Manager {
+	if application == nil {
+		return nil
+	}
+	return application.localLogin
 }
 
 // ServiceCredentials is the intentionally in-process management port for
