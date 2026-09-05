@@ -68,10 +68,11 @@ func (binder *applicationRuntimeBinder) Bind(
 	if err != nil {
 		return generatedassembly.RuntimeBindings{}, err
 	}
-	service := delivery.NewService(
+	stager := delivery.NewTransactionalOutboxStager(dependencies.DeliveryOutbox)
+	service := delivery.NewRootTransactionalService(
 		binder.repository,
 		dependencies.DeliveryProjection,
-		delivery.NewTransactionalOutboxStager(dependencies.DeliveryOutbox),
+		stager,
 	)
 	adapter := deliveryapplication.NewAdapter(service, dependencies.DeliveryNotifications)
 	auditedAdapter, err := deliveryapplication.NewAuditedDeliveryService(
