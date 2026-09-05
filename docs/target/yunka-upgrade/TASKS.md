@@ -53,13 +53,13 @@
 
 ## 下一原子任务派发说明
 
-**建议下一侧边栏任务：YU-17「config revision change/compare/rollback 对齐目标 Executor」**。
+**建议下一侧边栏任务：YU-18「本地成员凭据 schema/repository 与慢哈希」**。
 
-- 固定 parent：使用 YU-16 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
-- 输入：YU-15 root UoW + transactional Outbox、YU-16 accepted/denied/failure/rollback audit 证据、固定框架 `057ebcf...`，以及现有 `configrevision` / `configapplication` 内部能力。
-- 允许：消费者 config revision change/compare/rollback 的内部 canonical 注册、Executor 对齐、CAS/audit/Outbox 回归、必要的消费者公开扩展点与 YU-17 证据文档。
-- 禁止：修改 Yunka 源码、手改 generated 文件、增加新 UI、进入 YU-18 本地凭据 schema/repository。
-- RED：必须由真实可执行路径证明 3 个内部 config 操作存在未注册、Executor/UoW 不一致、CAS/audit/Outbox 原子性或失败残留问题；环境缺工具不算 RED。
-- GREEN：3 个内部操作有明确 canonical 注册与调用路径；change/rollback 进入同一 root UoW；compare 保持只读；CAS 冲突、audit 或 Outbox 失败均按合同回滚；无新增公开 UI/transport。
+- 固定 parent：使用 YU-17 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
+- 输入：YU-16 安全审计/脱敏边界、YU-17 root Executor/CAS/audit/Outbox 对齐结果、既有 `identitycore.User` 与固定框架 `057ebcf...`。
+- 允许：应用自有 local credential schema/migration/repository、User 关联、专用慢密码哈希与参数升级策略、凭据安全测试和 YU-18 证据文档。
+- 禁止：修改 Yunka 源码、手改 generated 文件、实现登录/session/JWT、管理员初始化流程、BFF auth routes 或 UI；这些分别属于 YU-19 以后任务。
+- RED：必须由真实可执行路径证明当前没有可持久化的本地成员凭据合同，或明文/弱哈希/不可升级参数存在实际风险；环境缺工具不算 RED。
+- GREEN：migration 可重复；凭据严格关联既有 User；密码只以当期推荐专用慢哈希保存；明文、token/session/CSRF 不进入数据库、日志或 audit；哈希参数可识别并支持后续升级判断；失败不产生半写状态。
 - 框架问题：如复现 Yunka 缺陷，只创建/更新框架 Issue，不修改框架源码；消费者绕过不得表述为框架修复。
-- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-18。
+- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-19。
