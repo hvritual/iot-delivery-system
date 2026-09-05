@@ -141,15 +141,12 @@ INSERT INTO iotd_local_user_credentials (
     organization_id, user_id, revision, policy_version, algorithm, argon_version,
     memory_kib, iterations, parallelism, salt, password_hash, created_at, updated_at
 )
-SELECT ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-WHERE NOT EXISTS (
-    SELECT 1 FROM iotd_local_user_credentials WHERE organization_id = ? AND user_id = ?
-)`,
+VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (organization_id, user_id) DO NOTHING`,
 			organizationID, userID,
 			material.policy.PolicyVersion, material.policy.Algorithm, material.policy.ArgonVersion,
 			material.policy.MemoryKiB, material.policy.Iterations, material.policy.Parallelism,
 			material.salt, material.hash, formatted, formatted,
-			organizationID, userID,
 		)
 	} else {
 		result, err = executor.ExecContext(ctx, `
