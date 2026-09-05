@@ -13,12 +13,16 @@ import (
 	"github.com/hvritual/yunka.io/framework/core/runtimecontext"
 )
 
-const authorizationHeader = "Authorization"
+const (
+	authorizationHeader = "Authorization"
+	localBFFRoutePrefix = "/auth/local/"
+)
 
-// HTTPMiddleware selects verified local-member JWT authentication only when a
-// standard Authorization header is present. Otherwise it delegates to the
-// existing BFF/development compatibility boundary. Mixed credential families
-// are rejected instead of choosing an identity by precedence.
+// HTTPMiddleware accepts verified local-member JWTs for protected runtime
+// application routes. The dedicated /auth/local/ BFF namespace owns its own
+// opaque-session, Origin and CSRF checks and is therefore passed directly to
+// the registered BFF handler instead of being forced through bearer/BFF
+// assertion authentication first.
 func (verifier *Verifier) HTTPMiddleware(fallback func(http.Handler) http.Handler) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		var fallbackHandler http.Handler
@@ -26,6 +30,10 @@ func (verifier *Verifier) HTTPMiddleware(fallback func(http.Handler) http.Handle
 			fallbackHandler = fallback(next)
 		}
 		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			if strings.HasPrefix(request.URL.Path, localBFFRoutePrefix) {
+				next.ServeHTTP(writer, request)
+				return
+			}
 			values := request.Header.Values(authorizationHeader)
 			if len(values) == 0 {
 				if fallbackHandler != nil {
