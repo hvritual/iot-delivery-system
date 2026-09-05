@@ -41,15 +41,15 @@ func TestYU26LocalBFFNamespaceBypassesBearerOnlyAndRejectsCredentialMixing(t *te
 	mixedBearer.Header.Set("Authorization", "Bearer must-not-be-ignored")
 	mixedBearerResponse := httptest.NewRecorder()
 	wrapped.ServeHTTP(mixedBearerResponse, mixedBearer)
-	if mixedBearerResponse.Code != http.StatusUnauthorized || nextCalls != 1 || fallbackCalls != 1 {
-		t.Fatalf("mixed bearer status=%d next=%d fallback=%d", mixedBearerResponse.Code, nextCalls, fallbackCalls)
+	if mixedBearerResponse.Code != http.StatusUnauthorized || mixedBearerResponse.Header().Get("Cache-Control") != "no-store, max-age=0" || nextCalls != 1 || fallbackCalls != 1 {
+		t.Fatalf("mixed bearer status=%d cache=%q next=%d fallback=%d", mixedBearerResponse.Code, mixedBearerResponse.Header().Get("Cache-Control"), nextCalls, fallbackCalls)
 	}
 
 	mixedAPIKey := httptest.NewRequest(http.MethodPost, "https://example.test/auth/local/login", nil)
 	mixedAPIKey.Header.Set(localauth.APIKeyHeader, "must-not-be-ignored")
 	mixedAPIKeyResponse := httptest.NewRecorder()
 	wrapped.ServeHTTP(mixedAPIKeyResponse, mixedAPIKey)
-	if mixedAPIKeyResponse.Code != http.StatusUnauthorized || nextCalls != 1 || fallbackCalls != 1 {
-		t.Fatalf("mixed API key status=%d next=%d fallback=%d", mixedAPIKeyResponse.Code, nextCalls, fallbackCalls)
+	if mixedAPIKeyResponse.Code != http.StatusUnauthorized || mixedAPIKeyResponse.Header().Get("Cache-Control") != "no-store, max-age=0" || nextCalls != 1 || fallbackCalls != 1 {
+		t.Fatalf("mixed API key status=%d cache=%q next=%d fallback=%d", mixedAPIKeyResponse.Code, mixedAPIKeyResponse.Header().Get("Cache-Control"), nextCalls, fallbackCalls)
 	}
 }
