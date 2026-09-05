@@ -107,6 +107,60 @@ func TestOperationsUsesGeneratedPolicyForAuthorizationAndLocalOutbox(t *testing.
 	}
 }
 
+func TestOperationsItemReadsDoNotRequireLegacyExtensionService(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repository, err := delivery.NewSQLiteRepository(filepath.Join(t.TempDir(), "delivery.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = repository.Close() })
+	store, err := localoutbox.NewSQLiteStore(repository.Database())
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorizer, err := localauth.NewAuthorizer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	security, err := authz.NewExecutionSecurity(authorizer, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := delivery.NewService(repository, nil, delivery.NewTransactionalOutboxStager(store))
+	operations := application.NewOperations(
+		application.NewAdapter(service),
+		operation.NewExecutorWithOptions(security, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(repository.Database())}),
+	)
+	administrator := identity.WithPrincipal(ctx, identity.Principal{
+		Authenticated: true,
+		AuthMethod:    identity.AuthMethodAPIKey,
+		TenantID:      localauth.DevelopmentTenantID,
+		Roles:         []string{localauth.RoleLocalAdmin},
+	})
+	project, err := operations.CreateProject(administrator, delivery.ProjectInput{Name: "item reads", Board: delivery.BoardResearchDelivery, Owner: "owner"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := operations.Create(administrator, delivery.CreateInput{Title: "canonical exact title", Board: delivery.BoardResearchDelivery, ProjectID: project.ID, Owner: "owner"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := operations.Get(administrator, created.ID)
+	if err != nil || got.ID != created.ID {
+		t.Fatalf("get item = %#v, %v", got, err)
+	}
+	items, err := operations.Search(administrator, delivery.WorkItemFilter{ProjectID: project.ID, Query: "exact title"})
+	if err != nil || len(items) != 1 || items[0].ID != created.ID {
+		t.Fatalf("search items = %#v, %v", items, err)
+	}
+	candidates, err := operations.FindSimilar(administrator, delivery.SimilarityQuery{ProjectID: project.ID, Title: created.Title, Kind: created.Kind})
+	if err != nil || len(candidates) != 1 || candidates[0].ID != created.ID || !candidates[0].Exact {
+		t.Fatalf("similar items = %#v, %v", candidates, err)
+	}
+}
+
 func TestOperationsCreatePreservesNestedWriteContract(t *testing.T) {
 	ctx := context.Background()
 	repository, err := delivery.NewSQLiteRepository(filepath.Join(t.TempDir(), "delivery.db"))
