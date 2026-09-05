@@ -4,16 +4,18 @@ import (
 	"context"
 	"strings"
 
+	"github.com/hvritual/yunka.io/framework/core/identity"
+	coremiddleware "github.com/hvritual/yunka.io/framework/core/middleware"
+	yunkagrpc "github.com/hvritual/yunka.io/gateway/rpc/transport/grpc"
 	stdgrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	grpccredentials "google.golang.org/grpc/credentials"
 	grpcmetadata "google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-	"github.com/hvritual/yunka.io/framework/core/identity"
-	coremiddleware "github.com/hvritual/yunka.io/framework/core/middleware"
-	yunkagrpc "github.com/hvritual/yunka.io/gateway/rpc/transport/grpc"
 )
+
+const endUserAuthorizationMetadata = "authorization"
 
 // Verify implements Yunka's CredentialVerifier contract with the service
 // credential stored in SQLite. It uses Yunka's standard Bearer metadata,
@@ -50,16 +52,22 @@ func (manager *Manager) recordAuthenticationFailureFor(ctx context.Context, oper
 	_ = manager.auditRecorder.RecordAuthenticationFailure(ctx, operation, "grpc", reasonCode)
 }
 
-// GRPCUnaryServerInterceptor selects the established legacy API-key path only
-// when Yunka's service authorization metadata is absent. Once that metadata is
-// present, the framework interceptor owns duplicate handling, authentication,
-// standard trace extraction, and generic failures; no invalid credential can
-// fall back to a local API key.
+// GRPCUnaryServerInterceptor selects exactly one credential family. Yunka's
+// service metadata and end-user Authorization metadata are mutually exclusive;
+// a caller cannot smuggle both and choose a Principal by interceptor precedence.
+// When service metadata is absent, the supplied fallback owns local-member JWT
+// authentication and, in development only, legacy API-key compatibility.
 func (manager *Manager) GRPCUnaryServerInterceptor(fallback stdgrpc.UnaryServerInterceptor) stdgrpc.UnaryServerInterceptor {
 	service := yunkagrpc.AuthenticatedUnaryServerInterceptor(coremiddleware.New(), manager)
 	return func(ctx context.Context, request any, info *stdgrpc.UnaryServerInfo, handler stdgrpc.UnaryHandler) (any, error) {
 		incoming, _ := grpcmetadata.FromIncomingContext(ctx)
-		if len(incoming.Get(yunkagrpc.ServiceAuthorizationMetadata)) == 0 {
+		serviceValues := incoming.Get(yunkagrpc.ServiceAuthorizationMetadata)
+		userValues := incoming.Get(endUserAuthorizationMetadata)
+		if len(serviceValues) > 0 && len(userValues) > 0 {
+			manager.recordAuthenticationFailureFor(ctx, "authentication.grpc_credential_selection", "authentication.mixed_credentials")
+			return nil, status.Error(codes.Unauthenticated, "unauthenticated")
+		}
+		if len(serviceValues) == 0 {
 			if fallback == nil {
 				manager.recordAuthenticationFailure(ctx, "authentication.missing_credential")
 				return nil, status.Error(codes.Unauthenticated, "unauthenticated")
@@ -69,7 +77,7 @@ func (manager *Manager) GRPCUnaryServerInterceptor(fallback stdgrpc.UnaryServerI
 				handlerInvoked = true
 				return handler(handlerContext, handlerRequest)
 			})
-			if !handlerInvoked && status.Code(fallbackErr) == codes.Unauthenticated {
+			if !handlerInvoked && status.Code(fallbackErr) == codes.Unauthenticated && len(userValues) == 0 {
 				manager.recordAuthenticationFailureFor(ctx, "authentication.development_api_key", "authentication.invalid_credential")
 			}
 			return response, fallbackErr
