@@ -1245,6 +1245,60 @@ func TestProductionAuthorizationMatrixAllowsRegisteredOperationClasses(t *testin
 	}
 }
 
+func TestSavedViewAndMemberWeekUseCanonicalUserAndAuthorizedProjects(t *testing.T) {
+	fixture := newAuthorizationMatrixFixture(t)
+	project, item := fixture.createProtectedItem(t)
+	admin := identity.WithPrincipal(t.Context(), matrixPrincipal("admin"))
+	otherProject, err := fixture.operations.CreateProject(admin, delivery.ProjectInput{Name: "Other personal data", Board: delivery.BoardResearchDelivery, Owner: "admin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherItem, err := fixture.operations.Create(admin, delivery.CreateInput{Title: "Other weekly item", Board: delivery.BoardResearchDelivery, Owner: "member-a", ProjectID: otherProject.ID, Kind: delivery.WorkItemKindTask, StartDate: "2026-09-07", DueDate: "2026-09-08"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	member := "member-a"
+	start := "2026-09-07"
+	due := "2026-09-08"
+	if _, err := fixture.operations.UpdateWorkItem(admin, item.ID, item.Revision, delivery.WorkItemUpdate{Owner: &member, StartDate: &start, DueDate: &due}); err != nil {
+		t.Fatal(err)
+	}
+
+	scoped := identity.WithPrincipal(t.Context(), matrixPrincipal("scoped"))
+	view, err := fixture.operations.SaveView(scoped, delivery.SavedViewInput{Name: "Scoped view", Filter: delivery.WorkItemFilter{ProjectID: project.ID}})
+	if err != nil || view.Owner != "scoped" {
+		t.Fatalf("save scoped view = %#v err=%v", view, err)
+	}
+	beforeViews, err := fixture.repository.ListSavedViews(t.Context(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.operations.SaveView(scoped, delivery.SavedViewInput{Name: "Cross-project view", Filter: delivery.WorkItemFilter{ProjectID: otherProject.ID}}); !authz.IsDenied(err) {
+		t.Fatalf("cross-project view save = %v, want authorization denial", err)
+	}
+	afterViews, viewsErr := fixture.repository.ListSavedViews(t.Context(), "")
+	afterOutbox, outboxErr := fixture.outbox.Snapshot(t.Context())
+	if viewsErr != nil || !reflect.DeepEqual(afterViews, beforeViews) || outboxErr != nil || !reflect.DeepEqual(afterOutbox, beforeOutbox) {
+		t.Fatalf("denied view save changed data: views=%#v err=%v outbox=%#v err=%v", afterViews, viewsErr, afterOutbox, outboxErr)
+	}
+	views, err := fixture.operations.ListSavedViews(scoped)
+	if err != nil || len(views) != 1 || views[0].ID != view.ID {
+		t.Fatalf("scoped saved views = %#v err=%v", views, err)
+	}
+	reviewerViews, err := fixture.operations.ListSavedViews(identity.WithPrincipal(t.Context(), matrixPrincipal("reviewer")))
+	if err != nil || len(reviewerViews) != 0 {
+		t.Fatalf("another canonical UserID saw scoped views = %#v err=%v", reviewerViews, err)
+	}
+	week, err := fixture.operations.MemberWeek(scoped, "member-a", "2026-09-07")
+	if err != nil || len(week.Items) != 1 || week.Items[0].ID != item.ID || week.Items[0].ID == otherItem.ID {
+		t.Fatalf("scoped member week = %#v err=%v", week, err)
+	}
+}
+
 func TestPostAuthTransportMatrixAllowsGateWithEquivalentSQLiteAndOutboxEffects(t *testing.T) {
 	for _, transport := range []struct {
 		name string
