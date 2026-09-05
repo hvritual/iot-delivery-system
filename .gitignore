@@ -24,6 +24,8 @@ web/node_modules/
 web/dist/
 web/.next/
 web/tsconfig.tsbuildinfo
+# Next regenerates mode-specific type references; typecheck runs next typegen.
+web/next-env.d.ts
 
 # Local tool output
 coverage/
