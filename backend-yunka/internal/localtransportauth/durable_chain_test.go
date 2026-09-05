@@ -15,7 +15,7 @@ import (
 	grpcmetadata "google.golang.org/grpc/metadata"
 )
 
-func TestYU23HTTPGRPCAndMCPLocalMembersResolveTheSameDurableGrant(t *testing.T) {
+func TestYU23HTTPGRPCAndMCPLocalMembersResolveTheSameDurableGrantAndGuard(t *testing.T) {
 	fixture := newTransportFixture(t)
 	if _, err := fixture.database.Exec(`INSERT INTO role_bindings (id, organization_id, role_id, scope_type, scope_id, user_id, status)
 VALUES ('yu23-admin-binding', 'org-a', 'system-administrator', 'organization', 'org-a', 'user-a', 'active')`); err != nil {
@@ -46,7 +46,8 @@ VALUES ('yu23-admin-binding', 'org-a', 'system-administrator', 'organization', '
 	if err != nil {
 		t.Fatal(err)
 	}
-	for name, principal := range map[string]identity.Principal{"http": httpPrincipal, "grpc": grpcPrincipal, "mcp": mcpPrincipal} {
+	principals := map[string]identity.Principal{"http": httpPrincipal, "grpc": grpcPrincipal, "mcp": mcpPrincipal}
+	for name, principal := range principals {
 		if !principal.Authenticated || principal.AuthMethod != identity.AuthMethodJWT || principal.TenantID != "org-a" || principal.UserID != "user-a" || len(principal.Roles) != 0 {
 			t.Fatalf("%s principal=%#v", name, principal)
 		}
@@ -66,12 +67,38 @@ VALUES ('yu23-admin-binding', 'org-a', 'system-administrator', 'organization', '
 	if len(httpGrants) != 1 || !reflect.DeepEqual(httpGrants, grpcGrants) || !reflect.DeepEqual(httpGrants, mcpGrants) || httpGrants[0].RoleID != "system-administrator" || httpGrants[0].Scope != "organization:org-a" {
 		t.Fatalf("durable grants HTTP=%#v gRPC=%#v MCP=%#v", httpGrants, grpcGrants, mcpGrants)
 	}
+	authorizer, err := authz.NewGrantAuthorizerWithResolver(resolver)
+	if err != nil {
+		t.Fatal(err)
+	}
+	guard, err := localmemberadmin.NewOperationGuard(fixture.database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := localmemberadmin.OperationPlans()[0]
+	policy := authz.PolicyFromOperationPlan(plan)
+	for name, principal := range principals {
+		decision, err := authorizer.Authorize(t.Context(), principal, policy)
+		if err != nil || !decision.Allowed {
+			t.Fatalf("%s durable decision=%#v error=%v", name, decision, err)
+		}
+		if _, err := guard.Prepare(t.Context(), authz.AuthorizedOperation{Principal: principal, Policy: policy, Decision: decision}, &localmemberadmin.CreateInput{DisplayName: "guard-only", Password: []byte("not-persisted")}); err != nil {
+			t.Fatalf("%s durable guard error=%v", name, err)
+		}
+	}
 	if _, err := fixture.database.Exec(`UPDATE role_bindings SET status = 'disabled' WHERE id = 'yu23-admin-binding'`); err != nil {
 		t.Fatal(err)
 	}
-	for name, principal := range map[string]identity.Principal{"http": httpPrincipal, "grpc": grpcPrincipal, "mcp": mcpPrincipal} {
+	for name, principal := range principals {
 		if grants := resolve(principal); len(grants) != 0 {
 			t.Fatalf("%s retained durable grant after RoleBinding revocation: %#v", name, grants)
+		}
+		decision, err := authorizer.Authorize(t.Context(), principal, policy)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if decision.Allowed {
+			t.Fatalf("%s remained authorized after RoleBinding revocation: %#v", name, decision)
 		}
 	}
 }
