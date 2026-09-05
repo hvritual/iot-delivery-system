@@ -4,6 +4,9 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localcredential"
 )
 
 func TestYU22CurrentMemberRequiresVerifiedJWTAndExactSessionRevision(t *testing.T) {
