@@ -53,13 +53,13 @@
 
 ## 下一原子任务派发说明
 
-**建议下一侧边栏任务：YU-08「Release/Sprint/Milestone 列表合同化」**。
+**建议下一侧边栏任务：YU-16「审计覆盖 accepted/denied/failure/rollback 并脱敏」**。
 
-- 固定 parent：使用 YU-07 交付回复中已同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
-- 输入：YU-07 的 13 个生成 OperationPlan、固定框架 `057ebcf...`、权限字典与持久 SQLite `GrantResolver + OperationGuard`。
-- 允许：canonical protobuf 源、由固定生成器产生的受管派生物、三个列表的应用适配、权限字典/增量迁移、REST/gRPC/MCP 与回归测试、YU-08 证据文档。
-- 禁止：手改生成文件、修改 Yunka 源码、`backend/`、Web UI、本地成员凭据/会话能力，以及顺带进入 YU-09。
-- RED：在无 legacy service extension 的 fixture 中，三个列表必须因缺少生成 request/response、application port、typed plan 或项目范围授权而真实失败；环境/缺工具不算 RED。
-- GREEN：三项列表全部经 canonical typed plan；生成总数从 13 增至 16；调用方项目 ID 经持久授权和租户归属校验；跨项目/跨租户三 transport 拒绝且业务/Outbox 零变更；两次生成零漂移、full check、Go/race/vet 通过。
-- 框架问题：若遇到目标框架缺陷，先最小复现与反证，只在消费者公开扩展点绕过；问题卡不得把 consumer 接入债归因框架。
-- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-09。
+- 固定 parent：使用 YU-15 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
+- 输入：YU-15 root UoW + transactional Outbox 收敛结果、固定框架 `057ebcf...`、现有 audited application 与 security recorder。
+- 允许：consumer audit/安全记录实现、审计测试、敏感字段过滤与 YU-16 证据文档；必要的消费者公开扩展点接入。
+- 禁止：修改 Yunka 源码、手改 generated 文件、进入 YU-17 config revision 或 YU-18 本地凭据实现。
+- RED：必须由真实可执行路径证明 accepted/denied/failure/rollback 覆盖或脱敏缺口；环境缺工具不算 RED。
+- GREEN：四类结果均有正确 audit 事实，Principal 来自真实身份链；password/token/session/CSRF 不进入日志或 audit payload；拒绝与失败不得制造业务状态或 Outbox 事件。
+- 框架问题：如复现 Yunka 缺陷，只创建/更新框架 Issue，不修改框架源码；消费者绕过不得表述为框架修复。
+- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-17。
