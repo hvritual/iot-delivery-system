@@ -31,6 +31,7 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/locallogin"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localmemberadmin"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localoutbox"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localprojectroleadmin"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/obsidian"
@@ -151,14 +152,15 @@ func (policy StartupPolicy) ValidateLocalStdio() error {
 }
 
 type Application struct {
-	operations     *deliveryapplication.Operations
-	configOps      *configapplication.Operations
-	serviceAuth    *serviceauth.Manager
-	serviceGrants  *serviceauthz.Manager
-	adminBootstrap *localbootstrap.Manager
-	memberAdmin    *localmemberadmin.Manager
-	localLogin     *locallogin.Manager
-	app            *core.App
+	operations       *deliveryapplication.Operations
+	configOps        *configapplication.Operations
+	serviceAuth      *serviceauth.Manager
+	serviceGrants    *serviceauthz.Manager
+	adminBootstrap   *localbootstrap.Manager
+	memberAdmin      *localmemberadmin.Manager
+	projectRoleAdmin *localprojectroleadmin.Manager
+	localLogin       *locallogin.Manager
+	app              *core.App
 
 	httpAddress string
 	grpcAddress string
@@ -207,6 +209,10 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	if err := localmemberadmin.ApplyMigrations(ctx, repository.Database()); err != nil {
 		_ = repository.Close()
 		return nil, fmt.Errorf("initialize local member administration schema: %w", err)
+	}
+	if err := localprojectroleadmin.ApplyMigrations(ctx, repository.Database()); err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("initialize project role administration schema: %w", err)
 	}
 	if err := locallogin.ApplyMigrations(ctx, repository.Database()); err != nil {
 		_ = repository.Close()
@@ -422,6 +428,10 @@ func configuredAuthorization(ctx context.Context, configuration Config, reposito
 	if err != nil {
 		return nil, nil, fmt.Errorf("create local member admin operation guard: %w", err)
 	}
+	projectRoleGuard, err := localprojectroleadmin.NewOperationGuard(repository.Database())
+	if err != nil {
+		return nil, nil, fmt.Errorf("create project role administration operation guard: %w", err)
+	}
 	deliveryGuard, err := deliveryauthz.NewOperationGuard(repository, repository.Database())
 	if err != nil {
 		return nil, nil, fmt.Errorf("create delivery operation guard: %w", err)
@@ -430,7 +440,7 @@ func configuredAuthorization(ctx context.Context, configuration Config, reposito
 	if configuration.RuntimeEnvironment == RuntimeEnvironmentDevelopment {
 		deliveryGuardResolver = developmentCompatibleGuardResolver{durable: deliveryGuardResolver}
 	}
-	return authorizer, guardResolverMux{memberGuard.GuardResolver(), deliveryGuardResolver}, nil
+	return authorizer, guardResolverMux{memberGuard.GuardResolver(), projectRoleGuard.GuardResolver(), deliveryGuardResolver}, nil
 }
 
 func configuredLocalLogin(configuration Config, database *sql.DB, credentials *localcredential.SQLiteRepository, auditStore *audit.SQLiteStore, transactions *localtx.SQLiteFactory) (*locallogin.Manager, error) {
@@ -576,6 +586,15 @@ func (application *Application) MemberAdministration() *localmemberadmin.Manager
 		return nil
 	}
 	return application.memberAdmin
+}
+
+// ProjectRoleAdministration is the authenticated in-process YU-24 project
+// RoleBinding management port. BFF exposure remains YU-26 work.
+func (application *Application) ProjectRoleAdministration() *localprojectroleadmin.Manager {
+	if application == nil {
+		return nil
+	}
+	return application.projectRoleAdmin
 }
 
 // LocalAuthentication exposes the verified local login/session/JWT capability.
