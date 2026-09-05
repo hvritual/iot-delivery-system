@@ -37,10 +37,10 @@ var (
 )
 
 const (
-	roleBindingEventTopic    = "identity.project-role-bindings"
-	roleAssignedEvent        = "identity.project-role-binding.assigned"
-	roleRevokedEvent         = "identity.project-role-binding.revoked"
-	correlationIDAttribute   = "correlation_id"
+	roleBindingEventTopic  = "identity.project-role-bindings"
+	roleAssignedEvent      = "identity.project-role-binding.assigned"
+	roleRevokedEvent       = "identity.project-role-binding.revoked"
+	correlationIDAttribute = "correlation_id"
 )
 
 type AssignInput struct {
@@ -80,6 +80,7 @@ type Manager struct {
 	outbox       outbox.TransactionalStore
 	executor     operation.Executor
 	projectRoles map[string]roleContract
+	permissions  map[string]authorization.Permission
 	newID        func() (string, error)
 	clock        func() time.Time
 }
@@ -114,6 +115,23 @@ func NewManager(database *sql.DB, projects projectLookup, auditStore audit.Store
 	if err != nil {
 		return nil, fmt.Errorf("load project role dictionary: %w", err)
 	}
+	permissions := make(map[string]authorization.Permission, len(dictionary.Permissions))
+	for _, permission := range dictionary.Permissions {
+		if !canonicalIdentifier(permission.ID) || !canonicalIdentifier(permission.Resource) || !canonicalIdentifier(permission.Action) || len(permission.AllowedScopes) == 0 {
+			return nil, errors.New("project role dictionary contains an invalid permission")
+		}
+		if _, duplicate := permissions[permission.ID]; duplicate {
+			return nil, errors.New("project role dictionary contains a duplicated permission")
+		}
+		permission.AllowedScopes = append([]string(nil), permission.AllowedScopes...)
+		sort.Strings(permission.AllowedScopes)
+		// YU-24 activates the predeclared RoleBinding management permission in
+		// durable storage without rewriting the versioned JSON dictionary.
+		if permission.ID == PermissionManageRoleBindings {
+			permission.Status = "active"
+		}
+		permissions[permission.ID] = permission
+	}
 	projectRoles := make(map[string]roleContract)
 	for _, role := range dictionary.Roles {
 		if role.BindingScope != "project" {
@@ -123,6 +141,9 @@ func NewManager(database *sql.DB, projects projectLookup, auditStore audit.Store
 		for _, grant := range role.Grants {
 			if !canonicalIdentifier(grant.Permission) || len(grant.AllowedScopes) == 0 {
 				return nil, errors.New("project role dictionary contains an invalid grant")
+			}
+			if _, exists := permissions[grant.Permission]; !exists {
+				return nil, errors.New("project role dictionary grant references an unknown permission")
 			}
 			scopes := append([]string(nil), grant.AllowedScopes...)
 			sort.Strings(scopes)
@@ -141,7 +162,7 @@ func NewManager(database *sql.DB, projects projectLookup, auditStore audit.Store
 	}
 	manager := &Manager{
 		database: database, projects: projects, audit: auditStore, outbox: outboxStore,
-		executor: executor, projectRoles: projectRoles, newID: randomID, clock: time.Now,
+		executor: executor, projectRoles: projectRoles, permissions: permissions, newID: randomID, clock: time.Now,
 	}
 	for _, option := range options {
 		if option == nil {
@@ -171,7 +192,7 @@ func (manager *Manager) Assign(ctx context.Context, input AssignInput) (BindingR
 			return nil, err
 		}
 		project, err := manager.projects.GetProject(callContext, input.ProjectID)
-		if errors.Is(err, delivery.ErrNotFound) || err == nil && project.OrganizationID != organizationID {
+		if errors.Is(err, delivery.ErrNotFound) || (err == nil && project.OrganizationID != organizationID) {
 			return nil, ErrProjectNotFound
 		}
 		if err != nil {
@@ -259,7 +280,7 @@ func (manager *Manager) Revoke(ctx context.Context, input RevokeInput) (BindingR
 			return nil, ErrBindingRevisionConflict
 		}
 		project, err := manager.projects.GetProject(callContext, binding.ProjectID)
-		if errors.Is(err, delivery.ErrNotFound) || err == nil && project.OrganizationID != organizationID {
+		if errors.Is(err, delivery.ErrNotFound) || (err == nil && project.OrganizationID != organizationID) {
 			return nil, ErrProjectNotFound
 		}
 		if err != nil {
@@ -307,7 +328,7 @@ WHERE id = ? AND organization_id = ? AND scope_type = 'project' AND user_id IS N
 }
 
 func (manager *Manager) ready() error {
-	if manager == nil || manager.database == nil || manager.projects == nil || manager.audit == nil || manager.outbox == nil || manager.executor == nil || len(manager.projectRoles) == 0 || manager.newID == nil || manager.clock == nil {
+	if manager == nil || manager.database == nil || manager.projects == nil || manager.audit == nil || manager.outbox == nil || manager.executor == nil || len(manager.projectRoles) == 0 || len(manager.permissions) == 0 || manager.newID == nil || manager.clock == nil {
 		return errors.New("project role administration manager is not configured")
 	}
 	return nil
@@ -366,13 +387,47 @@ ORDER BY role_grant.permission_id, allowed.scope_type`, roleID)
 	if len(actual) != len(expected.grants) {
 		return ErrRoleContractDrift
 	}
-	for permission, expectedScopes := range expected.grants {
-		actualScopes, exists := actual[permission]
+	for permission, expectedGrantScopes := range expected.grants {
+		actualGrantScopes, exists := actual[permission]
 		if !exists {
 			return ErrRoleContractDrift
 		}
-		sort.Strings(actualScopes)
-		if !sameStrings(actualScopes, expectedScopes) {
+		sort.Strings(actualGrantScopes)
+		if !sameStrings(actualGrantScopes, expectedGrantScopes) {
+			return ErrRoleContractDrift
+		}
+		expectedPermission, exists := manager.permissions[permission]
+		if !exists {
+			return ErrRoleContractDrift
+		}
+		var resource, action, status string
+		if err := transaction.QueryRowContext(ctx, `SELECT resource, action, status FROM permissions WHERE id = ?`, permission).Scan(&resource, &action, &status); err != nil {
+			return ErrRoleContractDrift
+		}
+		if resource != expectedPermission.Resource || action != expectedPermission.Action || status != expectedPermission.Status {
+			return ErrRoleContractDrift
+		}
+		scopeRows, err := transaction.QueryContext(ctx, `SELECT scope_type FROM permission_allowed_scopes WHERE permission_id = ? ORDER BY scope_type`, permission)
+		if err != nil {
+			return ErrRoleContractDrift
+		}
+		actualPermissionScopes := make([]string, 0, len(expectedPermission.AllowedScopes))
+		for scopeRows.Next() {
+			var scope string
+			if err := scopeRows.Scan(&scope); err != nil {
+				_ = scopeRows.Close()
+				return ErrRoleContractDrift
+			}
+			actualPermissionScopes = append(actualPermissionScopes, scope)
+		}
+		if err := scopeRows.Err(); err != nil {
+			_ = scopeRows.Close()
+			return ErrRoleContractDrift
+		}
+		if err := scopeRows.Close(); err != nil {
+			return ErrRoleContractDrift
+		}
+		if !sameStrings(actualPermissionScopes, expectedPermission.AllowedScopes) {
 			return ErrRoleContractDrift
 		}
 	}
