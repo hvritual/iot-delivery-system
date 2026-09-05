@@ -55,10 +55,19 @@ func (guard developmentCompatibleGuard) Prepare(ctx context.Context, authorized 
 
 func isDevelopmentCompatibilityPrincipal(principal identity.Principal) bool {
 	const prefix = "local-api-key/"
-	return principal.Authenticated &&
-		principal.AuthMethod == identity.AuthMethodAPIKey &&
-		principal.TenantID == localauth.DevelopmentTenantID &&
-		principal.Subject == principal.UserID &&
-		strings.HasPrefix(principal.UserID, prefix) &&
-		len(strings.TrimPrefix(principal.UserID, prefix)) > 0
+	if !principal.Authenticated || principal.AuthMethod != identity.AuthMethodAPIKey ||
+		principal.TenantID != localauth.DevelopmentTenantID || principal.Subject != principal.UserID ||
+		!strings.HasPrefix(principal.UserID, prefix) || len(principal.Roles) != 1 {
+		return false
+	}
+	role := strings.TrimPrefix(principal.UserID, prefix)
+	if principal.Roles[0] != role {
+		return false
+	}
+	switch role {
+	case localauth.RoleViewer, localauth.RoleContributor, localauth.RoleReleaseManager, localauth.RoleLocalAdmin:
+		return true
+	default:
+		return false
+	}
 }
