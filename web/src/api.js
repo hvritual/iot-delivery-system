@@ -5,10 +5,10 @@ async function request(path, options = {}) {
   const headers = new Headers(options.headers ?? {});
   headers.set("Accept", "application/json");
   if (options.body) headers.set("Content-Type", "application/json");
-  if (!SAFE_METHODS.has(method)) {
+  if (!SAFE_METHODS.has(method) && options.csrf !== false) {
     headers.set("X-CSRF-Token", await currentCSRFToken());
   }
-  const { headers: _ignoredHeaders, ...requestOptions } = options;
+  const { headers: _ignoredHeaders, csrf: _ignoredCsrf, ...requestOptions } = options;
   const response = await fetch(path, {
     ...requestOptions,
     method,
@@ -46,7 +46,70 @@ async function responsePayload(response) {
 function requestError(response, payload) {
   const error = new Error(payload?.error || `请求失败（${response.status}）`);
   error.status = response.status;
+  if (typeof payload?.traceId === "string") error.traceId = payload.traceId;
   return error;
+}
+
+export function localLogin(input) {
+  return request("/auth/local/login", {
+    method: "POST",
+    csrf: false,
+    body: JSON.stringify(input),
+  });
+}
+
+export function fetchLocalCurrent() {
+  return request("/auth/local/current", { cache: "no-store" });
+}
+
+export function localLogout() {
+  return request("/auth/local/logout", { method: "POST" });
+}
+
+export function changeLocalPassword(input) {
+  return request("/auth/local/change-password", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function createLocalMember(input) {
+  return request("/auth/local/admin/members", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function disableLocalMember(userId, expectedRevision) {
+  return request(`/auth/local/admin/members/${encodeURIComponent(userId)}/disable`, {
+    method: "POST",
+    body: JSON.stringify({ expectedRevision }),
+  });
+}
+
+export function resetLocalMemberCredential(userId, input) {
+  return request(`/auth/local/admin/members/${encodeURIComponent(userId)}/reset-credential`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function assignLocalProjectRole(input) {
+  return request("/auth/local/admin/project-role-bindings", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function revokeLocalProjectRole(bindingId, expectedRevision) {
+  return request(`/auth/local/admin/project-role-bindings/${encodeURIComponent(bindingId)}/revoke`, {
+    method: "POST",
+    body: JSON.stringify({ expectedRevision }),
+  });
+}
+
+export function oidcLogout() {
+  return request("/auth/logout", { method: "POST" });
 }
 
 export function fetchDashboard() {
