@@ -53,14 +53,14 @@
 
 ## 下一原子任务派发说明
 
-**建议下一侧边栏任务：YU-28「登录、当前成员、退出、改密、成员管理和项目角色 UI」**。
+**建议下一侧边栏任务：YU-29「两个真实账号、两个独立浏览器 context 的 E2E」**。
 
-- 固定 parent：使用 YU-27 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
-- 输入：YU-26 `/auth/local/*` browser-facing capability、YU-27 `/auth/session` 当前 CSRF 来源与自动 CSRF API client、现有 Next/React workspace 与设计组件，以及 YU-20/YU-24 服务端管理员权限边界。
-- 允许：local login/current/logout/change-password UI；成员 create/disable/reset UI；project RoleBinding assign/revoke UI；显式 local/OIDC 登录入口选择；loading/empty/error/conflict/unauthenticated/forbidden 状态；键盘操作、label/focus/语义结构等可访问性；必要的 component/interaction tests 与 YU-28 evidence。
-- 禁止：修改 Yunka 源码、手改 generated 文件、改变 YU-25/YU-26 session/authorization/CSRF 语义、在 UI 中复制授权判断作为服务端 authority、把 session/JWT/password/role snapshot 写入 localStorage/sessionStorage、YU-29 双浏览器 E2E、无关视觉重构或新增后端身份业务规则。
-- RED：必须从当前前端事实证明 local auth 没有可操作登录/当前成员/退出/改密界面，管理员 member/project-role capability 无 UI 入口，或界面仍只能依赖 OIDC 登录；环境缺工具不算 RED。不得为了证明 UI 权限问题而绕过服务端 Guard。
-- GREEN：在不配置 OIDC 的 local-auth 模式下可完成登录→读取当前成员→正常业务访问→退出；本人可改密并正确处理 session 失效；system-administrator 可通过既有 YU-20/YU-24 routes 执行成员与项目角色管理；普通成员不会被 UI 宣称为管理员且即使构造请求服务端仍为最终 authority；所有 unsafe 调用复用 YU-27 自动 CSRF；401/403/409/503 有稳定用户状态；核心表单/对话框/错误提示满足键盘与语义可访问性回归。
-- 边界说明：YU-28 只实现人机交互层，不新增身份、密码、session、RoleBinding、permission 或 grant 事实源。UI 可根据服务端返回能力控制可见性，但不能替代 YU-20/YU-24 OperationGuard。两个真实账号的独立浏览器场景留给 YU-29。
-- 框架问题：如复现 Yunka 缺陷，只创建/更新框架 Issue，不修改框架源码；前端 UI/DX 缺口不得表述为框架修复。
-- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-29。
+- 固定 parent：使用 YU-28 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
+- 输入：YU-28 local/OIDC 登录与账号/管理 UI、YU-27 自动 CSRF、YU-26 browser-facing local BFF、YU-25 centralized session validity、YU-20 成员管理与 YU-24 durable project RoleBinding Guard，以及现有真实 SQLite/runtime 启动路径。
+- 允许：仅为 E2E 所需的浏览器测试基础设施与脚本；两个真实 local member 账号；两个完全独立的 browser context/cookie jar；真实 Next Web + Yunka runtime + SQLite fixture；登录/current/业务访问/admin writes；停用、管理员重置凭据、本人改密、角色撤销后的下一请求有效性；CSRF/Origin、跨 context 隔离、职责分离与 YU-29 evidence。
+- 禁止：修改 Yunka 源码、手改 generated 文件、用 mock-only/component/unit 测试冒充 E2E、让两个账号共享 browser context/session/cookie、把 UI 可见性当授权 authority、把 session/JWT/password/role snapshot 写入浏览器持久存储、提前执行 YU-30 全量回归、部署或无关产品功能开发。
+- RED：必须先证明当前仓库没有两个真实账号 + 两个独立 browser context 贯穿真实 Web/runtime/SQLite 的 E2E，或现有 browser harness 无法验证停用/重置/改密/撤权后的即时失效；已有 unit/component mock 不能作为 E2E 证据；环境缺浏览器/工具不算 RED。
+- GREEN：账号 A/B 在不同 browser context 独立登录且 cookie/session 不互通；普通账号即使构造管理请求仍被服务端拒绝；项目 grant 只在绑定项目生效；撤销角色、停用成员、管理员重置凭据或本人改密后，受影响 context 的下一次受保护请求立即失效或失去对应授权，而未受影响账号保持有效；一个 context 的 CSRF 不能用于另一个 context；真实职责分离继续成立；全过程不依赖浏览器角色/token snapshot 作为授权事实。
+- 边界说明：YU-29 只做真实浏览器 E2E 认证，不重写身份、session、RoleBinding、permission、Guard 或 UI 架构；YU-30 才负责 double generate、full check、Go tests/race/vet、前端全量 test/typecheck/build 的阶段总回归。
+- 框架问题：如真实 E2E 复现 Yunka 缺陷，只创建/更新 `hvritual/yunka.io` Issue，不修改框架源码；浏览器 harness、Next/BFF 或消费者环境问题不得归因于框架。
+- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-30。
