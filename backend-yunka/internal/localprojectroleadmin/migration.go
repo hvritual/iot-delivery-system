@@ -141,8 +141,9 @@ func projectRoleAuthorizationContract(dictionary authorization.Dictionary) (auth
 			break
 		}
 	}
-	if permission.ID != PermissionManageRoleBindings || permission.Resource != "identity.role-bindings" || permission.Action != "manage" || permission.Status != "active" || !sameStrings(permission.AllowedScopes, []string{"project"}) {
-		return authorization.Permission{}, nil, errors.New("identity.role-bindings.manage must be an active project-scoped identity.role-bindings/manage permission")
+	if permission.ID != PermissionManageRoleBindings || permission.Resource != "identity.role-bindings" || permission.Action != "manage" ||
+		(permission.Status != "reserved" && permission.Status != "active") || !sameStrings(permission.AllowedScopes, []string{"project"}) {
+		return authorization.Permission{}, nil, errors.New("identity.role-bindings.manage must be a predeclared project-scoped identity.role-bindings/manage permission")
 	}
 	grantRoles := make([]string, 0, 2)
 	for _, role := range dictionary.Roles {
@@ -283,7 +284,7 @@ func ensureCanonicalRoleGrants(ctx context.Context, tx *sql.Tx, canonicalRoles [
 		if err := tx.QueryRowContext(ctx, `SELECT binding_scope FROM roles WHERE id = ?`, role).Scan(&bindingScope); err != nil {
 			return fmt.Errorf("read project role management role %s: %w", role, err)
 		}
-		if role == "system-administrator" && bindingScope != "organization" || role == "project-administrator" && bindingScope != "project" {
+		if (role == "system-administrator" && bindingScope != "organization") || (role == "project-administrator" && bindingScope != "project") {
 			return errors.New("project role management canonical role binding scope is invalid")
 		}
 		var scopes []string
