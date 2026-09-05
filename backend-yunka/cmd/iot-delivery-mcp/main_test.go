@@ -67,6 +67,7 @@ func TestYU23DevelopmentMCPAcceptsLocalAccessOrSessionCredentialMode(t *testing.
 			clearMCPAuthEnvironment(t)
 			t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "development")
 			t.Setenv("IOT_DELIVERY_BOOTSTRAP_MODE", "disabled")
+			t.Setenv("IOT_DELIVERY_LOCAL_API_KEY", "YU23-runtime-compatibility-api-key")
 			t.Setenv(scenario.env, "YU23-local-member-credential-sentinel")
 			key := base64.RawURLEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef"))
 			t.Setenv(localAuthKeyEnvironment, key)
@@ -75,7 +76,7 @@ func TestYU23DevelopmentMCPAcceptsLocalAccessOrSessionCredentialMode(t *testing.
 				t.Fatalf("development local-member MCP configuration error=%v", err)
 			}
 			credential, err := mcpCredentialFromEnv()
-			if err != nil || credential.kind != scenario.kind || configuration.RuntimeEnvironment != "development" || configuration.LocalAuthJWTSigningKey != key {
+			if err != nil || credential.kind != scenario.kind || configuration.RuntimeEnvironment != "development" || configuration.LocalAuthJWTSigningKey != key || !configuration.LegacyLocalAPIKeyEnabled {
 				t.Fatalf("credential=%#v configuration=%#v error=%v", credential, configuration, err)
 			}
 		})
