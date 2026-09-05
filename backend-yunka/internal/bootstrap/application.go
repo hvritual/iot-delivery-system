@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -165,9 +166,6 @@ type Application struct {
 	grpcAddress string
 }
 
-// New constructs the business services and then delegates process ownership to
-// Yunka runtimehost. The host owns HTTP/gRPC listeners, health, diagnostics and
-// lifecycle; this package owns only the delivery assembly and persistence.
 func New(ctx context.Context, configuration Config) (*Application, error) {
 	if err := validateStartupPolicy(configuration); err != nil {
 		return nil, err
@@ -286,12 +284,7 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		_ = repository.Close()
 		return nil, fmt.Errorf("configure local credential repository: %w", err)
 	}
-	adminBootstrap, err := localbootstrap.NewManager(
-		repository.Database(),
-		localCredentialRepository,
-		auditStore,
-		operation.NewExecutorWithOptions(nil, operation.ExecutorOptions{Transactions: transactionFactory}),
-	)
+	adminBootstrap, err := localbootstrap.NewManager(repository.Database(), localCredentialRepository, auditStore, operation.NewExecutorWithOptions(nil, operation.ExecutorOptions{Transactions: transactionFactory}))
 	if err != nil {
 		_ = repository.Close()
 		return nil, fmt.Errorf("configure local administrator bootstrap: %w", err)
@@ -303,14 +296,8 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	}
 	broker := event.NewLocalBroker(nil)
 	dispatcher, err := frameworkoutbox.NewDispatcher(outboxStore, broker, frameworkoutbox.DispatcherConfig{
-		WorkerID:       "iot-delivery-local-outbox",
-		PollInterval:   50 * time.Millisecond,
-		BatchSize:      10,
-		Concurrency:    1,
-		LeaseDuration:  30 * time.Second,
-		PublishTimeout: 2 * time.Second,
-		RetryBase:      100 * time.Millisecond,
-		RetryMax:       2 * time.Second,
+		WorkerID: "iot-delivery-local-outbox", PollInterval: 50 * time.Millisecond, BatchSize: 10, Concurrency: 1,
+		LeaseDuration: 30 * time.Second, PublishTimeout: 2 * time.Second, RetryBase: 100 * time.Millisecond, RetryMax: 2 * time.Second,
 	})
 	if err != nil {
 		_ = broker.Close()
@@ -318,8 +305,7 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		return nil, fmt.Errorf("create local outbox dispatcher: %w", err)
 	}
 	eventRuntime, err := deliveryruntime.New(deliveryruntime.Dependencies{
-		Database: repository, Transactions: transactionFactory,
-		Outbox: outboxStore, Notifications: notificationStore, Projection: exporter,
+		Database: repository, Transactions: transactionFactory, Outbox: outboxStore, Notifications: notificationStore, Projection: exporter,
 		Dispatcher: dispatcher, Broker: broker,
 	})
 	if err != nil {
@@ -333,42 +319,27 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		_ = eventRuntime.Shutdown(context.Background())
 		return nil, fmt.Errorf("configure Yunka Platform provider: %w", err)
 	}
-
-	application := &Application{
-		serviceAuth:    serviceCredentialManager,
-		serviceGrants:  serviceGrantManager,
-		adminBootstrap: adminBootstrap,
-		localLogin:     localLogin,
-	}
+	application := &Application{serviceAuth: serviceCredentialManager, serviceGrants: serviceGrantManager, adminBootstrap: adminBootstrap, localLogin: localLogin}
 	binder := &applicationRuntimeBinder{
-		repository: repository, auditStore: auditStore, securityRecorder: securityRecorder,
-		security: security, eventRuntime: eventRuntime, broker: broker,
-		notificationChannels: append([]notification.Channel(nil), configuration.NotificationChannels...),
-		dueReminder:          configuration.DueReminder, bootstrapMode: configuration.BootstrapMode,
-		application: application,
+		repository: repository, auditStore: auditStore, securityRecorder: securityRecorder, security: security, eventRuntime: eventRuntime, broker: broker,
+		notificationChannels: append([]notification.Channel(nil), configuration.NotificationChannels...), dueReminder: configuration.DueReminder,
+		bootstrapMode: configuration.BootstrapMode, application: application,
 	}
 	var legacyGRPCFallback grpc.UnaryServerInterceptor
 	if authenticator != nil {
 		legacyGRPCFallback = authenticator.GRPCUnaryServerInterceptor()
 	}
 	started, err := runtimehost.Bootstrap(ctx, runtimehost.Options[generatedassembly.Applications]{
-		HTTPListenAddress: configuration.HTTPAddress,
-		GRPCListenAddress: configuration.GRPCAddress,
-		HTTPMiddleware:    httpMiddleware,
+		HTTPListenAddress: configuration.HTTPAddress, GRPCListenAddress: configuration.GRPCAddress, HTTPMiddleware: httpMiddleware,
 		GRPCServerOptions: []grpc.ServerOption{grpc.ChainUnaryInterceptor(deliveryrpc.RevisionErrorUnaryServerInterceptor, serviceCredentialManager.GRPCUnaryServerInterceptor(legacyGRPCFallback))},
-		HealthPath:        "/health",
-		DiagnosticsPath:   "/__yunka/diagnostics",
+		HealthPath: "/health", DiagnosticsPath: "/__yunka/diagnostics",
 		Bootstrap: func(bootstrapCtx context.Context, runtime runtimehost.Runtime) (kernel.BootstrapResult[generatedassembly.Applications], error) {
 			return generatedassembly.Bootstrap(bootstrapCtx, generatedassembly.BootstrapOptions{
-				Platform:          runtimePlatform,
-				AdditionalModules: []modulecatalog.Descriptor{eventRuntime.Descriptor()},
+				Platform: runtimePlatform, AdditionalModules: []modulecatalog.Descriptor{eventRuntime.Descriptor()},
 				BindRuntimeWithCapabilities: func(bindCtx context.Context, provider *platform.Provider, capabilities modulecatalog.CapabilitySet) (generatedassembly.RuntimeBindings, error) {
 					return binder.Bind(bindCtx, provider, capabilities, runtime.HTTP)
 				},
-				Transports: generatedassembly.TransportBindings{
-					RPC: runtime.RPC,
-				},
-				RuntimeComponents: runtime.RuntimeComponents,
+				Transports: generatedassembly.TransportBindings{RPC: runtime.RPC}, RuntimeComponents: runtime.RuntimeComponents,
 			})
 		},
 	})
@@ -429,11 +400,8 @@ func configuredLocalLogin(configuration Config, database *sql.DB, credentials *l
 	if err != nil || base64.RawURLEncoding.EncodeToString(key) != encodedKey {
 		return nil, errors.New("local auth JWT signing key must be canonical base64url")
 	}
-	manager, err := locallogin.NewManager(
-		database, credentials, auditStore,
-		operation.NewExecutorWithOptions(nil, operation.ExecutorOptions{Transactions: transactions}),
-		locallogin.DefaultConfig(key),
-	)
+	manager, err := locallogin.NewManager(database, credentials, auditStore,
+		operation.NewExecutorWithOptions(nil, operation.ExecutorOptions{Transactions: transactions}), locallogin.DefaultConfig(key))
 	if err != nil {
 		return nil, fmt.Errorf("configure local authentication manager: %w", err)
 	}
@@ -512,12 +480,8 @@ func configuredHTTPMiddleware(authenticator *localauth.Authenticator, resolver *
 		return nil, fmt.Errorf("configure BFF assertion verifier: %w", err)
 	}
 	middleware, err := bffhttp.NewMiddleware(bffhttp.Config{
-		Authenticator:       authenticator,
-		AuditRecorder:       recorder,
-		Verifier:            verifier,
-		Resolver:            resolver,
-		OrganizationID:      organizationID,
-		AllowLegacyFallback: configuration.RuntimeEnvironment == RuntimeEnvironmentDevelopment,
+		Authenticator: authenticator, AuditRecorder: recorder, Verifier: verifier, Resolver: resolver,
+		OrganizationID: organizationID, AllowLegacyFallback: configuration.RuntimeEnvironment == RuntimeEnvironmentDevelopment,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("configure BFF HTTP middleware: %w", err)
@@ -536,83 +500,48 @@ func loopbackAddress(address string) bool {
 	return net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback()
 }
 
-// Operations exposes the application-use-case boundary for local adapters
-// such as the stdio MCP server. Callers must still establish an authenticated
-// principal; Operations keeps Yunka execution security and transactions.
 func (application *Application) Operations() *deliveryapplication.Operations {
-	if application == nil {
-		return nil
-	}
+	if application == nil { return nil }
 	return application.operations
 }
 
-// AdministratorBootstrap is an intentionally in-process first-run port. It has
-// no HTTP/gRPC/MCP binding in YU-19; a later local-auth transport may call it
-// only while the durable one-time bootstrap latch is still open.
 func (application *Application) AdministratorBootstrap() *localbootstrap.Manager {
-	if application == nil {
-		return nil
-	}
+	if application == nil { return nil }
 	return application.adminBootstrap
 }
 
-// MemberAdministration is the authenticated in-process YU-20 member management
-// port. It has no transport binding; YU-26 owns BFF exposure.
 func (application *Application) MemberAdministration() *localmemberadmin.Manager {
-	if application == nil {
-		return nil
-	}
+	if application == nil { return nil }
 	return application.memberAdmin
 }
 
-// LocalAuthentication is the optional in-process YU-21 login/session/JWT
-// capability. It has no HTTP/gRPC/MCP binding in this task.
 func (application *Application) LocalAuthentication() *locallogin.Manager {
-	if application == nil {
-		return nil
-	}
+	if application == nil { return nil }
 	return application.localLogin
 }
 
-// ServiceCredentials is the intentionally in-process management port for
-// issuing, rotating, revoking, and disabling service credentials. S0-02-07
-// exposes no service-credential write transport, so such writes cannot bypass
-// the generated Operation Plan, Executor, authorization, transaction, and
-// Outbox boundary required for future remote management APIs.
 func (application *Application) ServiceCredentials() *serviceauth.Manager {
-	if application == nil {
-		return nil
-	}
+	if application == nil { return nil }
 	return application.serviceAuth
 }
 
-// ServiceGrants is the intentionally in-process management port for explicit
-// service-account grants. This slice defines no remote grant-management API.
 func (application *Application) ServiceGrants() *serviceauthz.Manager {
-	if application == nil {
-		return nil
-	}
+	if application == nil { return nil }
 	return application.serviceGrants
 }
 
 func (application *Application) HTTPAddress() string {
-	if application == nil {
-		return ""
-	}
+	if application == nil { return "" }
 	return application.httpAddress
 }
 
 func (application *Application) GRPCAddress() string {
-	if application == nil {
-		return ""
-	}
+	if application == nil { return "" }
 	return application.grpcAddress
 }
 
 func (application *Application) Close(ctx context.Context) error {
-	if application == nil || application.app == nil {
-		return nil
-	}
+	if application == nil || application.app == nil { return nil }
 	return application.app.Shutdown(ctx)
 }
 
@@ -621,41 +550,20 @@ func seedExample(ctx context.Context, operations *deliveryapplication.Operations
 		return errors.New("seed delivery operations are not configured")
 	}
 	bootstrapContext := identity.WithPrincipal(ctx, identity.Principal{
-		Subject:       "bootstrap/seed",
-		UserID:        "bootstrap/seed",
-		TenantID:      localauth.DevelopmentTenantID,
-		Roles:         []string{localauth.RoleLocalAdmin},
-		AuthMethod:    identity.AuthMethodAPIKey,
-		Authenticated: true,
+		Subject: "bootstrap/seed", UserID: "bootstrap/seed", TenantID: localauth.DevelopmentTenantID,
+		Roles: []string{localauth.RoleLocalAdmin}, AuthMethod: identity.AuthMethodAPIKey, Authenticated: true,
 	})
 	items, err := operations.List(bootstrapContext)
-	if err != nil {
-		return fmt.Errorf("inspect existing delivery items: %w", err)
-	}
-	if len(items) > 0 {
-		return nil
-	}
+	if err != nil { return fmt.Errorf("inspect existing delivery items: %w", err) }
+	if len(items) > 0 { return nil }
 	item, err := operations.Create(bootstrapContext, delivery.CreateInput{
-		Title:    "样例：设备 OTA 发布验收",
-		Board:    delivery.BoardResearchDelivery,
-		Type:     "release",
-		Owner:    "待分配",
-		Priority: delivery.PriorityP0,
-		Plan:     "验证分组灰度、回滚演练和发布验收证据。",
-		Solution: "按设备分组推进灰度发布，并把回滚结果作为发布门禁证据。",
-		IsSample: true,
+		Title: "样例：设备 OTA 发布验收", Board: delivery.BoardResearchDelivery, Type: "release", Owner: "待分配", Priority: delivery.PriorityP0,
+		Plan: "验证分组灰度、回滚演练和发布验收证据。", Solution: "按设备分组推进灰度发布，并把回滚结果作为发布门禁证据。", IsSample: true,
 	})
-	if err != nil {
-		return fmt.Errorf("seed sample delivery item: %w", err)
-	}
+	if err != nil { return fmt.Errorf("seed sample delivery item: %w", err) }
 	_, err = operations.UpdateContext(bootstrapContext, item.ID, item.Revision, delivery.ContextUpdate{Decision: &delivery.Decision{
-		Title:        "将回滚演练纳入发布门禁",
-		Context:      "OTA 发布存在设备型号和网络差异。",
-		Outcome:      "发布前必须附上灰度与回滚证据。",
-		Consequences: "发布负责人需要维护证据链接。",
+		Title: "将回滚演练纳入发布门禁", Context: "OTA 发布存在设备型号和网络差异。", Outcome: "发布前必须附上灰度与回滚证据。", Consequences: "发布负责人需要维护证据链接。",
 	}})
-	if err != nil {
-		return fmt.Errorf("seed sample decision: %w", err)
-	}
+	if err != nil { return fmt.Errorf("seed sample decision: %w", err) }
 	return nil
 }
