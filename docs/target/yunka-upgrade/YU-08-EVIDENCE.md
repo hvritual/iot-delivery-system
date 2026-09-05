@@ -1,9 +1,9 @@
 # YU-08 Release/Sprint/Milestone list contract evidence
 
-> Document class: **EVIDENCE**  
-> Task: `YU-08`  
-> Fixed consumer parent: `64d7ff2978d7bc070402e05aeecbe3b7206134c0`  
-> Fixed Yunka gitlink: `057ebcf88a87303eb633eb6e604d306f633dfac0`  
+> Document class: **EVIDENCE**
+> Task: `YU-08`
+> Fixed consumer parent: `64d7ff2978d7bc070402e05aeecbe3b7206134c0`
+> Fixed Yunka gitlink: `057ebcf88a87303eb633eb6e604d306f633dfac0`
 > Scope stop: before `YU-09`
 
 ## Result
