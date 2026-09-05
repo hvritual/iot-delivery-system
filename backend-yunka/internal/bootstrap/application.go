@@ -72,9 +72,7 @@ type Config struct {
 	BFFOrganizationID        string
 	BFFAssertionKey          string
 	// LocalAuthJWTSigningKey is a dedicated canonical base64url HMAC key for
-	// YU-21 internal JWTs. It is intentionally distinct from BFFAssertionKey.
-	// Until YU-26 exposes local-auth routes, an empty value leaves the in-process
-	// LocalAuthentication capability disabled while still applying session schema.
+	// internal local-member JWTs. It is intentionally distinct from BFFAssertionKey.
 	LocalAuthJWTSigningKey   string
 	RuntimeEnvironment       RuntimeEnvironment
 	BootstrapMode            BootstrapMode
@@ -302,6 +300,14 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		_ = repository.Close()
 		return nil, err
 	}
+	localMemberTransport, err := configuredLocalMemberTransport(localLogin, securityRecorder)
+	if err != nil {
+		_ = repository.Close()
+		return nil, err
+	}
+	if localMemberTransport != nil {
+		httpMiddleware = localMemberTransport.HTTPMiddleware(httpMiddleware)
+	}
 	broker := event.NewLocalBroker(nil)
 	dispatcher, err := frameworkoutbox.NewDispatcher(outboxStore, broker, frameworkoutbox.DispatcherConfig{
 		WorkerID:       "iot-delivery-local-outbox",
@@ -352,11 +358,15 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	if authenticator != nil {
 		legacyGRPCFallback = authenticator.GRPCUnaryServerInterceptor()
 	}
+	endUserGRPCFallback := legacyGRPCFallback
+	if localMemberTransport != nil {
+		endUserGRPCFallback = localMemberTransport.GRPCUnaryServerInterceptor(legacyGRPCFallback)
+	}
 	started, err := runtimehost.Bootstrap(ctx, runtimehost.Options[generatedassembly.Applications]{
 		HTTPListenAddress: configuration.HTTPAddress,
 		GRPCListenAddress: configuration.GRPCAddress,
 		HTTPMiddleware:    httpMiddleware,
-		GRPCServerOptions: []grpc.ServerOption{grpc.ChainUnaryInterceptor(deliveryrpc.RevisionErrorUnaryServerInterceptor, serviceCredentialManager.GRPCUnaryServerInterceptor(legacyGRPCFallback))},
+		GRPCServerOptions: []grpc.ServerOption{grpc.ChainUnaryInterceptor(deliveryrpc.RevisionErrorUnaryServerInterceptor, serviceCredentialManager.GRPCUnaryServerInterceptor(endUserGRPCFallback))},
 		HealthPath:        "/health",
 		DiagnosticsPath:   "/__yunka/diagnostics",
 		Bootstrap: func(bootstrapCtx context.Context, runtime runtimehost.Runtime) (kernel.BootstrapResult[generatedassembly.Applications], error) {
@@ -387,13 +397,6 @@ func configuredAuthorization(ctx context.Context, configuration Config, reposito
 	if repository == nil || repository.Database() == nil {
 		return nil, nil, errors.New("delivery authorization repository is required")
 	}
-	if configuration.RuntimeEnvironment == RuntimeEnvironmentDevelopment {
-		authorizer, err := localauth.NewAuthorizer()
-		if err != nil {
-			return nil, nil, fmt.Errorf("create local authorizer: %w", err)
-		}
-		return authorizer, nil, nil
-	}
 	humanResolver, err := humanauthz.NewGrantResolver(repository.Database())
 	if err != nil {
 		return nil, nil, fmt.Errorf("create human grant resolver: %w", err)
@@ -402,13 +405,18 @@ func configuredAuthorization(ctx context.Context, configuration Config, reposito
 	if err != nil {
 		return nil, nil, fmt.Errorf("create service grant resolver: %w", err)
 	}
-	resolver, err := principalauthz.New(humanResolver, serviceResolver)
+	var resolver authz.GrantResolver
+	if configuration.RuntimeEnvironment == RuntimeEnvironmentDevelopment {
+		resolver, err = principalauthz.NewWithDevelopmentCompatibility(humanResolver, serviceResolver, localauth.NewGrantResolver())
+	} else {
+		resolver, err = principalauthz.New(humanResolver, serviceResolver)
+	}
 	if err != nil {
-		return nil, nil, fmt.Errorf("compose production grant resolver: %w", err)
+		return nil, nil, fmt.Errorf("compose principal grant resolver: %w", err)
 	}
 	authorizer, err := authz.NewGrantAuthorizerWithResolver(resolver)
 	if err != nil {
-		return nil, nil, fmt.Errorf("create human grant authorizer: %w", err)
+		return nil, nil, fmt.Errorf("create principal grant authorizer: %w", err)
 	}
 	memberGuard, err := localmemberadmin.NewOperationGuard(repository.Database())
 	if err != nil {
@@ -418,7 +426,11 @@ func configuredAuthorization(ctx context.Context, configuration Config, reposito
 	if err != nil {
 		return nil, nil, fmt.Errorf("create delivery operation guard: %w", err)
 	}
-	return authorizer, guardResolverMux{memberGuard.GuardResolver(), deliveryGuard.GuardResolver()}, nil
+	var deliveryGuardResolver authz.GuardResolver = deliveryGuard.GuardResolver()
+	if configuration.RuntimeEnvironment == RuntimeEnvironmentDevelopment {
+		deliveryGuardResolver = developmentCompatibleGuardResolver{durable: deliveryGuardResolver}
+	}
+	return authorizer, guardResolverMux{memberGuard.GuardResolver(), deliveryGuardResolver}, nil
 }
 
 func configuredLocalLogin(configuration Config, database *sql.DB, credentials *localcredential.SQLiteRepository, auditStore *audit.SQLiteStore, transactions *localtx.SQLiteFactory) (*locallogin.Manager, error) {
@@ -566,8 +578,9 @@ func (application *Application) MemberAdministration() *localmemberadmin.Manager
 	return application.memberAdmin
 }
 
-// LocalAuthentication is the optional in-process YU-21 login/session/JWT
-// capability. It has no HTTP/gRPC/MCP binding in this task.
+// LocalAuthentication exposes the verified local login/session/JWT capability.
+// YU-23 wires its verified Principal into protected transports; YU-26 still owns
+// login/current/logout/change-password HTTP route exposure.
 func (application *Application) LocalAuthentication() *locallogin.Manager {
 	if application == nil {
 		return nil
