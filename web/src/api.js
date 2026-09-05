@@ -1,20 +1,52 @@
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
 async function request(path, options = {}) {
+  const method = String(options.method ?? "GET").toUpperCase();
+  const headers = new Headers(options.headers ?? {});
+  headers.set("Accept", "application/json");
+  if (options.body) headers.set("Content-Type", "application/json");
+  if (!SAFE_METHODS.has(method)) {
+    headers.set("X-CSRF-Token", await currentCSRFToken());
+  }
+  const { headers: _ignoredHeaders, ...requestOptions } = options;
   const response = await fetch(path, {
-    headers: {
-      Accept: "application/json",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...options.headers,
-    },
-    ...options,
+    ...requestOptions,
+    method,
+    headers,
+    credentials: "same-origin",
   });
-  const contentType = response.headers.get("content-type") ?? "";
-  const payload = contentType.includes("application/json") ? await response.json() : null;
-  if (!response.ok) {
-    const error = new Error(payload?.error || `请求失败（${response.status}）`);
-    error.status = response.status;
+  const payload = await responsePayload(response);
+  if (!response.ok) throw requestError(response, payload);
+  return payload;
+}
+
+async function currentCSRFToken() {
+  const response = await fetch("/auth/session", {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  const payload = await responsePayload(response);
+  if (!response.ok) throw requestError(response, payload);
+  const token = payload?.csrfToken;
+  if (typeof token !== "string" || !/^[A-Za-z0-9_-]{32,}$/.test(token)) {
+    const error = new Error("会话校验失败");
+    error.status = 401;
     throw error;
   }
-  return payload;
+  return token;
+}
+
+async function responsePayload(response) {
+  const contentType = response.headers.get("content-type") ?? "";
+  return contentType.includes("application/json") ? response.json() : null;
+}
+
+function requestError(response, payload) {
+  const error = new Error(payload?.error || `请求失败（${response.status}）`);
+  error.status = response.status;
+  return error;
 }
 
 export function fetchDashboard() {
