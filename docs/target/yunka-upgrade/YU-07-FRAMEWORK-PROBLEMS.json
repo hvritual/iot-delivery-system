@@ -48,7 +48,7 @@
       },
       "workaround": "Use a tracked repository-root .yunka profile and minimal repository-root go.mod that point to backend-yunka contract, generated, module, and development locations. Keep backend-yunka as the application module/working directory; use the root profile only for Yunka workflow commands. This is a consumer public-configuration workaround, not a framework modification.",
       "workaround_verification": [
-        "Commit 03fb576 records the tracked root profile and minimal root Go module.",
+        "Published commit 3ce000a5e2b0ce014da0f89b53005315c9e53517 records the tracked root profile and minimal root Go module.",
         "With that profile, Yunka context, check, generate, ChangeSet planning, and dev planning completed in the task investigation; generated outputs were checked for byte-identical repeatability before subsequent contract work.",
         "Final YU-07 double generation, full check, ownership, and audit completed with no generated drift or new audit finding. No framework source was edited and this workaround is not represented as a framework repair."
       ]
@@ -92,7 +92,7 @@
       "workaround": "Use two formal ChangeSets: first create the operation with api-key and jwt; then apply the supported existing-operation authentication allowance with service-token. Do not alter any generated manifest or generated source by hand.",
       "workaround_verification": [
         "Both ChangeSets completed conformantly in the YU-07 contract workflow: the first establishes api-key+jwt and the second adds service-token.",
-        "The resulting canonical generation is represented by structural contract commit cc43e76 and typed execution commit edec34d.",
+        "The resulting canonical generation is represented by published structural contract commit 137b5d9c8a0895f04ee7bdb377c2cce0143b206a and typed execution commit 3c4656409e54c29adaa826f85dcada62d66f59a2.",
         "Final YU-07 double generation and full check preserved the intended three authentication methods with zero drift. This is a consumer workflow workaround, not a framework fix."
       ]
     }

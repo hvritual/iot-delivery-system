@@ -18,13 +18,24 @@ YU-07 adds `ListProjects` as the thirteenth generated operation, moves the exist
 
 | Checkpoint | Commit | Parent | Purpose |
 | --- | --- | --- | --- |
-| RED | `cca3b7d1b4cd44571937a2c29e913e12561945b5` | `9bf80993accbd11544652af8b1eb1c1961bc73fd` | Executable tests require `ListProjects`, 13 generated plans, and typed execution without a legacy service extension. |
-| Root-profile workaround | `03fb57696e22edeedf4b6b1f834316340760e8c0` | `cca3b7d1b4cd44571937a2c29e913e12561945b5` | Track the repository-root Yunka profile needed for Git-backed ChangeSet/audit paths. |
-| Structural contract | `cc43e76b6ecf2e0f4c8a36ee264ae81afd39be54` | `03fb57696e22edeedf4b6b1f834316340760e8c0` | Canonically generate the `ListProjects` protobuf, application port, policy, RPC executor, and manifests. |
-| Typed execution | `edec34d7629f6e550c2afd944649e91f39dd566d` | `cc43e76b6ecf2e0f4c8a36ee264ae81afd39be54` | Route `Operations.ListProjects` through `OperationPlanListProjects`. |
-| Authorization integration | `0c37ff9781786dc45859991ed430326c8c320f24` | `edec34d7629f6e550c2afd944649e91f39dd566d` | Add durable permission/scope migration, guard filtering, service-grant behavior, two-tenant transport tests, and count updates. |
+| RED | `3b84d2a420d1931087ee0717b5bb64126a388592` | `9bf80993accbd11544652af8b1eb1c1961bc73fd` | Executable tests require `ListProjects`, 13 generated plans, and typed execution without a legacy service extension. |
+| Root-profile workaround | `3ce000a5e2b0ce014da0f89b53005315c9e53517` | `3b84d2a420d1931087ee0717b5bb64126a388592` | Track the repository-root Yunka profile needed for Git-backed ChangeSet/audit paths. |
+| Structural contract | `137b5d9c8a0895f04ee7bdb377c2cce0143b206a` | `3ce000a5e2b0ce014da0f89b53005315c9e53517` | Canonically generate the `ListProjects` protobuf, application port, policy, RPC executor, and manifests. |
+| Typed execution | `3c4656409e54c29adaa826f85dcada62d66f59a2` | `137b5d9c8a0895f04ee7bdb377c2cce0143b206a` | Route `Operations.ListProjects` through `OperationPlanListProjects`. |
+| Authorization integration | `10b2698486ae5276c7936e0d75bde433bac1fde0` | `3c4656409e54c29adaa826f85dcada62d66f59a2` | Add durable permission/scope migration, guard filtering, service-grant behavior, two-tenant transport tests, and count updates. |
+| Evidence and handoff | `e5a6d578b0b6264a7754ce47735960cfb89690fd` | `10b2698486ae5276c7936e0d75bde433bac1fde0` | Publish the YU-07 evidence, framework problem cards, and YU-08 dispatch boundary. |
 
-The documentation/evidence commit that contains this ledger is necessarily identified by the Git ref and delivery response rather than by self-reference inside its own content.
+An earlier version of this table contained unpublished local checkpoint object IDs. A fresh clone could not resolve them. The table above is the exact published, parent-linked lineage reachable from both `main` and `codex/yu-07-project-contracts`; the evidence-integrity repair that corrects the table is necessarily identified by its Git ref and delivery response rather than by self-reference inside its own content.
+
+## Scope and path ledger
+
+`git diff --name-status 9bf80993accbd11544652af8b1eb1c1961bc73fd..e5a6d578b0b6264a7754ce47735960cfb89690fd` contains 44 paths. They are limited to the repository-root Yunka workflow profile/workaround, `backend-yunka` Project contract/application/authorization/generated/test paths, and YU-07 documentation.
+
+- Allowed developer-owned paths used: `.gitignore`, `.yunka/{project,providers,dev}.json`, root `go.mod`, `backend-yunka/Makefile`, `backend-yunka/README.md`, the canonical protobuf, Project-list application adapter, authorization dictionary/migration/guard paths, regression tests, and `docs/**` evidence/status files.
+- Allowed generator-owned paths used: `.yunka/protobuf-go.json`, protobuf Go/grpc outputs, generated contract manifests/client/OpenAPI/operation plans, generated assembly, application port, operation policy/plan, and RPC executor.
+- Forbidden paths with zero changes: `third_party/yunka/**`, legacy `backend/**`, and `web/**`.
+- Forbidden feature expansion with zero additions: `ListReleases`, `ListSprints`, and `ListMilestones` protobuf RPCs/adapters/MCP tools; these remain YU-08 work.
+- The evidence-integrity follow-up changes only this ledger, the YU-07 framework problem card, and the production shared-guard wiring test whose former name overstated per-operation coverage. It changes no production behavior or generated file.
 
 ## Contract and authorization result
 
@@ -75,7 +86,7 @@ PASS
 | Full framework check | `make -C backend-yunka yunka-check ...` | PASS: protobuf Go 2 files, one service, 37 messages, 5 application files, modules and assembly |
 | Context | `make -C backend-yunka yunka-context ...` | PASS; repository-root profile resolves the backend contract/generated/module roots |
 | Ownership | `yunka ownership check` over the canonical proto and all changed hand-written production Go paths | PASS; contract is `developer-contract`, Go is `developer-code` |
-| Audit | `yunka audit --root . --base 03fb576... --format agent-json` | PASS; one pre-existing `AUDIT-AUTH-001` debt item, `new=[]`, `fixed=[]` |
+| Audit | `yunka audit --root . --base 3ce000a5e2b0ce014da0f89b53005315c9e53517 --format agent-json` | PASS; one pre-existing `AUDIT-AUTH-001` debt item, `new=[]`, `fixed=[]` |
 | Dev plan | `yunka dev plan --root . --format agent-json` | PASS; resolves `app` as `go run ./cmd/yunka-bootstrap` in `backend-yunka` |
 | Runtime smoke | fixed CLI with `GOWORK=off`, explicit development policy, temporary SQLite/Vault and a throwaway local key | Process reached the listening state and remained supervised until explicit SIGINT; this smoke is not used as credential or browser proof. Lifecycle/health/closure assertions remain covered by the full bootstrap tests. |
 | Formatting | `jq empty` on the problem card and `git diff --check` | PASS |
@@ -90,6 +101,8 @@ Two confirmed fixed-version framework problems and their bounded consumer workar
 2. `add operation --authentication service` plan vocabulary versus generated `service-token` semantics.
 
 The root-profile workaround passed context, canonical generation/check, ChangeSet planning/checking, dev planning, and final audit. The authentication workaround used two formal conformant ChangeSets: create `ListProjects` with API-key/JWT, then add `service-token` through the supported existing-operation allowance. Yunka framework source was not changed. Workaround success does not mean either framework issue is repaired.
+
+The transient ChangeSet working IDs and attestations were not committed by the original run and are not recoverable from a fresh clone. This ledger does not invent replacements. The reproducible retained evidence is the published RED-to-GREEN lineage above, the canonical source and generated outputs, and the listed verification commands; future tasks must retain replayable ChangeSet identifiers when the framework exposes them.
 
 ## Evidence boundary and residual risks
 
