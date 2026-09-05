@@ -220,8 +220,9 @@ id, organization_id, user_id, secret_digest, status, credential_revision, create
 }
 
 // VerifyAccessToken establishes a human Principal only after strict JWT
-// signature/claim verification and a live server-side session lookup. It does
-// not infer OIDC issuer/subject semantics and it never trusts unverified claims.
+// signature/claim verification, a live server-side session lookup, and an
+// active tenant/User check. Credential-version and broader session revocation
+// policy remain YU-22/YU-25 concerns.
 func (manager *Manager) VerifyAccessToken(ctx context.Context, token string) (identity.Principal, error) {
 	if err := manager.ready(); err != nil {
 		return identity.Principal{}, err
@@ -233,9 +234,12 @@ func (manager *Manager) VerifyAccessToken(ctx context.Context, token string) (id
 	}
 	var expiresAt string
 	var credentialRevision int64
-	err = manager.database.QueryRowContext(ctx, `SELECT expires_at, credential_revision
-FROM iotd_local_sessions
-WHERE id = ? AND organization_id = ? AND user_id = ? AND status = 'active' AND expires_at > ?`,
+	err = manager.database.QueryRowContext(ctx, `SELECT sessions.expires_at, sessions.credential_revision
+FROM iotd_local_sessions sessions
+JOIN organizations ON organizations.id = sessions.organization_id AND organizations.status = 'active'
+JOIN users ON users.organization_id = sessions.organization_id AND users.id = sessions.user_id AND users.status = 'active'
+WHERE sessions.id = ? AND sessions.organization_id = ? AND sessions.user_id = ?
+  AND sessions.status = 'active' AND sessions.expires_at > ?`,
 		claims.SessionID, claims.TenantID, claims.Subject, formatTime(now)).Scan(&expiresAt, &credentialRevision)
 	if errors.Is(err, sql.ErrNoRows) {
 		return identity.Principal{}, ErrAccessTokenInvalid
