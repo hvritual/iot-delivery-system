@@ -53,6 +53,9 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	if err := verifyCredentialSchema(ctx, tx); err != nil {
 		return err
 	}
+	if err := verifyCredentialForeignKey(ctx, tx); err != nil {
+		return err
+	}
 	var applied int
 	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM iotd_schema_migrations WHERE migration_id = ?`, MigrationID).Scan(&applied); err != nil {
 		return fmt.Errorf("read local credential migration ledger: %w", err)
@@ -85,10 +88,10 @@ func requireIdentityUserSchema(ctx context.Context, database *sql.DB) error {
 }
 
 type schemaColumn struct {
-	name    string
+	name     string
 	typeName string
-	notNull int
-	pk      int
+	notNull  int
+	pk       int
 }
 
 func verifyCredentialSchema(ctx context.Context, tx *sql.Tx) error {
@@ -131,6 +134,50 @@ func verifyCredentialSchema(ctx context.Context, tx *sql.Tx) error {
 	for index := range want {
 		if columns[index] != want[index] {
 			return fmt.Errorf("local credential schema column %d = %#v, want %#v", index, columns[index], want[index])
+		}
+	}
+	return nil
+}
+
+type foreignKeyColumn struct {
+	sequence int
+	table    string
+	from     string
+	to       string
+	onDelete string
+}
+
+func verifyCredentialForeignKey(ctx context.Context, tx *sql.Tx) error {
+	rows, err := tx.QueryContext(ctx, `PRAGMA foreign_key_list('iotd_local_user_credentials')`)
+	if err != nil {
+		return fmt.Errorf("inspect local credential foreign key: %w", err)
+	}
+	defer rows.Close()
+	columns := make([]foreignKeyColumn, 0, 2)
+	for rows.Next() {
+		var id, sequence int
+		var table, from, to, onUpdate, onDelete, match string
+		if err := rows.Scan(&id, &sequence, &table, &from, &to, &onUpdate, &onDelete, &match); err != nil {
+			return fmt.Errorf("scan local credential foreign key: %w", err)
+		}
+		if id != 0 {
+			return errors.New("local credential schema contains an unexpected foreign key")
+		}
+		columns = append(columns, foreignKeyColumn{sequence: sequence, table: table, from: from, to: to, onDelete: onDelete})
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate local credential foreign key: %w", err)
+	}
+	want := []foreignKeyColumn{
+		{sequence: 0, table: "users", from: "organization_id", to: "organization_id", onDelete: "RESTRICT"},
+		{sequence: 1, table: "users", from: "user_id", to: "id", onDelete: "RESTRICT"},
+	}
+	if len(columns) != len(want) {
+		return errors.New("local credential schema is missing the tenant-bound user foreign key")
+	}
+	for index := range want {
+		if columns[index] != want[index] {
+			return errors.New("local credential schema has an invalid tenant-bound user foreign key")
 		}
 	}
 	return nil
