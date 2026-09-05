@@ -1,0 +1,33 @@
+name: YU-30 apply reviewed fixes
+on:
+  push:
+    branches: [codex/yu-30-full-regression]
+    paths: [.github/workflows/yu30-apply-reviewed.yml]
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.repository == 'hvritual/iot-delivery-system' && github.ref == 'refs/heads/codex/yu-30-full-regression'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Apply reviewed first-run fixes and remove one-time writer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor d6241a26dcdb268f002a38376689d893600f1877 HEAD
+          test "$(git ls-remote origin refs/heads/codex/yu-30-full-regression | cut -f1)" = "$(git rev-parse HEAD)"
+          git apply --check .github/yu30-reviewed.patch
+          git apply .github/yu30-reviewed.patch
+          git diff --check
+          git diff --stat
+          test -z "$(git diff --name-only -- third_party backend-yunka/contracts/generated backend-yunka/contracts/proto)"
+          git rm .github/yu30-reviewed.patch .github/workflows/yu30-apply-reviewed.yml
+          git add backend-yunka/Makefile backend-yunka/go.mod backend-yunka/go.sum backend-yunka/internal/identitycore/authorization_migration_test.go backend-yunka/internal/localprojectroleadmin/manager.go backend-yunka/internal/serviceauth/serviceauth_test.go web/components/local-auth-shell.tsx web/lib/server/local-auth-forwarder.ts web/lib/server/runtime-proxy.ts web/tests/api-client.test.ts web/tests/yu28-local-auth-shell.test.tsx
+          git -c user.name="$(git log -1 --format=%an)" -c user.email="$(git log -1 --format=%ae)" commit -m "fix(yu-30): close first executable Go and frontend regression failures"
+          git push origin HEAD:refs/heads/codex/yu-30-full-regression
+          git rev-parse HEAD
