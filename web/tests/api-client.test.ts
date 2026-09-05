@@ -130,7 +130,7 @@ describe("delivery API client", () => {
   });
 
   it("allows local login to establish the first session without a CSRF preflight", async () => {
-    const fetchMock = vi.fn(async () => ({
+    const fetchMock = vi.fn(async (_path: string, _options?: RequestInit) => ({
       ok: true,
       status: 200,
       headers: { get: () => "application/json" },
@@ -150,7 +150,7 @@ describe("delivery API client", () => {
 
   it("reuses the YU-27 current-session CSRF source for local password and admin writes", async () => {
     const csrfToken = "local_session_csrf_1234567890_ABCDEFGH";
-    const fetchMock = vi.fn(async (path: string) => {
+    const fetchMock = vi.fn(async (path: string, _options?: RequestInit) => {
       if (path === "/auth/session") {
         return {
           ok: true,

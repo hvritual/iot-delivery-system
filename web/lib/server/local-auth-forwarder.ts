@@ -60,7 +60,7 @@ export async function forwardLocalAuthBrowserRequest(
     headers.set("origin", upstream.origin);
   }
 
-  let body: Uint8Array | undefined;
+  let body: Uint8Array<ArrayBuffer> | undefined;
   if (spec.method !== "GET") body = new Uint8Array(await request.arrayBuffer());
 
   let response: Response;

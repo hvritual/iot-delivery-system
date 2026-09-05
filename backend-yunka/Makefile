@@ -13,7 +13,7 @@ TOOLS_DIR ?= $(BACKEND_ROOT)/.tools
 PROTOC ?= $(TOOLS_DIR)/protoc-21.12/bin/protoc
 PROTOC_GEN_GO ?= $(TOOLS_DIR)/bin/protoc-gen-go
 PROTOC_GEN_GO_GRPC ?= $(TOOLS_DIR)/bin/protoc-gen-go-grpc
-override YUNKA_CLI = "$(GO)" -C "$(REPOSITORY_ROOT)/third_party/yunka/app" run ./cmd
+override YUNKA_CLI = GOWORK="$(REPOSITORY_ROOT)/third_party/yunka/go.work" "$(GO)" -C "$(REPOSITORY_ROOT)/third_party/yunka/app" run ./cmd
 override YUNKA_PROTO_PATH := $(REPOSITORY_ROOT)/third_party/yunka/contracts/proto
 
 .PHONY: yunka-revision-check yunka-cli-check yunka-toolchain-check yunka-context yunka-generate yunka-check yunka-verify

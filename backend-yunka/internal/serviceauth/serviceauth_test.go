@@ -362,7 +362,7 @@ func TestGRPCAPIFallbackUnauthenticatedPersistsOneAnonymousFailure(t *testing.T)
 	fallback := func(context.Context, any, *grpc.UnaryServerInfo, grpc.UnaryHandler) (any, error) {
 		return nil, status.Error(codes.Unauthenticated, "unauthenticated")
 	}
-	_, err = manager.GRPCUnaryServerInterceptor(fallback)(t.Context(), "request", &grpc.UnaryServerInfo{}, func(context.Context, any) (any, error) { called = true; return nil, nil })
+	_, err = manager.GRPCUnaryServerInterceptor(fallback)(metadata.NewIncomingContext(t.Context(), metadata.Pairs("x-api-key", "invalid-development-key")), "request", &grpc.UnaryServerInfo{}, func(context.Context, any) (any, error) { called = true; return nil, nil })
 	if status.Code(err) != codes.Unauthenticated || status.Convert(err).Message() != "unauthenticated" || called {
 		t.Fatalf("fallback unauthenticated = error=%v called=%t", err, called)
 	}

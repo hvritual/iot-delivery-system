@@ -53,7 +53,7 @@ function forwardedHeaders(request: Request): Headers {
   return headers;
 }
 
-async function requestBody(request: Request): Promise<Uint8Array | undefined> {
+async function requestBody(request: Request): Promise<Uint8Array<ArrayBuffer> | undefined> {
   const method = request.method.toUpperCase();
   return method === "GET" || method === "HEAD" ? undefined : new Uint8Array(await request.arrayBuffer());
 }

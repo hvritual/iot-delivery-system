@@ -371,7 +371,7 @@ export function LocalAuthShell() {
             <div className="relative text-center text-xs text-muted-foreground before:absolute before:top-1/2 before:left-0 before:w-full before:border-t">
               <span className="relative bg-card px-2">或</span>
             </div>
-            <Button variant="outline" className="w-full" render={<a href="/auth/login" />}>使用 OIDC 登录</Button>
+            <Button variant="outline" className="w-full" nativeButton={false} render={<a href="/auth/login" />}>使用 OIDC 登录</Button>
           </CardContent>
         </Card>
       </main>
@@ -569,7 +569,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
 
 function GuardNotice({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
-    <Alert>
+    <Alert role="note">
       <ShieldCheckIcon />
       <AlertTitle id={id}>{title}</AlertTitle>
       <AlertDescription>{children}</AlertDescription>

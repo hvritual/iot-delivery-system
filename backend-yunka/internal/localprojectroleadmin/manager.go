@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/contracts/authorization"
