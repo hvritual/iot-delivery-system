@@ -1,0 +1,37 @@
+name: YU-30 offline workspace
+on:
+  push:
+    branches: [codex/yu-30-full-regression]
+    paths: [.github/workflows/yu30-workspace.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - name: Export committed source only, never runner credentials or runtime data
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/yu30-source"
+          mkdir -p "$out"
+          git rev-parse HEAD > "$out/consumer-head.txt"
+          git -C third_party/yunka rev-parse HEAD > "$out/framework-head.txt"
+          test "$(cat "$out/framework-head.txt")" = 057ebcf88a87303eb633eb6e604d306f633dfac0
+          git bundle create "$out/consumer.bundle" HEAD
+          git -C third_party/yunka bundle create "$out/framework.bundle" HEAD
+          cd "$out"
+          sha256sum *.bundle > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: yu30-offline-source-${{ github.sha }}
+          path: ${{ runner.temp }}/yu30-source/
+          retention-days: 1
+          if-no-files-found: error
