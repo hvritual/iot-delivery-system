@@ -74,7 +74,7 @@ func (manager *Manager) GRPCUnaryServerInterceptor(fallback stdgrpc.UnaryServerI
 				handlerInvoked = true
 				return handler(handlerContext, handlerRequest)
 			})
-			if !handlerInvoked && status.Code(fallbackErr) == codes.Unauthenticated && len(userValues) == 0 {
+			if !handlerInvoked && status.Code(fallbackErr) == codes.Unauthenticated && len(legacyValues) > 0 {
 				manager.recordAuthenticationFailureFor(ctx, "authentication.development_api_key", "authentication.invalid_credential")
 			}
 			return response, fallbackErr
