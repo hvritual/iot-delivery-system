@@ -53,13 +53,13 @@
 
 ## 下一原子任务派发说明
 
-**建议下一侧边栏任务：YU-21「本地密码登录、服务端不透明 session 与内部短期 JWT」**。
+**建议下一侧边栏任务：YU-22「当前成员、退出、本人改密与 session version/revocation」**。
 
-- 固定 parent：使用 YU-20 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
-- 输入：YU-18 `localcredential` Argon2id/rehash contract、YU-20 User lifecycle revision/active-state/member operations、既有 audit 脱敏边界与 runtime identity Principal contract。
-- 允许：消费者侧 local login application capability、opaque session schema/repository、session secret 的安全随机生成与单向存储、短期内部 JWT 签发/验证、issuer/audience/key/version contract、active User + credential verification、成功登录 rehash、认证成功/失败 audit、YU-21 证据文档。
-- 禁止：修改 Yunka 源码、手改 generated 文件、实现 logout/current-member/self-password-change/session-version revocation（YU-22）、将 local auth 接入全部 HTTP/gRPC/MCP durable chain（YU-23）、BFF auth routes（YU-26）或 UI。
-- RED：必须由真实可执行路径证明未验证 JWT 可形成 Principal、密码匹配但 disabled/cross-tenant User 可登录、session secret 明文落库、JWT 伪造/错误 issuer/audience/key 被接受，或登录失败泄露账号存在性/密码/token；环境缺工具不算 RED。
-- GREEN：只有 active tenant-bound User + 正确 Argon2id credential 可建立 session；session cookie/value使用高熵不透明随机值且数据库只存单向摘要；内部 JWT 短期、签名验证、issuer/audience/key/version 明确且验证通过后才建立真实 UserID/TenantID Principal；错误密码、disabled User、未知 User/tenant 对外保持统一失败类别；成功登录可按 YU-18 `NeedsRehash` 原子升级密码 hash；密码/session/JWT/签名密钥不进入日志/audit/Outbox。
+- 固定 parent：使用 YU-21 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
+- 输入：YU-21 opaque session + strict internal JWT + verified SessionIdentity、YU-20 User/credential CAS、既有 durable identity/audit 边界。
+- 允许：消费者侧 current-member application operation、当前 session logout/revoke、本人密码修改、必要的 session version/revocation schema/CAS、旧 session/JWT 失效检查、事务 audit、YU-22 证据文档。
+- 禁止：修改 Yunka 源码、手改 generated 文件、扩展管理员成员管理语义（YU-20 已完成）、将 local auth 接入全部 HTTP/gRPC/MCP durable chain（YU-23）、项目角色管理（YU-24）、集中角色撤权有效性策略（YU-25）、BFF auth routes（YU-26）或 UI。
+- RED：必须由真实可执行路径证明 logout 后当前 session/JWT 仍可用、本人改密后旧 session/JWT 不失效、并发管理员重置与本人改密可绕过 User/credential CAS、current-member 可信任未验证 JWT/claims，或 disabled/revoked session 仍能建立当前成员身份；环境缺工具不算 RED。
+- GREEN：current-member 只从 YU-21 已验证 session/JWT 事实构造；logout 原子撤销当前 session 并令绑定 JWT 失效；本人改密使用 User + credential 显式 CAS，并原子使此前 session/JWT 失效；并发 reset/change-password 只有符合 CAS 的一方成功；session version/revocation 状态持久化且验证链 fail-closed；audit 不包含密码、session bearer、JWT 或签名密钥。
 - 框架问题：如复现 Yunka 缺陷，只创建/更新框架 Issue，不修改框架源码；消费者绕过不得表述为框架修复。
-- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-22。
+- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-23。
