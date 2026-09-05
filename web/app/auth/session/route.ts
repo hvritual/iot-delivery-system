@@ -7,11 +7,13 @@ export const runtime = "nodejs";
 
 const noStoreHeaders = { "cache-control": "no-store, max-age=0", vary: "Cookie" };
 
+type SessionFamily = "local" | "oidc" | "both";
+
 export async function GET(request: Request) {
   const localCookies = cookieNameCount(request, LOCAL_SESSION_COOKIE_NAME);
   const oidcCookies = cookieNameCount(request, SESSION_COOKIE_NAME);
 
-  if (localCookies > 0 && oidcCookies > 0) return unauthenticated(true);
+  if (localCookies > 0 && oidcCookies > 0) return unauthenticated("both");
 
   if (localCookies > 0) {
     const current = await readLocalCurrentSession(request, process.env);
@@ -19,7 +21,7 @@ export async function GET(request: Request) {
       if (current.reason === "unavailable") {
         return Response.json({ error: "session_unavailable" }, { status: 503, headers: noStoreHeaders });
       }
-      return unauthenticated(true);
+      return unauthenticated("local");
     }
     const headers = new Headers(noStoreHeaders);
     if (current.setCookie) headers.append("set-cookie", current.setCookie);
@@ -27,16 +29,17 @@ export async function GET(request: Request) {
   }
 
   const result = guardSessionRequest(request, serverSessions);
-  if (!result.ok) return unauthenticated(false);
+  if (!result.ok) return unauthenticated("oidc");
   return Response.json({ authenticated: true, csrfToken: result.session.csrfToken }, { headers: noStoreHeaders });
 }
 
-function unauthenticated(clearLocal: boolean): Response {
+function unauthenticated(family: SessionFamily): Response {
   const headers = new Headers(noStoreHeaders);
-  if (clearLocal) {
+  if (family === "local" || family === "both") {
     headers.append("set-cookie", clearLocalCookie(LOCAL_SESSION_COOKIE_NAME, true));
     headers.append("set-cookie", clearLocalCookie(LOCAL_CSRF_COOKIE_NAME, false));
-  } else {
+  }
+  if (family === "oidc" || family === "both") {
     headers.append("set-cookie", clearHostCookie(SESSION_COOKIE_NAME));
   }
   return Response.json({ error: "unauthenticated" }, { status: 401, headers });
