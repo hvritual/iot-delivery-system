@@ -186,7 +186,7 @@ func TestYU21SuccessfulLoginRehashesAtomicallyWithSessionAndAudit(t *testing.T) 
 		t.Fatalf("session credential revision=%d error=%v", sessionRevision, err)
 	}
 	page, err := fixture.auditStore.Query(t.Context(), audit.Query{OrganizationID: "org-a", Operation: OperationLogin})
-	if err != nil || len(page.Entries) != 1 || !strings.Contains(page.Entries[0].Metadata, `"credential_rehashed":true`) {
+	if err != nil || len(page.Entries) != 1 || page.Entries[0].Result != audit.ResultSuccess || page.Entries[0].ReasonCode != "authentication.local_login_accepted" || !strings.Contains(page.Entries[0].Metadata, `"credential_rehashed":"[REDACTED]"`) {
 		t.Fatalf("rehash success audit=%#v error=%v", page, err)
 	}
 }
@@ -339,7 +339,7 @@ func newLoginFixture(t *testing.T, extraUsers bool) *loginFixture {
 		database, credentials, auditStore,
 		operation.NewExecutorWithOptions(nil, operation.ExecutorOptions{Transactions: localtx.NewSQLiteFactory(database)}),
 		config,
-		WithClock(func() time.Time { return fixture.now }), WithIDGenerator(sequenceID("login")), WithRandomSource(bytes.NewReader(bytes.Repeat([]byte{0x5a}, 4096))),
+		WithClock(func() time.Time { return fixture.now }), WithIDGenerator(sequenceID("login")),
 	)
 	if err != nil {
 		t.Fatal(err)

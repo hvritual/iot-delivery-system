@@ -2,6 +2,8 @@ package localbootstrap
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"database/sql"
 	"errors"
 	"path/filepath"
@@ -20,7 +22,11 @@ import (
 
 func TestYU19BootstrapAtomicallyCreatesAdministratorCredentialLatchAndAudit(t *testing.T) {
 	fixture := newFixture(t)
-	const password = "YU19-bootstrap-password-sentinel"
+	rawPassword := make([]byte, 32)
+	if _, err := rand.Read(rawPassword); err != nil {
+		t.Fatal(err)
+	}
+	password := base64.RawURLEncoding.EncodeToString(rawPassword)
 	result, err := fixture.manager.Initialize(t.Context(), InitializeInput{
 		OrganizationID: "org-a",
 		DisplayName:    "Initial Administrator",

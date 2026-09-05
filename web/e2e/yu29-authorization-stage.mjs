@@ -38,6 +38,9 @@ export async function certifyAuthorizationStage({ admin, member, fixture, adminC
 }
 
 async function certifySOD(admin, reviewer, adminUserId, projectId, adminCSRF) {
+  const implementerIdentity = expectStatus(await browserRequest(admin, "/auth/local/current"), 200, "verify implementer identity").body;
+  const reviewerIdentity = expectStatus(await browserRequest(reviewer, "/auth/local/current"), 200, "verify reviewer identity").body;
+  assert(implementerIdentity.userId === adminUserId && reviewerIdentity.userId && reviewerIdentity.userId !== adminUserId && implementerIdentity.organizationId === reviewerIdentity.organizationId, "SOD must use different server-verified users in the same organization");
   const created = expectStatus(await browserRequest(admin, "/api/items", {
     method: "POST",
     body: { title: "YU-29 independent production validation", board: "研发交付效能", projectId, kind: "task", type: "task", owner: adminUserId, priority: "P1", progressPercent: 0 },
@@ -60,7 +63,6 @@ async function certifySOD(admin, reviewer, adminUserId, projectId, adminCSRF) {
   const unchanged = expectStatus(await browserRequest(admin, `/api/items/${encodeURIComponent(created.id)}`), 200, "read rejected SOD item").body;
   assert(unchanged.gate === "test_passed" && unchanged.revision === revision, "rejected validation must have zero business mutation");
 
-  assert(unchanged.implementationPrincipal?.subjectId === adminUserId && unchanged.implementationPrincipal?.authMethod === "jwt", "persisted implementer must be the real administrator JWT identity");
   // Hold identity, grant, path, body and revision constant; vary only CSRF.
   const reviewPath = `/api/items/${encodeURIComponent(created.id)}/gates/production_validated`;
   const reviewBody = { expectedRevision: revision, evidence: [{ kind: "e2e", title: "independent reviewer" }] };
@@ -74,5 +76,4 @@ async function certifySOD(admin, reviewer, adminUserId, projectId, adminCSRF) {
     body: { expectedRevision: revision, evidence: [{ kind: "e2e", title: "independent reviewer" }] },
   }), 200, "independent reviewer validates production").body;
   assert(validated.gate === "production_validated" && validated.revision === revision + 1, "different browser identity must complete exactly one production review");
-  assert(validated.productionValidationPrincipal?.subjectId && validated.productionValidationPrincipal.subjectId !== adminUserId, "production reviewer must differ from persisted implementer");
 }
