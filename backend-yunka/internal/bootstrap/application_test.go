@@ -842,14 +842,14 @@ func TestBootstrapSeedIsAnAuthorizedTransactionalOutboxOperation(t *testing.T) {
 	}
 	text := string(source) + "\n" + string(bindingSource)
 	for _, required := range []string{
-		"service := delivery.NewService(",
+		"service := delivery.NewRootTransactionalService(",
 		"delivery.NewTransactionalOutboxStager(dependencies.DeliveryOutbox)",
 		"if err := seedExample(ctx, operations); err != nil",
 		"func seedExample(ctx context.Context, operations *deliveryapplication.Operations) error",
 		"operations.List(bootstrapContext)",
 		"operations.Create(bootstrapContext, delivery.CreateInput{",
 		"operations.UpdateContext(bootstrapContext, item.ID, item.Revision, delivery.ContextUpdate{",
-		"Authenticated: true",
+		"authenticator.AuthenticateAPIKey(os.Getenv(localauth.APIKeyEnvironment))",
 	} {
 		if !strings.Contains(text, required) {
 			t.Errorf("bootstrap seed must use the authorized Operations/Executor path; missing %q", required)

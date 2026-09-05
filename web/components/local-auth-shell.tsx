@@ -5,7 +5,7 @@ import { KeyRoundIcon, LogOutIcon, ShieldCheckIcon, UserRoundCogIcon } from "luc
 
 import { DeliveryWorkspace } from "@/components/delivery-workspace";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -371,7 +371,7 @@ export function LocalAuthShell() {
             <div className="relative text-center text-xs text-muted-foreground before:absolute before:top-1/2 before:left-0 before:w-full before:border-t">
               <span className="relative bg-card px-2">或</span>
             </div>
-            <Button variant="outline" className="w-full" nativeButton={false} render={<a href="/auth/login" />}>使用 OIDC 登录</Button>
+            <a href="/auth/login" className={buttonVariants({ variant: "outline", className: "w-full" })}>使用 OIDC 登录</a>
           </CardContent>
         </Card>
       </main>

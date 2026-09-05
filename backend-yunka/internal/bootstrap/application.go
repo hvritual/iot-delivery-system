@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -653,14 +654,17 @@ func seedExample(ctx context.Context, operations *deliveryapplication.Operations
 	if operations == nil {
 		return errors.New("seed delivery operations are not configured")
 	}
-	bootstrapContext := identity.WithPrincipal(ctx, identity.Principal{
-		Subject:       "bootstrap/seed",
-		UserID:        "bootstrap/seed",
-		TenantID:      localauth.DevelopmentTenantID,
-		Roles:         []string{localauth.RoleLocalAdmin},
-		AuthMethod:    identity.AuthMethodAPIKey,
-		Authenticated: true,
-	})
+	// Example mode is development-only; authenticate its configured credential
+	// instead of manufacturing a second, noncanonical bootstrap identity.
+	authenticator, err := localauth.FromEnvironment()
+	if err != nil {
+		return fmt.Errorf("configure example bootstrap authentication: %w", err)
+	}
+	principal, err := authenticator.AuthenticateAPIKey(os.Getenv(localauth.APIKeyEnvironment))
+	if err != nil {
+		return errors.New("authenticate example bootstrap administrator")
+	}
+	bootstrapContext := identity.WithPrincipal(ctx, principal)
 	items, err := operations.List(bootstrapContext)
 	if err != nil {
 		return fmt.Errorf("inspect existing delivery items: %w", err)

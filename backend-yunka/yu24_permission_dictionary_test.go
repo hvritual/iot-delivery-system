@@ -41,6 +41,7 @@ func TestYU24PermissionUsesExistingProjectRoleContractAndPlansStayInternal(t *te
 				}
 				grantedBy = append(grantedBy, role.ID)
 			}
+		}
 	}
 	if !slices.Equal(grantedBy, []string{"system-administrator", "project-administrator"}) {
 		t.Fatalf("identity.role-bindings.manage granted by %#v", grantedBy)

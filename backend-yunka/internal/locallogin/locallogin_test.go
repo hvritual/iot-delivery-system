@@ -314,6 +314,7 @@ func newLoginFixture(t *testing.T, extraUsers bool) *loginFixture {
 			if _, err := database.Exec(statement); err != nil {
 				t.Fatal(err)
 			}
+		}
 		if _, err := database.Exec(`UPDATE users SET status = 'disabled', revision = revision + 1 WHERE id = 'disabled-user'`); err != nil {
 			t.Fatal(err)
 		}
