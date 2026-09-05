@@ -37,10 +37,20 @@ func (stager *transactionalOutboxStager) Stage(ctx context.Context, eventType st
 	if err != nil {
 		return err
 	}
-	envelope, err := event.NewJSON(topic, eventType, "iot-delivery-system/local", struct {
-		AggregateID string    `json:"aggregateId"`
-		UpdatedAt   time.Time `json:"updatedAt"`
-	}{AggregateID: item.ID, UpdatedAt: item.UpdatedAt.UTC()})
+	var payload any
+	if topic == workItemEventTopic {
+		// Preserve the established work-item event payload contract.
+		payload = struct {
+			WorkItemID string    `json:"workItemId"`
+			UpdatedAt  time.Time `json:"updatedAt"`
+		}{WorkItemID: item.ID, UpdatedAt: item.UpdatedAt.UTC()}
+	} else {
+		payload = struct {
+			AggregateID string    `json:"aggregateId"`
+			UpdatedAt   time.Time `json:"updatedAt"`
+		}{AggregateID: item.ID, UpdatedAt: item.UpdatedAt.UTC()}
+	}
+	envelope, err := event.NewJSON(topic, eventType, "iot-delivery-system/local", payload)
 	if err != nil {
 		return fmt.Errorf("create delivery outbox event: %w", err)
 	}
