@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "task_id": "YU-10",
+  "framework_version": "057ebcf88a87303eb633eb6e604d306f633dfac0",
+  "status": "new-issue-recorded-workaround-verified-framework-unmodified",
+  "problems": [
+    {
+      "id": "YU-10-FW-001",
+      "status": "confirmed-new",
+      "issue": {
+        "repository": "hvritual/yunka.io",
+        "number": 151,
+        "url": "https://github.com/hvritual/yunka.io/issues/151",
+        "state": "open"
+      },
+      "title": "default change contract fails its own scope reconciliation",
+      "scope": "Fixed Yunka existing-operation AX7 change begin/check workflow for delivery.items.update.",
+      "consumer_workaround": "Keep the contract outside the Git worktree and pass its exact path explicitly, or treat the default file as the sole known false-positive while retaining all canonical generation and check gates.",
+      "verification": "The default control file was the only reported out-of-contract path; all declared developer and generated paths were classified correctly; two generations and full canonical check passed; third_party/yunka remained unchanged."
+    }
+  ],
+  "new_framework_issues": [151]
+}
