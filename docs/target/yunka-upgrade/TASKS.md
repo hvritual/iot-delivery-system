@@ -53,14 +53,14 @@
 
 ## 下一原子任务派发说明
 
-**建议下一侧边栏任务：YU-27「前端 API client 自动发送 CSRF；Origin 与 OIDC 解耦」**。
+**建议下一侧边栏任务：YU-28「登录、当前成员、退出、改密、成员管理和项目角色 UI」**。
 
-- 固定 parent：使用 YU-26 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
-- 输入：YU-26 `/auth/local/login`、`/auth/local/current` 的 CSRF/access-token 响应与 opaque session cookie，现有 `web/app/api/[...path]` session guard/runtime proxy，以及现有前端 API client 调用路径。
-- 允许：前端/API-proxy 自动获取并为 unsafe method 发送 `X-CSRF-Token`；将可信应用 Origin 从 `OIDC_REDIRECT_URI` 配置中解耦为独立 same-origin 配置/推导；local-auth 与保留 OIDC session 的显式来源选择；安全方法不强制 CSRF；必要的 web tests、错误状态与 YU-27 evidence。
-- 禁止：修改 Yunka 源码、手改 generated 文件、改变 YU-26 cookie/session/CSRF 服务端语义、把 session/JWT/role 快照写入浏览器持久存储、登录/成员/项目角色 UI（YU-28）、E2E 双浏览器场景（YU-29）或无关前端重构。
-- RED：必须由真实现有 web 路径证明 unsafe API 仍从 `readOidcConfiguration().redirectUri.origin` 取得 Origin，导致无 OIDC 配置的 local-auth 前端写请求不可用；或前端 client 未自动携带当前 CSRF token、safe method 被误要求 CSRF、错误/过期 token 未稳定得到 403；环境缺工具不算 RED。
-- GREEN：local-auth 模式无需 OIDC 配置即可完成 unsafe API request 的 same-origin + CSRF 契约；frontend/API client 对 POST/PUT/PATCH/DELETE 等 unsafe method 自动发送当前 `X-CSRF-Token`，GET/HEAD/OPTIONS 不误发为强制条件；CSRF 来源只来自当前 verified BFF session/current response，不从 localStorage 或角色快照恢复；Origin 独立配置或 same-origin 推导 fail-closed；现有 OIDC 路径若保留则显式分流且不作为 local-auth Origin 的隐式依赖。
-- 边界说明：YU-27 只完成客户端/代理的 CSRF 与 Origin 传递，不实现登录、成员或项目角色 UI。YU-26 的 Go local-auth BFF 与 YU-25 centralized validity 继续是服务端身份/session truth。
-- 框架问题：如复现 Yunka 缺陷，只创建/更新框架 Issue，不修改框架源码；web/BFF 配置耦合不得表述为框架修复。
-- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-28。
+- 固定 parent：使用 YU-27 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
+- 输入：YU-26 `/auth/local/*` browser-facing capability、YU-27 `/auth/session` 当前 CSRF 来源与自动 CSRF API client、现有 Next/React workspace 与设计组件，以及 YU-20/YU-24 服务端管理员权限边界。
+- 允许：local login/current/logout/change-password UI；成员 create/disable/reset UI；project RoleBinding assign/revoke UI；显式 local/OIDC 登录入口选择；loading/empty/error/conflict/unauthenticated/forbidden 状态；键盘操作、label/focus/语义结构等可访问性；必要的 component/interaction tests 与 YU-28 evidence。
+- 禁止：修改 Yunka 源码、手改 generated 文件、改变 YU-25/YU-26 session/authorization/CSRF 语义、在 UI 中复制授权判断作为服务端 authority、把 session/JWT/password/role snapshot 写入 localStorage/sessionStorage、YU-29 双浏览器 E2E、无关视觉重构或新增后端身份业务规则。
+- RED：必须从当前前端事实证明 local auth 没有可操作登录/当前成员/退出/改密界面，管理员 member/project-role capability 无 UI 入口，或界面仍只能依赖 OIDC 登录；环境缺工具不算 RED。不得为了证明 UI 权限问题而绕过服务端 Guard。
+- GREEN：在不配置 OIDC 的 local-auth 模式下可完成登录→读取当前成员→正常业务访问→退出；本人可改密并正确处理 session 失效；system-administrator 可通过既有 YU-20/YU-24 routes 执行成员与项目角色管理；普通成员不会被 UI 宣称为管理员且即使构造请求服务端仍为最终 authority；所有 unsafe 调用复用 YU-27 自动 CSRF；401/403/409/503 有稳定用户状态；核心表单/对话框/错误提示满足键盘与语义可访问性回归。
+- 边界说明：YU-28 只实现人机交互层，不新增身份、密码、session、RoleBinding、permission 或 grant 事实源。UI 可根据服务端返回能力控制可见性，但不能替代 YU-20/YU-24 OperationGuard。两个真实账号的独立浏览器场景留给 YU-29。
+- 框架问题：如复现 Yunka 缺陷，只创建/更新框架 Issue，不修改框架源码；前端 UI/DX 缺口不得表述为框架修复。
+- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-29。
