@@ -53,13 +53,13 @@
 
 ## 下一原子任务派发说明
 
-**建议下一侧边栏任务：YU-18「本地成员凭据 schema/repository 与慢哈希」**。
+**建议下一侧边栏任务：YU-19「一次性管理员初始化并永久关闭匿名再初始化」**。
 
-- 固定 parent：使用 YU-17 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
-- 输入：YU-16 安全审计/脱敏边界、YU-17 root Executor/CAS/audit/Outbox 对齐结果、既有 `identitycore.User` 与固定框架 `057ebcf...`。
-- 允许：应用自有 local credential schema/migration/repository、User 关联、专用慢密码哈希与参数升级策略、凭据安全测试和 YU-18 证据文档。
-- 禁止：修改 Yunka 源码、手改 generated 文件、实现登录/session/JWT、管理员初始化流程、BFF auth routes 或 UI；这些分别属于 YU-19 以后任务。
-- RED：必须由真实可执行路径证明当前没有可持久化的本地成员凭据合同，或明文/弱哈希/不可升级参数存在实际风险；环境缺工具不算 RED。
-- GREEN：migration 可重复；凭据严格关联既有 User；密码只以当期推荐专用慢哈希保存；明文、token/session/CSRF 不进入数据库、日志或 audit；哈希参数可识别并支持后续升级判断；失败不产生半写状态。
+- 固定 parent：使用 YU-18 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
+- 输入：YU-18 `localcredential` schema/repository/Argon2id policy、既有 `identitycore` User/RoleBinding、YU-16 audit 脱敏边界、YU-17 root Executor/UoW。
+- 允许：消费者侧 bootstrap-state schema/repository、一次性管理员初始化 application operation、必要的 localcredential migration/runtime wiring、system-administrator RoleBinding、root transaction/audit/并发与重复初始化回归、YU-19 证据文档。
+- 禁止：修改 Yunka 源码、手改 generated 文件、实现通用管理员成员管理/重置凭据（YU-20）、密码登录/session/JWT（YU-21）、BFF auth routes 或 UI。
+- RED：必须由真实可执行路径证明匿名初始化可以重复、并发创建多个管理员、初始化状态可被停用/删号重新打开，或管理员 identity/role/credential/audit 不能原子提交；环境缺工具不算 RED。
+- GREEN：空系统只允许一次初始化；并发/重复请求最多一个成功；成功后永久关闭匿名初始化；管理员 User、system-administrator RoleBinding、credential、bootstrap closed-state 与 audit 在同一 root UoW 原子提交；任一失败零部分状态；后续停用/删除语义不得重新开放初始化。
 - 框架问题：如复现 Yunka 缺陷，只创建/更新框架 Issue，不修改框架源码；消费者绕过不得表述为框架修复。
-- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-19。
+- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-20。
