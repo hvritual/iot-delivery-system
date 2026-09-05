@@ -12,7 +12,7 @@ export type LocalCurrentSession = Readonly<{
 }>;
 
 export type LocalCurrentResult =
-  | Readonly<{ ok: true; session: LocalCurrentSession }>
+  | Readonly<{ ok: true; session: LocalCurrentSession; setCookie?: string }>
   | Readonly<{ ok: false; reason: "unauthenticated" | "unavailable" }>;
 
 export function cookieNameCount(request: Request, name: string): number {
@@ -33,8 +33,10 @@ export function localSessionCookie(request: Request): string | undefined {
 }
 
 // readLocalCurrentSession performs a server-to-server read of YU-26 current.
-// The browser never supplies an access JWT to the Next proxy. The only
-// credential forwarded here is the exact local opaque-session cookie.
+// The browser never supplies an access JWT to the Next proxy. The identity
+// credential forwarded here is only the exact local opaque-session cookie. The
+// existing local CSRF cookie is also forwarded, when canonical, so YU-26 does
+// not rotate its double-submit value on every server-side current check.
 export async function readLocalCurrentSession(
   request: Request,
   environment: RuntimeEnvironment = process.env,
@@ -44,6 +46,11 @@ export async function readLocalCurrentSession(
   if (!sessionToken || cookieNameCount(request, LOCAL_SESSION_COOKIE_NAME) !== 1) {
     return { ok: false, reason: "unauthenticated" };
   }
+  const csrfCookie = cookieNameCount(request, LOCAL_CSRF_COOKIE_NAME) === 1
+    ? readExactCookie(request, LOCAL_CSRF_COOKIE_NAME)
+    : undefined;
+  const cookies = [`${LOCAL_SESSION_COOKIE_NAME}=${sessionToken}`];
+  if (csrfCookie) cookies.push(`${LOCAL_CSRF_COOKIE_NAME}=${csrfCookie}`);
 
   let response: Response;
   try {
@@ -51,7 +58,7 @@ export async function readLocalCurrentSession(
       method: "GET",
       headers: {
         accept: "application/json",
-        cookie: `${LOCAL_SESSION_COOKIE_NAME}=${sessionToken}`,
+        cookie: cookies.join("; "),
       },
     });
     response = await fetcher(current, { cache: "no-store" });
@@ -69,6 +76,8 @@ export async function readLocalCurrentSession(
     return { ok: false, reason: "unavailable" };
   }
   if (!validCurrentPayload(payload)) return { ok: false, reason: "unavailable" };
+  const upstreamSetCookie = response.headers.get("set-cookie")?.trim();
+  const setCookie = upstreamSetCookie?.startsWith(`${LOCAL_CSRF_COOKIE_NAME}=`) ? upstreamSetCookie : undefined;
   return {
     ok: true,
     session: {
@@ -77,6 +86,7 @@ export async function readLocalCurrentSession(
       organizationId: payload.organizationId,
       userId: payload.userId,
     },
+    ...(setCookie ? { setCookie } : {}),
   };
 }
 
