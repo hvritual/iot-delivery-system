@@ -88,8 +88,7 @@ func (verifier *Verifier) recordFailure(request *http.Request, traceID, transpor
 func hasCompetingHTTPCredential(header http.Header) bool {
 	return len(header.Values(localauth.APIKeyHeader)) > 0 ||
 		len(header.Values(bffassertion.AssertionHeader)) > 0 ||
-		len(header.Values(bffassertion.SignatureHeader)) > 0 ||
-		len(header.Values(bffassertion.TraceHeader)) > 0
+		len(header.Values(bffassertion.SignatureHeader)) > 0
 }
 
 func parseBearer(value string) (string, bool) {
