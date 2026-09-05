@@ -9,9 +9,9 @@ import (
 )
 
 // sessionQueryer is satisfied by both *sql.DB and *sql.Tx. Central session
-// validity is intentionally a database fact so every local credential surface
-// reaches the same fail-closed decision without caching user or credential
-// state in a token.
+// validity is intentionally a database fact so every identity-producing local
+// credential surface reaches the same fail-closed decision without caching
+// user or credential state in a token.
 type sessionQueryer interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
