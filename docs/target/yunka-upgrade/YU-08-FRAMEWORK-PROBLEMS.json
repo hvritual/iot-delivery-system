@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0",
+  "task_id": "YU-08",
+  "framework_version": "057ebcf88a87303eb633eb6e604d306f633dfac0",
+  "status": "open-issues-workarounds-verified-framework-unmodified",
+  "problems": [
+    {
+      "id": "YU-07-FW-001",
+      "status": "confirmed",
+      "issue": {
+        "repository": "hvritual/yunka.io",
+        "number": 149,
+        "url": "https://github.com/hvritual/yunka.io/issues/149",
+        "state": "open"
+      },
+      "title": "ChangeSet and audit immutable Git reads confuse nested-project paths with repository-root paths",
+      "scope": "Fixed Yunka 057ebcf88a87303eb633eb6e604d306f633dfac0 and consumers whose project root is nested below the Git repository root.",
+      "consumer_workaround": "Use the tracked repository-root Yunka profile that points to backend-yunka paths.",
+      "verification": "YU-08 context, double generation, full check, ChangeSets, audit, and dev planning passed through the root profile; third_party/yunka remained unchanged."
+    },
+    {
+      "id": "YU-07-FW-002",
+      "status": "confirmed-reproduced-yu-08",
+      "issue": {
+        "repository": "hvritual/yunka.io",
+        "number": 150,
+        "url": "https://github.com/hvritual/yunka.io/issues/150",
+        "state": "open"
+      },
+      "title": "add operation accepts service authentication but plans a value that does not match generated service-token semantics",
+      "scope": "Fixed Yunka 057ebcf88a87303eb633eb6e604d306f633dfac0 create-operation plan and ChangeSet reconciliation.",
+      "consumer_workaround": "Create each Operation with API-key and JWT, then add service-token through one explicit existing-operation authentication ChangeSet.",
+      "verification": "The YU-08 create ChangeSet and follow-up three-subject authentication ChangeSet were conformant; all final generated plans contain api-key, jwt, and service-token with zero generation drift."
+    }
+  ]
+}
