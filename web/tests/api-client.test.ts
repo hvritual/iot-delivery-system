@@ -15,7 +15,7 @@ afterEach(() => {
 
 describe("delivery API client", () => {
   it("preserves an HTTP status on request errors so capability fallbacks are explicit", async () => {
-    const fetchMock = vi.fn(async () => ({
+    const fetchMock = vi.fn(async (_path: string, _options?: RequestInit) => ({
       ok: false,
       status: 404,
       headers: { get: () => "application/json" },
@@ -33,7 +33,7 @@ describe("delivery API client", () => {
 
   it("obtains the current verified-session CSRF token before every unsafe mutation", async () => {
     const csrfToken = "csrf_current_session_token_1234567890ABCDEFG";
-    const fetchMock = vi.fn(async (path: string) => {
+    const fetchMock = vi.fn(async (path: string, _options?: RequestInit) => {
       if (path === "/auth/session") {
         return {
           ok: true,
@@ -92,7 +92,7 @@ describe("delivery API client", () => {
   });
 
   it("does not fetch or require a CSRF token for safe API methods", async () => {
-    const fetchMock = vi.fn(async () => ({
+    const fetchMock = vi.fn(async (_path: string, _options?: RequestInit) => ({
       ok: true,
       status: 200,
       headers: { get: () => "application/json" },
@@ -109,7 +109,7 @@ describe("delivery API client", () => {
   });
 
   it("fails before the mutation when the current session cannot provide CSRF", async () => {
-    const fetchMock = vi.fn(async () => ({
+    const fetchMock = vi.fn(async (_path: string, _options?: RequestInit) => ({
       ok: false,
       status: 401,
       headers: { get: () => "application/json" },
