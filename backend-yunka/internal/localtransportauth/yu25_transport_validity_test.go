@@ -64,4 +64,17 @@ func assertYU25OldCredentialRejectedAcrossTransports(t *testing.T, fixture *tran
 	if principal, err := fixture.verifier.VerifySessionToken(t.Context(), fixture.result.SessionToken); err == nil || principal.Authenticated {
 		t.Fatalf("MCP opaque-session stale credential principal=%#v error=%v", principal, err)
 	}
+
+	var rejected int
+	if err := fixture.database.QueryRow(`SELECT COUNT(*) FROM iotd_audit_entries
+WHERE operation = 'authentication.local_access_token'
+  AND reason_code = 'authentication.invalid_credential'
+  AND result = 'failure'`).Scan(&rejected); err != nil || rejected != 2 {
+		t.Fatalf("generic invalid-credential audit count=%d error=%v", rejected, err)
+	}
+	var leaked int
+	if err := fixture.database.QueryRow(`SELECT COUNT(*) FROM iotd_audit_entries
+WHERE instr(COALESCE(metadata, '') || COALESCE(diff_summary, '') || COALESCE(reason_code, ''), ?) > 0`, fixture.result.AccessToken).Scan(&leaked); err != nil || leaked != 0 {
+		t.Fatalf("stale access token leaked into audit count=%d error=%v", leaked, err)
+	}
 }
