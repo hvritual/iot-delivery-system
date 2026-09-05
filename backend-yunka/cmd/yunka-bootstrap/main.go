@@ -53,14 +53,15 @@ func configurationFromEnv() (bootstrap.Config, error) {
 		return bootstrap.Config{}, err
 	}
 	return startupPolicy.Apply(bootstrap.Config{
-		HTTPAddress:          valueOr("IOT_DELIVERY_YUNKA_HTTP_ADDR", "127.0.0.1:8281"),
-		GRPCAddress:          valueOr("IOT_DELIVERY_YUNKA_GRPC_ADDR", "127.0.0.1:8282"),
-		DatabasePath:         valueOr("IOT_DELIVERY_YUNKA_DB", "data/iot-delivery-yunka.db"),
-		ObsidianVault:        valueOr("IOT_DELIVERY_YUNKA_OBSIDIAN_VAULT", "runtime-vault"),
-		NotificationChannels: channels,
-		DueReminder:          dueReminder,
-		BFFOrganizationID:    strings.TrimSpace(os.Getenv("IOT_DELIVERY_BFF_ORGANIZATION_ID")),
-		BFFAssertionKey:      strings.TrimSpace(os.Getenv("IOT_DELIVERY_BFF_ASSERTION_KEY")),
+		HTTPAddress:            valueOr("IOT_DELIVERY_YUNKA_HTTP_ADDR", "127.0.0.1:8281"),
+		GRPCAddress:            valueOr("IOT_DELIVERY_YUNKA_GRPC_ADDR", "127.0.0.1:8282"),
+		DatabasePath:           valueOr("IOT_DELIVERY_YUNKA_DB", "data/iot-delivery-yunka.db"),
+		ObsidianVault:          valueOr("IOT_DELIVERY_YUNKA_OBSIDIAN_VAULT", "runtime-vault"),
+		NotificationChannels:   channels,
+		DueReminder:            dueReminder,
+		BFFOrganizationID:      strings.TrimSpace(os.Getenv("IOT_DELIVERY_BFF_ORGANIZATION_ID")),
+		BFFAssertionKey:        strings.TrimSpace(os.Getenv("IOT_DELIVERY_BFF_ASSERTION_KEY")),
+		LocalAuthJWTSigningKey: strings.TrimSpace(os.Getenv("IOT_DELIVERY_LOCAL_AUTH_JWT_KEY")),
 	}), nil
 }
 
