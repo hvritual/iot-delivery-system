@@ -1,4 +1,4 @@
-import { readOidcConfiguration } from "@/lib/server/oidc";
+import { resolveTrustedApplicationOrigin } from "@/lib/server/application-origin";
 import { guardSessionRequest } from "@/lib/server/session-guard";
 import { clearHostCookie, serverSessions, SESSION_COOKIE_NAME } from "@/lib/server/session";
 
@@ -10,7 +10,7 @@ const noStoreHeaders = { "cache-control": "no-store, max-age=0", vary: "Cookie" 
 export async function POST(request: Request) {
   let trustedOrigin: string;
   try {
-    trustedOrigin = readOidcConfiguration().redirectUri.origin;
+    trustedOrigin = resolveTrustedApplicationOrigin(request, process.env);
   } catch {
     return Response.json({ error: "configuration_error" }, { status: 500, headers: noStoreHeaders });
   }
