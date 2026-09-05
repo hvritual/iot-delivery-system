@@ -15,12 +15,6 @@ const MigrationID = "YU-20_local_member_admin_v1"
 
 const PermissionManageUsers = "identity.users.manage"
 
-var operationIDs = []string{
-	"identity.members.create",
-	"identity.members.disable",
-	"identity.members.credentials.reset",
-}
-
 func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	if database == nil {
 		return errors.New("local member admin SQLite database is required")
@@ -29,7 +23,7 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("load local member admin authorization dictionary: %w", err)
 	}
-	permission, operations, err := memberAdminAuthorizationContract(dictionary)
+	permission, err := memberAdminAuthorizationContract(dictionary)
 	if err != nil {
 		return err
 	}
@@ -41,7 +35,7 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 		return fmt.Errorf("begin local member admin migration: %w", err)
 	}
 	defer tx.Rollback()
-	for _, table := range []string{"users", "roles", "permissions", "permission_allowed_scopes", "role_permission_grants", "role_permission_grant_allowed_scopes", "service_operations", "iotd_local_user_credentials", "iotd_schema_migrations"} {
+	for _, table := range []string{"users", "roles", "permissions", "permission_allowed_scopes", "role_permission_grants", "role_permission_grant_allowed_scopes", "iotd_local_user_credentials", "iotd_schema_migrations"} {
 		var count int
 		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, table).Scan(&count); err != nil {
 			return fmt.Errorf("inspect local member admin dependency %s: %w", table, err)
@@ -57,9 +51,6 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 		return err
 	}
 	if err := ensureSystemAdministratorGrant(ctx, tx); err != nil {
-		return err
-	}
-	if err := ensureMemberAdminOperations(ctx, tx, operations); err != nil {
 		return err
 	}
 	var applied int
@@ -79,7 +70,7 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	return nil
 }
 
-func memberAdminAuthorizationContract(dictionary authorization.Dictionary) (authorization.Permission, []authorization.Operation, error) {
+func memberAdminAuthorizationContract(dictionary authorization.Dictionary) (authorization.Permission, error) {
 	var permission authorization.Permission
 	for _, candidate := range dictionary.Permissions {
 		if candidate.ID == PermissionManageUsers {
@@ -88,27 +79,9 @@ func memberAdminAuthorizationContract(dictionary authorization.Dictionary) (auth
 		}
 	}
 	if permission.ID != PermissionManageUsers || permission.Resource != "identity.users" || permission.Action != "manage" || permission.Status != "active" || !sameStrings(permission.AllowedScopes, []string{"organization"}) {
-		return authorization.Permission{}, nil, errors.New("identity.users.manage must be an active organization-scoped identity.users/manage permission")
+		return authorization.Permission{}, errors.New("identity.users.manage must be an active organization-scoped identity.users/manage permission")
 	}
-	wanted := map[string]bool{}
-	for _, id := range operationIDs {
-		wanted[id] = true
-	}
-	operations := make([]authorization.Operation, 0, len(operationIDs))
-	for _, operation := range dictionary.Operations {
-		if !wanted[operation.ID] {
-			continue
-		}
-		if operation.Permission != PermissionManageUsers || operation.RequiredScope != "organization" || len(operation.RequiresOperations) != 0 {
-			return authorization.Permission{}, nil, fmt.Errorf("local member admin operation %q has invalid authorization semantics", operation.ID)
-		}
-		operations = append(operations, operation)
-		delete(wanted, operation.ID)
-	}
-	if len(wanted) != 0 {
-		return authorization.Permission{}, nil, fmt.Errorf("local member admin operation dictionary is incomplete: %v", wanted)
-	}
-	return permission, operations, nil
+	return permission, nil
 }
 
 func ensureUserRevision(ctx context.Context, tx *sql.Tx) error {
@@ -243,26 +216,6 @@ func ensureSystemAdministratorGrant(ctx context.Context, tx *sql.Tx) error {
 		}
 	} else if !sameStrings(scopes, []string{"organization"}) {
 		return errors.New("system administrator member-management grant must be organization-scoped")
-	}
-	return nil
-}
-
-func ensureMemberAdminOperations(ctx context.Context, tx *sql.Tx, operations []authorization.Operation) error {
-	for _, operation := range operations {
-		var permissionID, requiredScope, status string
-		err := tx.QueryRowContext(ctx, `SELECT permission_id, required_scope, status FROM service_operations WHERE id = ?`, operation.ID).Scan(&permissionID, &requiredScope, &status)
-		if errors.Is(err, sql.ErrNoRows) {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO service_operations (id, permission_id, required_scope, status) VALUES (?, ?, ?, 'active')`, operation.ID, operation.Permission, operation.RequiredScope); err != nil {
-				return fmt.Errorf("insert local member admin operation %q: %w", operation.ID, err)
-			}
-			continue
-		}
-		if err != nil {
-			return fmt.Errorf("read local member admin operation %q: %w", operation.ID, err)
-		}
-		if permissionID != operation.Permission || requiredScope != operation.RequiredScope || status != "active" {
-			return fmt.Errorf("local member admin operation %q conflicts with the canonical dictionary", operation.ID)
-		}
 	}
 	return nil
 }
