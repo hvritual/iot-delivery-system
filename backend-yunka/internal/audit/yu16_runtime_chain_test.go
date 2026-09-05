@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
@@ -28,13 +29,8 @@ import (
 func TestYU16DurableJWTAuthorizationDenialPersistsDeniedAuditWithoutSideEffects(t *testing.T) {
 	fixture := newYU16RuntimeFixture(t, false)
 	ctx := yu16HumanContext(t)
-	plan := deliverypolicy.OperationPlanCreateProject()
-	request := &deliveryv1.CreateProjectRequest{
-		Name:        "denied project",
-		Board:       string(delivery.BoardResearchDelivery),
-		Owner:       "owner",
-		Description: "YU16-password-secret",
-	}
+	plan := deliverypolicy.OperationPlanCreateItem()
+	request := yu16CreateItemRequest("denied item", "YU16-password-secret")
 	invoked := false
 	_, err := fixture.executor.Execute(ctx, plan, request, func(context.Context) (any, error) {
 		invoked = true
@@ -46,12 +42,12 @@ func TestYU16DurableJWTAuthorizationDenialPersistsDeniedAuditWithoutSideEffects(
 	if invoked {
 		t.Fatal("denied durable JWT operation invoked the application")
 	}
-	projects, err := fixture.repository.ListProjects(t.Context())
+	items, err := fixture.repository.List(t.Context())
 	if err != nil {
-		t.Fatalf("list projects after denial: %v", err)
+		t.Fatalf("list items after denial: %v", err)
 	}
-	if len(projects) != 0 {
-		t.Fatalf("denied operation left projects: %#v", projects)
+	if len(items) != 0 {
+		t.Fatalf("denied operation left work items: %#v", items)
 	}
 	if snapshot, err := fixture.outbox.Snapshot(t.Context()); err != nil || snapshot.Pending != 0 || snapshot.InFlight != 0 || snapshot.Published != 0 || snapshot.DeadLetter != 0 {
 		t.Fatalf("denied operation outbox = %#v, %v; want empty", snapshot, err)
@@ -69,8 +65,8 @@ func TestYU16DurableJWTApplicationFailureRollsBackBusinessAndOutboxBeforeFailure
 		t.Fatalf("create rollback probe: %v", err)
 	}
 	ctx := yu16HumanContext(t)
-	plan := deliverypolicy.OperationPlanCreateProject()
-	request := &deliveryv1.CreateProjectRequest{Name: "rollback project", Board: string(delivery.BoardResearchDelivery), Owner: "owner"}
+	plan := deliverypolicy.OperationPlanCreateItem()
+	request := yu16CreateItemRequest("rollback item", "YU16-token-secret")
 	businessErr := errors.New("YU16-password-secret")
 	_, err := fixture.executor.Execute(ctx, plan, request, func(callContext context.Context) (any, error) {
 		handle, err := execution.TransactionHandleFrom(callContext)
@@ -84,9 +80,9 @@ func TestYU16DurableJWTApplicationFailureRollsBackBusinessAndOutboxBeforeFailure
 		if _, err := transaction.ExecContext(callContext, `INSERT INTO yu16_rollback_probe (id) VALUES ('would-rollback')`); err != nil {
 			return nil, err
 		}
-		envelope, err := event.NewJSON("delivery.project", "delivery.project.created", "iot-delivery-system/yu16-test", struct {
-			ProjectID string `json:"projectId"`
-		}{ProjectID: "would-rollback"})
+		envelope, err := event.NewJSON("delivery.work-item", "delivery.work-item.created", "iot-delivery-system/yu16-test", struct {
+			WorkItemID string `json:"workItemId"`
+		}{WorkItemID: "would-rollback"})
 		if err != nil {
 			return nil, err
 		}
@@ -127,7 +123,7 @@ type yu16RuntimeFixture struct {
 	executor   operation.Executor
 }
 
-func newYU16RuntimeFixture(t *testing.T, grantAdministrator bool) *yu16RuntimeFixture {
+func newYU16RuntimeFixture(t *testing.T, grantContributor bool) *yu16RuntimeFixture {
 	t.Helper()
 	repository, err := delivery.NewSQLiteRepository(filepath.Join(t.TempDir(), "delivery.db"))
 	if err != nil {
@@ -146,9 +142,21 @@ func newYU16RuntimeFixture(t *testing.T, grantAdministrator bool) *yu16RuntimeFi
 	if _, err := repository.Database().Exec(`INSERT INTO users (id, organization_id, display_name, status) VALUES ('user-yu16', 'org-yu16', 'YU16 User', 'active')`); err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
-	if grantAdministrator {
-		if _, err := repository.Database().Exec(`INSERT INTO role_bindings (id, organization_id, role_id, scope_type, scope_id, user_id) VALUES ('binding-yu16-admin', 'org-yu16', 'system-administrator', 'organization', 'org-yu16', 'user-yu16')`); err != nil {
-			t.Fatalf("seed administrator binding: %v", err)
+	now := time.Now().UTC()
+	if err := repository.CreateProject(t.Context(), delivery.Project{
+		ID:             "project-yu16",
+		OrganizationID: "org-yu16",
+		Name:           "YU16 Project",
+		Board:          delivery.BoardResearchDelivery,
+		Owner:          "owner",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}); err != nil {
+		t.Fatalf("seed project: %v", err)
+	}
+	if grantContributor {
+		if _, err := repository.Database().Exec(`INSERT INTO role_bindings (id, organization_id, role_id, scope_type, scope_id, user_id) VALUES ('binding-yu16-contributor', 'org-yu16', 'contributor', 'project', 'project-yu16', 'user-yu16')`); err != nil {
+			t.Fatalf("seed contributor binding: %v", err)
 		}
 	}
 	humanResolver, err := humanauthz.NewGrantResolver(repository.Database())
@@ -188,6 +196,17 @@ func newYU16RuntimeFixture(t *testing.T, grantAdministrator bool) *yu16RuntimeFi
 	return &yu16RuntimeFixture{repository: repository, outbox: outbox, auditStore: auditStore, executor: executor}
 }
 
+func yu16CreateItemRequest(title, plan string) *deliveryv1.CreateItemRequest {
+	return &deliveryv1.CreateItemRequest{
+		Title:     title,
+		Board:     string(delivery.BoardResearchDelivery),
+		Owner:     "owner",
+		ProjectId: "project-yu16",
+		Kind:      string(delivery.WorkItemKindTask),
+		Plan:      plan,
+	}
+}
+
 func yu16HumanContext(t *testing.T) context.Context {
 	t.Helper()
 	ctx := identity.WithPrincipal(t.Context(), identity.Principal{
@@ -202,7 +221,7 @@ func yu16HumanContext(t *testing.T) context.Context {
 		Transport: "http",
 		Protocol:  "http",
 		Method:    "POST",
-		Route:     "/api/projects",
+		Route:     "/api/items",
 		RequestID: "request-yu16",
 		Attributes: map[string]string{
 			"correlation_id": "correlation-yu16",
@@ -215,7 +234,7 @@ func yu16HumanContext(t *testing.T) context.Context {
 
 func (fixture *yu16RuntimeFixture) singleEntry(t *testing.T, operationID string) audit.Entry {
 	t.Helper()
-	page, err := fixture.auditStore.Query(t.Context(), audit.Query{Operation: operationID})
+	page, err := fixture.auditStore.Query(t.Context(), audit.Query{OrganizationID: "org-yu16", Operation: operationID})
 	if err != nil {
 		t.Fatalf("query audit entries: %v", err)
 	}
@@ -253,7 +272,7 @@ FROM iotd_audit_entries`)
 		t.Fatalf("iterate audit text surface: %v", err)
 	}
 	persisted := text.String()
-	for _, sentinel := range []string{"YU16-password-secret", "YU16-authorization-secret", "YU16-session-secret", "YU16-csrf-secret"} {
+	for _, sentinel := range []string{"YU16-password-secret", "YU16-token-secret", "YU16-authorization-secret", "YU16-session-secret", "YU16-csrf-secret"} {
 		if strings.Contains(persisted, sentinel) {
 			t.Fatalf("audit persisted sensitive sentinel %q in %q", sentinel, persisted)
 		}
