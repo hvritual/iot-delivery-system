@@ -8,6 +8,15 @@ import (
 	"github.com/hvritual/yunka.io/pkg/operationplan"
 )
 
+func init() {
+	expectedPermissions[localprojectroleadmin.PermissionManageRoleBindings] = permissionContract{
+		resource: "identity.role-bindings",
+		action:   "manage",
+		status:   "active",
+		scopes:   []string{"project"},
+	}
+}
+
 func TestYU24PermissionUsesExistingProjectRoleContractAndPlansStayInternal(t *testing.T) {
 	dictionary := loadPermissionDictionary(t)
 	foundPermission := false
@@ -16,12 +25,12 @@ func TestYU24PermissionUsesExistingProjectRoleContractAndPlansStayInternal(t *te
 			continue
 		}
 		foundPermission = true
-		if permission.Resource != "identity.role-bindings" || permission.Action != "manage" || permission.Status != "reserved" || !slices.Equal(permission.AllowedScopes, []string{"project"}) {
-			t.Fatalf("predeclared role binding permission=%#v", permission)
+		if permission.Resource != "identity.role-bindings" || permission.Action != "manage" || permission.Status != "active" || !slices.Equal(permission.AllowedScopes, []string{"project"}) {
+			t.Fatalf("active role binding permission=%#v", permission)
 		}
 	}
 	if !foundPermission {
-		t.Fatal("identity.role-bindings.manage predeclared permission is missing")
+		t.Fatal("identity.role-bindings.manage permission is missing")
 	}
 	grantedBy := []string{}
 	for _, role := range dictionary.Roles {
@@ -56,5 +65,6 @@ func TestYU24PermissionUsesExistingProjectRoleContractAndPlansStayInternal(t *te
 			if operation.ID == plan.OperationID {
 				t.Fatalf("internal project role operation %q leaked into service dictionary", plan.OperationID)
 			}
+		}
 	}
 }
