@@ -19,10 +19,10 @@ import (
 )
 
 var (
-	ErrAlreadyInitialized  = errors.New("local administrator bootstrap is already initialized")
-	ErrPreexistingIdentity = errors.New("local administrator bootstrap is permanently closed by preexisting identity")
+	ErrAlreadyInitialized   = errors.New("local administrator bootstrap is already initialized")
+	ErrPreexistingIdentity  = errors.New("local administrator bootstrap is permanently closed by preexisting identity")
 	ErrOrganizationNotFound = errors.New("local administrator bootstrap organization was not found")
-	ErrInvalidInput        = errors.New("local administrator bootstrap input is invalid")
+	ErrInvalidInput         = errors.New("local administrator bootstrap input is invalid")
 )
 
 const (
@@ -32,10 +32,13 @@ const (
 )
 
 var initializePlan = operationplan.Plan{
-	OperationID: initializeOperationID,
-	Domain:      "identity",
-	Application: "local-admin-bootstrap",
-	UseCase:     "initialize",
+	OperationID:  initializeOperationID,
+	Domain:       "identity",
+	Application:  "local-admin-bootstrap",
+	UseCase:      "initialize",
+	RequestType:  "localbootstrap.InitializeInput",
+	ResponseType: "localbootstrap.Result",
+	Security:     operationplan.Security{PermissionMode: "all"},
 	Execution: operationplan.Execution{
 		Transaction: "local",
 		Idempotency: "none",
@@ -111,9 +114,9 @@ func NewManager(database *sql.DB, credentials *localcredential.SQLiteRepository,
 }
 
 type initializeOutcome struct {
-	result       Result
-	blocked      bool
-	closeReason  string
+	result      Result
+	blocked     bool
+	closeReason string
 }
 
 func (manager *Manager) Initialize(ctx context.Context, input InitializeInput) (Result, error) {
@@ -221,9 +224,9 @@ VALUES (?, ?, ?, 'organization', ?, ?, NULL, 'active', ?, ?)`, bindingID, input.
 		return initializeOutcome{}, err
 	}
 	return initializeOutcome{result: Result{
-		OrganizationID: input.OrganizationID,
-		UserID: userID,
-		RoleBindingID: bindingID,
+		OrganizationID:     input.OrganizationID,
+		UserID:             userID,
+		RoleBindingID:      bindingID,
 		CredentialRevision: credential.Revision,
 	}}, nil
 }
