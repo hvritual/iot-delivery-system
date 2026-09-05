@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	JWTVersion             = 1
+	JWTVersion             = 2
 	JWTAlgorithm           = "HS256"
 	JWTType                = "JWT"
 	DefaultIssuer          = "iot-delivery.local"
