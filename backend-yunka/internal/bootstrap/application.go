@@ -27,6 +27,7 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localauth"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localbootstrap"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localcredential"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localmemberadmin"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localoutbox"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
@@ -150,6 +151,7 @@ type Application struct {
 	serviceAuth    *serviceauth.Manager
 	serviceGrants  *serviceauthz.Manager
 	adminBootstrap *localbootstrap.Manager
+	memberAdmin    *localmemberadmin.Manager
 	app            *core.App
 
 	httpAddress string
@@ -192,6 +194,10 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 	if err := localbootstrap.ApplyMigrations(ctx, repository.Database()); err != nil {
 		_ = repository.Close()
 		return nil, fmt.Errorf("initialize local administrator bootstrap schema: %w", err)
+	}
+	if err := localmemberadmin.ApplyMigrations(ctx, repository.Database()); err != nil {
+		_ = repository.Close()
+		return nil, fmt.Errorf("initialize local member administration schema: %w", err)
 	}
 	if err := configrevision.ApplyMigrations(ctx, repository.Database()); err != nil {
 		_ = repository.Close()
@@ -383,11 +389,15 @@ func configuredAuthorization(ctx context.Context, configuration Config, reposito
 	if err != nil {
 		return nil, nil, fmt.Errorf("create human grant authorizer: %w", err)
 	}
-	guard, err := deliveryauthz.NewOperationGuard(repository, repository.Database())
+	memberGuard, err := localmemberadmin.NewOperationGuard(repository.Database())
+	if err != nil {
+		return nil, nil, fmt.Errorf("create local member admin operation guard: %w", err)
+	}
+	deliveryGuard, err := deliveryauthz.NewOperationGuard(repository, repository.Database())
 	if err != nil {
 		return nil, nil, fmt.Errorf("create delivery operation guard: %w", err)
 	}
-	return authorizer, guard.GuardResolver(), nil
+	return authorizer, guardResolverMux{memberGuard.GuardResolver(), deliveryGuard.GuardResolver()}, nil
 }
 
 func validateStartupPolicy(configuration Config) error {
@@ -492,6 +502,15 @@ func (application *Application) AdministratorBootstrap() *localbootstrap.Manager
 		return nil
 	}
 	return application.adminBootstrap
+}
+
+// MemberAdministration is the authenticated in-process YU-20 member management
+// port. It has no transport binding; YU-26 owns BFF exposure.
+func (application *Application) MemberAdministration() *localmemberadmin.Manager {
+	if application == nil {
+		return nil
+	}
+	return application.memberAdmin
 }
 
 // ServiceCredentials is the intentionally in-process management port for
