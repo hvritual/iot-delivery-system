@@ -1,0 +1,193 @@
+name: YU-30 audited closeout
+on:
+  push:
+    branches: [codex/yu-30-full-regression]
+    paths: [.github/workflows/yu30-closeout-once.yml]
+permissions:
+  contents: read
+jobs:
+  closeout:
+    if: github.repository == 'hvritual/iot-delivery-system' && github.ref == 'refs/heads/codex/yu-30-full-regression'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          submodules: recursive
+      - name: Verify exact executed evidence and prepare documentation only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = 2f533dc233584c3318b9788f7016dcfb131b99b7
+          test "$(git diff --name-only HEAD^ HEAD)" = .github/workflows/yu30-closeout-once.yml
+          python - <<'PY'
+          import json, os, pathlib, urllib.request
+          repo = 'hvritual/iot-delivery-system'
+          tested = '2f533dc233584c3318b9788f7016dcfb131b99b7'
+          base = 'f66019e605affe1eedbf20801fab4f22a0903621'
+          run_id = 33971774693
+          framework = '057ebcf88a87303eb633eb6e604d306f633dfac0'
+          def read_api(path):
+              request = urllib.request.Request('https://api.github.com/repos/' + repo + path, headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'})
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)
+          run = read_api(f'/actions/runs/{run_id}')
+          assert run['head_sha'] == tested and run['head_branch'] == 'codex/yu-30-full-regression'
+          assert run['status'] == 'completed' and run['conclusion'] == 'success' and run['run_attempt'] == 1
+          jobs = read_api(f'/actions/runs/{run_id}/jobs?per_page=100')['jobs']
+          required = {'YU-30 / canonical-full': 'Run canonical full gate', 'YU-30 / go-diagnostics': 'Run independent Go diagnostics', 'YU-30 / web-diagnostics': 'Run independent frontend diagnostics', 'YU-30 / browser-e2e': 'Run independent real browser E2E'}
+          assert len(jobs) == 4 and {job['name'] for job in jobs} == set(required)
+          for job in jobs:
+              assert job['status'] == 'completed' and job['conclusion'] == 'success'
+              steps = [step for step in job['steps'] if step['name'] == required[job['name']]]
+              assert len(steps) == 1 and steps[0]['status'] == 'completed' and steps[0]['conclusion'] == 'success'
+          artifacts = read_api(f'/actions/runs/{run_id}/artifacts?per_page=100')['artifacts']
+          expected = {9971229038: 'd19254822b14efd575fc8d3363605c3b882d9e1f77434e6f2d6e56b0370bd532', 9971191912: 'adedf49aeb030772ca62297cb85a62072e52dfd73759c9a5841489f69367407c', 9971153327: '7428d2b8d779c3378ba2b57e6c54a2c990b233efe57c2dcb5d94bef8f14e5511', 9971143645: '4717f267483f25494d875df2db2768b3f4631fa20c0a3a4b3bf06fa9645d64b9'}
+          assert len(artifacts) == 4 and {a['id'] for a in artifacts} == set(expected)
+          for artifact in artifacts:
+              assert not artifact['expired'] and artifact['digest'] == 'sha256:' + expected[artifact['id']]
+              assert artifact['workflow_run']['head_sha'] == tested
+          receipt = {'schema_version': 1, 'task_id': 'YU-30', 'repository': repo, 'fixed_parent': base, 'tested_sha': tested, 'tested_tree': '1366aec6a9ad6998229a6c191f2972821ff7b049', 'framework_sha': framework, 'workflow_run_id': run_id, 'run_attempt': 1, 'run_url': run['html_url'], 'completed_at': run['updated_at'], 'conclusion': 'success', 'jobs': [{'id': j['id'], 'name': j['name'], 'conclusion': j['conclusion']} for j in jobs], 'artifacts': [{'id': a['id'], 'name': a['name'], 'sha256': expected[a['id']]} for a in artifacts], 'web_tests': {'files_passed': 22, 'tests_passed': 74}, 'npm_audit_reported_vulnerabilities': 0, 'audit_debt': {'new': 0, 'existing': ['AUDIT-AUTH-001:backend-yunka/internal/delivery/application/adapter.go:github.com/hvritual/yunka.io/gateway/authz'], 'policy': 'no new proven debt; not zero-debt certification'}, 'changeset_scope': 'current canonical operations at tested HEAD; positive, exact out-of-scope negative control, restored positive; not historical whole-diff certification', 'closeout_gate': 'the documentation closeout commit requires its own exact-SHA CI run before non-force merge', 'next_task_started': False, 'deployed': False}
+          root = pathlib.Path('docs/target/yunka-upgrade')
+          (root / 'YU-30-CI-RECEIPT.json').write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          evidence = '''# YU-30 full regression evidence
+
+          > Document class: **EVIDENCE**
+          > Fixed consumer parent: `f66019e605affe1eedbf20801fab4f22a0903621`
+          > Task branch: `codex/yu-30-full-regression`
+          > Fixed Yunka: `057ebcf88a87303eb633eb6e604d306f633dfac0`
+          > Scope stop: before YU-31; no deployment
+
+          ## Authoritative execution result
+
+          The implemented source at `2f533dc233584c3318b9788f7016dcfb131b99b7` passed all four required jobs in GitHub Actions run **33971774693**, attempt 1, completed on 2026-09-05. This replaces the earlier environment-blocked status; it is not a claim that the restricted assistant shell ran the tests.
+
+          Run: https://github.com/hvritual/iot-delivery-system/actions/runs/33971774693
+
+          `YU-30-CI-RECEIPT.json` binds the exact consumer SHA, framework SHA, job IDs, artifact IDs and SHA-256 digests. All four archives were downloaded through the connected artifact API and their bytes were independently hash-checked. Their `head.txt` values match the tested SHA, and all `worktree.txt` / `worktree.patch` files are empty.
+
+          The documentation closeout is a separate commit. It must obtain its own exact-SHA required-job success before non-force merge. This receipt certifies its named source commit, not an unknown future commit. TASKS dispatch advances only after that gate and main/branch readback.
+
+          ## Executed matrix
+
+          | Gate | Observed result |
+          | --- | --- |
+          | Exact checkout, pinned framework and toolchain | PASS on GitHub-hosted Ubuntu 24.04 |
+          | Canonical generate/check pass 1 and pass 2 | PASS; zero worktree drift after each |
+          | Ownership check of changed handwritten Go | PASS |
+          | Generated ownership inventory | 15 files; every file generator-only and not safe-auto-edit |
+          | Yunka audit JSON debt delta | 0 new proven debts; 1 existing debt retained, not zero findings |
+          | Real ChangeSet CLI | Positive conformant; exact scope probe rejected; restored conformant |
+          | Application authorization / audit / transaction / no-bypass packages | PASS |
+          | `go mod tidy -diff` | Exit 0; no committed dependency drift |
+          | `go test ./...` | PASS |
+          | `go vet ./...` | Exit 0 |
+          | `go test -race ./...` | PASS |
+          | Frontend `npm test` | 22 files / 74 tests passed |
+          | Frontend typecheck / production build | Exit 0 / exit 0 |
+          | `npm audit --audit-level=high` | Exit 0; that run reported zero vulnerabilities |
+          | `npm run e2e:yu29` | Real browser PASS in canonical-full and independent browser-e2e jobs |
+          | Final whitespace and worktree drift | PASS; empty worktree evidence |
+
+          Toolchain: Go 1.25.13, Node 22.16.0, protoc 3.21.12, protoc-gen-go 1.36.11, protoc-gen-go-grpc 1.6.2. Browser evidence records Google Chrome 152.0.7977.64. No compiler, typecheck, race, authentication or authorization gate was disabled.
+
+          ## Real RED and repair provenance
+
+          The first CI run, **33969280959** at `029df4c1fa30d081667fe79790119d81bd477e8a`, checked out both repositories and installed the required toolchain. It then exposed real failures rather than a missing-container hypothesis. Subsequent repairs and reruns are retained in branch history.
+
+          - Framework CLI composition: globally disabling workspace selection resolved the public pkg tag rather than the pinned framework workspace and produced missing diagnostic symbols. The consumer Makefile now explicitly selects `third_party/yunka/go.work`; consumer test processes still use `GOWORK=off`. Framework source was not edited.
+          - Go compilation, identity fixtures and source guards: small consumer fixes restored compile/type alignment, current durable permission/session fixtures and fail-closed no-bypass checks. Complete packages and race/vet were rerun; no empty regex match is counted as a gate.
+          - Frontend: the real run found 4 failing auth-shell tests and BodyInit/mock-signature type errors. Component semantics, test cleanup and request-body types were repaired; the final 74-test suite and production build pass.
+          - Dependency resolution: real Go module resolution and the npm lockfile were committed. The original npm installation reported high-severity findings; the updated dependency graph reports zero in the recorded final audit. This is a dated audit result, not a permanent security claim.
+          - Browser certification: cross-context CSRF now holds reviewer identity, grant, request path, body and revision constant while changing only the CSRF token. The wrong token is rejected with unchanged business state; the correct reviewer token commits exactly one revision. A role-denied administrator call is not used to prove CSRF protection.
+          - Next type generation: `next-env.d.ts` is mode-specific generated output. It is ignored rather than hand-maintained; strict typecheck first runs `next typegen`. No TypeScript check is skipped.
+
+          ## Governance limits and retained improvements
+
+          **Existing consumer audit debt:** `AUDIT-AUTH-001` at `backend-yunka/internal/delivery/application/adapter.go` identifies a direct import of `github.com/hvritual/yunka.io/gateway/authz` in the application domain. The raw report classifies it as an existing proven violation relative to the fixed parent. It is neither fixed nor a Yunka defect in this round. The current gate is no-new-debt; YU-32 must review the boundary and close or explicitly adjudicate this debt with evidence. Do not describe YU-30 as zero-debt or final security certification.
+
+          **ChangeSet scope:** the actual CLI checks all current generated canonical operations at the tested HEAD, plus an exact negative out-of-scope file and restoration. It does not retrospectively certify every historical YU-01..29 edit or unrelated frontend/CI changes. Those paths retain their own diff and executable gates.
+
+          **Evidence retention:** Actions command artifacts currently expire after seven days and offline source after one day. Receipt hashes and run IDs make provenance explicit but do not replace artifact bytes. Long-lived evidence retention and permanent merge enforcement remain improvement candidates; this round performs an explicit exact-SHA gate, not a repository-ruleset installation.
+
+          ## Environment and scope
+
+          The assistant shell's direct GitHub DNS restriction still exists. GitHub Actions provides the real execution environment; checksum-verified Git bundles provide offline source access. This resolves the workflow dependency on the restricted shell without pretending to repair its network or installing a lower toolchain. See `YU-30-ENVIRONMENT.md`.
+
+          No Yunka framework source, framework gitlink, protobuf or generated business artifact was changed by the repairs. No new framework defect was reproduced and no framework Issue was created. The retained audit debt is consumer-side. YU-31 runtime smoke/closure and YU-32 independent review have not been executed by this round.
+
+          ## Earlier blocked attempt (historical, superseded)
+
+          At branch `b8138628574ff52b713a34e3680b0068c9daf5e6`, the restricted shell lacked a checkout and the pinned toolchain, and GitHub DNS lookup failed. Its runner was authored but not executed; that was an environment blocker, not product RED. The previous NOT RUN matrix applies only to that earlier attempt. It must not override the later exact-SHA CI results above.
+          '''
+          import textwrap
+          (root / 'YU-30-EVIDENCE.md').write_text(textwrap.dedent(evidence).replace('\n          ', '\n'), encoding='utf-8')
+          tasks_path = root / 'TASKS.md'
+          tasks = tasks_path.read_text(encoding='utf-8')
+          marker = '\n## 下一原子任务派发说明\n'
+          assert tasks.count(marker) == 1
+          tasks = tasks.split(marker)[0] + '''
+
+          ## YU-30 执行认证与收口
+
+          已核验源码 `2f533dc233584c3318b9788f7016dcfb131b99b7` 的 GitHub Actions run `33971774693`：canonical-full / go-diagnostics / web-diagnostics / browser-e2e 四项均成功。完整回执见 `YU-30-CI-RECEIPT.json`，边界见 `YU-30-EVIDENCE.md`。本收口提交必须再取得精确 SHA 的 CI 全绿并 non-force 合并到 main，才能完成派发切换。
+
+          注意：audit 为零新增 proven debt，仍保留 `AUDIT-AUTH-001` 的一项既有消费者债务；ChangeSet 为当前 canonical operations 的正/反/恢复验证，不是历史全量变更认证。YU-30 不等于 YU-32 安全/架构终审。
+
+          ## 下一原子任务派发说明
+
+          **下一独立任务：YU-31「真实 runtime health/diagnostics/closure 与 REST/gRPC/MCP smoke」；须在 YU-30 精确 HEAD CI 全绿并合并后开始。**
+
+          - 固定 parent：YU-30 收口合并到 main 后的精确 SHA，开始时回读并冻结，不跟随后续移动 HEAD。
+          - 输入：YU-30 canonical consumer tree、CI receipt、目标 Yunka `057ebcf88a87303eb633eb6e604d306f633dfac0`、真实 SQLite 身份授权链与 runtime lifecycle。
+          - 允许：真实启动与 health/diagnostics/closure 验证；REST/gRPC/MCP smoke；对可复现失败做最小消费者修复和对应回归；更新本任务证据。
+          - 禁止：修改 Yunka 源码或 gitlink、手改 generated、用 mock/development 身份代替真实授权、不经验证部署、提前执行 YU-32 独立审查。
+          - RED：仅真实执行失败、错误身份/权限结果、资源未关闭或僵尸进程等可复现行为；缺环境不是产品 RED。
+          - GREEN：同一 SQLite 身份授权链的 runtime health/diagnostics 与 transport smoke 通过，shutdown 完整且无遗留资源；相关回归通过且无生成漂移。
+          - 框架问题：仅创建/更新框架 Issue，保留最小复现；消费者组合/fixture 问题不得归因框架。
+          - 结束条件：独立提交、精确 SHA CI 回读、同步分支并 non-force 合并 main 后停止；不部署、不自动开始 YU-32。
+
+          **YU-31 尚未启动。**
+          '''
+          tasks_path.write_text(tasks.replace('\n          ', '\n'), encoding='utf-8')
+          PY
+      - name: Local Git commit to isolated candidate branch and export verified source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/yu30-closeout-once.yml
+          git add docs/target/yunka-upgrade/TASKS.md docs/target/yunka-upgrade/YU-30-EVIDENCE.md docs/target/yunka-upgrade/YU-30-CI-RECEIPT.json .github/workflows/yu30-closeout-once.yml
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs(yu-30): reconcile executed CI evidence and stage YU-31 dispatch'
+          git diff --exit-code 2f533dc233584c3318b9788f7016dcfb131b99b7 HEAD -- . ':!docs/target/yunka-upgrade/TASKS.md' ':!docs/target/yunka-upgrade/YU-30-EVIDENCE.md' ':!docs/target/yunka-upgrade/YU-30-CI-RECEIPT.json'
+          test -z "$(git status --porcelain)"
+          candidate="codex/yu-30-closeout-${GITHUB_RUN_ID}"
+          git push origin "HEAD:refs/heads/$candidate"
+          out="$RUNNER_TEMP/yu30-closeout"
+          mkdir -p "$out"
+          git rev-parse HEAD > "$out/consumer-head.txt"
+          git rev-parse HEAD^{tree} > "$out/consumer-tree.txt"
+          printf '%s\n' "$candidate" > "$out/candidate-branch.txt"
+          git -C third_party/yunka rev-parse HEAD > "$out/framework-head.txt"
+          test "$(cat "$out/framework-head.txt")" = 057ebcf88a87303eb633eb6e604d306f633dfac0
+          git bundle create "$out/consumer.bundle" HEAD
+          git -C third_party/yunka bundle create "$out/framework.bundle" HEAD
+          cp docs/target/yunka-upgrade/YU-30-CI-RECEIPT.json "$out/"
+          (cd "$out" && sha256sum *.bundle > SHA256SUMS)
+          echo "CANDIDATE_SHA=$(git rev-parse HEAD)"
+          echo "CANDIDATE_BRANCH=$candidate"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: yu30-closeout-${{ github.run_id }}
+          path: ${{ runner.temp }}/yu30-closeout/
+          retention-days: 7
+          if-no-files-found: error
