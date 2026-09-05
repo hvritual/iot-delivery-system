@@ -22,7 +22,8 @@ const (
 // application routes. The dedicated /auth/local/ BFF namespace owns its own
 // opaque-session, Origin and CSRF checks and is therefore passed directly to
 // the registered BFF handler instead of being forced through bearer/BFF
-// assertion authentication first.
+// assertion authentication first. Competing bearer/API-key/BFF assertion
+// credentials are rejected at the namespace boundary rather than ignored.
 func (verifier *Verifier) HTTPMiddleware(fallback func(http.Handler) http.Handler) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		var fallbackHandler http.Handler
@@ -31,6 +32,10 @@ func (verifier *Verifier) HTTPMiddleware(fallback func(http.Handler) http.Handle
 		}
 		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 			if strings.HasPrefix(request.URL.Path, localBFFRoutePrefix) {
+				if len(request.Header.Values(authorizationHeader)) > 0 || hasCompetingHTTPCredential(request.Header) {
+					writeHTTPUnauthorized(writer, transportTraceID())
+					return
+				}
 				next.ServeHTTP(writer, request)
 				return
 			}
