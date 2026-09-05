@@ -108,14 +108,12 @@ func configurationFromEnv() (bootstrap.Config, error) {
 	if err != nil {
 		return bootstrap.Config{}, err
 	}
+	if err := startupPolicy.ValidateLocalStdio(); err != nil {
+		return bootstrap.Config{}, err
+	}
 	credential, credentialErr := mcpCredentialFromEnv()
 	if credentialErr != nil {
 		return bootstrap.Config{}, credentialErr
-	}
-	if credential.kind == mcpCredentialAPIKey {
-		if err := startupPolicy.ValidateLocalStdio(); err != nil {
-			return bootstrap.Config{}, err
-		}
 	}
 	localAuthKey := strings.TrimSpace(os.Getenv(localAuthKeyEnvironment))
 	if (credential.kind == mcpCredentialAccess || credential.kind == mcpCredentialSession) && localAuthKey == "" {
