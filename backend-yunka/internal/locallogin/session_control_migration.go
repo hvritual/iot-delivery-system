@@ -11,11 +11,12 @@ import (
 const SessionControlMigrationID = "YU-22_local_session_controls_v1"
 
 const (
-	sessionRevocationCASAbort     = "local session revocation requires revision CAS"
-	sessionResurrectionAbort     = "revoked local session cannot be reactivated"
-	sessionRevisionMutationAbort = "local session revision may change only on revocation"
-	sessionCredentialStaleAbort  = "local session credential revision is stale"
-	sessionIdentityMutationAbort = "local session identity is immutable"
+	sessionRevocationCASAbort       = "local session revocation requires revision CAS"
+	sessionResurrectionAbort       = "revoked local session cannot be reactivated"
+	sessionRevisionMutationAbort   = "local session revision may change only on revocation"
+	sessionCredentialStaleAbort    = "local session credential revision is stale"
+	sessionIdentityMutationAbort   = "local session identity is immutable"
+	sessionRevokedAtMutationAbort  = "local session revocation timestamp is immutable"
 )
 
 const sessionRevocationCASTrigger = `
@@ -60,14 +61,24 @@ END;`
 
 const sessionIdentityMutationTrigger = `
 CREATE TRIGGER IF NOT EXISTS iotd_local_sessions_identity_immutable
-BEFORE UPDATE OF id, organization_id, user_id, secret_digest, credential_revision ON iotd_local_sessions
+BEFORE UPDATE OF id, organization_id, user_id, secret_digest, credential_revision, created_at, expires_at ON iotd_local_sessions
 WHEN NEW.id <> OLD.id
   OR NEW.organization_id <> OLD.organization_id
   OR NEW.user_id <> OLD.user_id
   OR NEW.secret_digest <> OLD.secret_digest
   OR NEW.credential_revision <> OLD.credential_revision
+  OR NEW.created_at <> OLD.created_at
+  OR NEW.expires_at <> OLD.expires_at
 BEGIN
     SELECT RAISE(ABORT, 'local session identity is immutable');
+END;`
+
+const sessionRevokedAtMutationTrigger = `
+CREATE TRIGGER IF NOT EXISTS iotd_local_sessions_revoked_at_immutable
+BEFORE UPDATE OF revoked_at ON iotd_local_sessions
+WHEN OLD.status = 'revoked' AND NEW.revoked_at <> OLD.revoked_at
+BEGIN
+    SELECT RAISE(ABORT, 'local session revocation timestamp is immutable');
 END;`
 
 func applySessionControlMigration(ctx context.Context, tx *sql.Tx) error {
@@ -75,11 +86,12 @@ func applySessionControlMigration(ctx context.Context, tx *sql.Tx) error {
 		return err
 	}
 	for name, statement := range map[string]string{
-		"revocation CAS":      sessionRevocationCASTrigger,
-		"reactivation":        sessionResurrectionTrigger,
-		"revision mutation":   sessionRevisionMutationTrigger,
-		"credential revision": sessionCredentialRevisionTrigger,
-		"identity mutation":   sessionIdentityMutationTrigger,
+		"revocation CAS":       sessionRevocationCASTrigger,
+		"reactivation":         sessionResurrectionTrigger,
+		"revision mutation":    sessionRevisionMutationTrigger,
+		"credential revision":  sessionCredentialRevisionTrigger,
+		"identity mutation":    sessionIdentityMutationTrigger,
+		"revoked-at mutation":  sessionRevokedAtMutationTrigger,
 	} {
 		if _, err := tx.ExecContext(ctx, statement); err != nil {
 			return fmt.Errorf("install local session %s trigger: %w", name, err)
@@ -174,9 +186,15 @@ func verifySessionControlTriggers(ctx context.Context, tx *sql.Tx) error {
 			"raise(abort, 'local session credential revision is stale')",
 		},
 		"iotd_local_sessions_identity_immutable": {
-			"before update of id, organization_id, user_id, secret_digest, credential_revision on iotd_local_sessions",
-			"new.credential_revision <> old.credential_revision",
+			"before update of id, organization_id, user_id, secret_digest, credential_revision, created_at, expires_at on iotd_local_sessions",
+			"new.expires_at <> old.expires_at",
 			"raise(abort, 'local session identity is immutable')",
+		},
+		"iotd_local_sessions_revoked_at_immutable": {
+			"before update of revoked_at on iotd_local_sessions",
+			"old.status = 'revoked'",
+			"new.revoked_at <> old.revoked_at",
+			"raise(abort, 'local session revocation timestamp is immutable')",
 		},
 	}
 	for name, fragments := range required {
