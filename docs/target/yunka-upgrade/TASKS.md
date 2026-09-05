@@ -53,14 +53,14 @@
 
 ## 下一原子任务派发说明
 
-**建议下一侧边栏任务：YU-29「两个真实账号、两个独立浏览器 context 的 E2E」**。
+**建议下一侧边栏任务：YU-30「全量 Go/前端/生成/ownership/audit/ChangeSet 回归」**。
 
-- 固定 parent：使用 YU-28 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
-- 输入：YU-28 local/OIDC 登录与账号/管理 UI、YU-27 自动 CSRF、YU-26 browser-facing local BFF、YU-25 centralized session validity、YU-20 成员管理与 YU-24 durable project RoleBinding Guard，以及现有真实 SQLite/runtime 启动路径。
-- 允许：仅为 E2E 所需的浏览器测试基础设施与脚本；两个真实 local member 账号；两个完全独立的 browser context/cookie jar；真实 Next Web + Yunka runtime + SQLite fixture；登录/current/业务访问/admin writes；停用、管理员重置凭据、本人改密、角色撤销后的下一请求有效性；CSRF/Origin、跨 context 隔离、职责分离与 YU-29 evidence。
-- 禁止：修改 Yunka 源码、手改 generated 文件、用 mock-only/component/unit 测试冒充 E2E、让两个账号共享 browser context/session/cookie、把 UI 可见性当授权 authority、把 session/JWT/password/role snapshot 写入浏览器持久存储、提前执行 YU-30 全量回归、部署或无关产品功能开发。
-- RED：必须先证明当前仓库没有两个真实账号 + 两个独立 browser context 贯穿真实 Web/runtime/SQLite 的 E2E，或现有 browser harness 无法验证停用/重置/改密/撤权后的即时失效；已有 unit/component mock 不能作为 E2E 证据；环境缺浏览器/工具不算 RED。
-- GREEN：账号 A/B 在不同 browser context 独立登录且 cookie/session 不互通；普通账号即使构造管理请求仍被服务端拒绝；项目 grant 只在绑定项目生效；撤销角色、停用成员、管理员重置凭据或本人改密后，受影响 context 的下一次受保护请求立即失效或失去对应授权，而未受影响账号保持有效；一个 context 的 CSRF 不能用于另一个 context；真实职责分离继续成立；全过程不依赖浏览器角色/token snapshot 作为授权事实。
-- 边界说明：YU-29 只做真实浏览器 E2E 认证，不重写身份、session、RoleBinding、permission、Guard 或 UI 架构；YU-30 才负责 double generate、full check、Go tests/race/vet、前端全量 test/typecheck/build 的阶段总回归。
-- 框架问题：如真实 E2E 复现 Yunka 缺陷，只创建/更新 `hvritual/yunka.io` Issue，不修改框架源码；浏览器 harness、Next/BFF 或消费者环境问题不得归因于框架。
-- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-30。
+- 固定 parent：使用 YU-29 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
+- 输入：YU-01…YU-29 canonical consumer tree、目标 Yunka `057ebcf88a87303eb633eb6e604d306f633dfac0`、canonical generator/check、YU-29 `npm run e2e:yu29`、现有 ownership/audit/ChangeSet 与 no-bypass gates。
+- 允许：执行并记录阶段总回归；对真实回归失败做最小消费者修复和对应 regression；目标 generator 产生的 canonical generated 更新；必要的 YU-30 evidence/framework-problem disposition。任何修复必须先有可复现 RED，不能顺带重构。
+- 禁止：修改 Yunka framework 源码、手改 generated 文件、跳过失败命令却宣称 PASS、把环境缺工具/网络当产品 RED、提前做 YU-31 runtime smoke/closure 认证、部署、无关功能或 UI 开发。
+- RED：只接受真实命令失败、double-generate drift、`yunka check --full` 失败、Go/frontend/E2E 测试失败、ownership/audit/ChangeSet/no-bypass gate 失败作为 RED；环境缺 checkout、网络、浏览器或工具只能记录为环境阻断。若失败指向框架缺陷，按项目合同只创建/更新 `hvritual/yunka.io` Issue，不修改框架源码。
+- GREEN：目标 generator 连续执行两次后零 drift；`yunka check --full` 通过；Go `test ./...`、`test -race ./...`、`vet ./...` 通过；frontend `npm test`、`npm run typecheck`、`npm run build` 通过；`npm run e2e:yu29` 在真实浏览器/SQLite/runtime/Web 上通过；ownership/audit/ChangeSet/no-bypass gates 全部通过；最终工作树无非预期生成漂移。
+- 边界说明：YU-30 是阶段总回归和真实失败收口，不新增产品能力。YU-31 才负责最终 runtime health/diagnostics/closure 与 REST/gRPC/MCP smoke；YU-32 才做独立安全/架构审查。
+- 框架问题：真实回归如复现 Yunka defect，只创建/更新框架 Issue并保留证据；consumer/test harness/configuration 问题不得归因框架。
+- 结束条件：完成可执行回归与必要最小修复，独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-31。
