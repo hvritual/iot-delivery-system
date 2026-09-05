@@ -135,10 +135,7 @@ func configurationFromEnv() (bootstrap.Config, error) {
 func mcpCredentialFromEnv() (mcpCredential, error) {
 	access := strings.TrimSpace(os.Getenv(mcpAccessTokenEnvironment))
 	session := strings.TrimSpace(os.Getenv(mcpSessionTokenEnvironment))
-	apiKey := strings.TrimSpace(os.Getenv(mcpAPIKeyEnvironment))
-	if apiKey == "" {
-		apiKey = strings.TrimSpace(os.Getenv(localauth.APIKeyEnvironment))
-	}
+	explicitAPIKey := strings.TrimSpace(os.Getenv(mcpAPIKeyEnvironment))
 	configured := 0
 	if access != "" {
 		configured++
@@ -146,10 +143,10 @@ func mcpCredentialFromEnv() (mcpCredential, error) {
 	if session != "" {
 		configured++
 	}
-	if apiKey != "" {
+	if explicitAPIKey != "" {
 		configured++
 	}
-	if configured != 1 {
+	if configured > 1 {
 		return mcpCredential{}, errors.New("exactly one MCP credential family must be configured")
 	}
 	if access != "" {
@@ -158,7 +155,14 @@ func mcpCredentialFromEnv() (mcpCredential, error) {
 	if session != "" {
 		return mcpCredential{kind: mcpCredentialSession, value: session}, nil
 	}
-	return mcpCredential{kind: mcpCredentialAPIKey, value: apiKey}, nil
+	if explicitAPIKey != "" {
+		return mcpCredential{kind: mcpCredentialAPIKey, value: explicitAPIKey}, nil
+	}
+	legacyAPIKey := strings.TrimSpace(os.Getenv(localauth.APIKeyEnvironment))
+	if legacyAPIKey == "" {
+		return mcpCredential{}, errors.New("exactly one MCP credential family must be configured")
+	}
+	return mcpCredential{kind: mcpCredentialAPIKey, value: legacyAPIKey}, nil
 }
 
 func valueOr(name, fallback string) string {
