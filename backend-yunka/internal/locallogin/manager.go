@@ -39,6 +39,7 @@ type LoginResult struct {
 	OrganizationID   string
 	UserID           string
 	SessionID        string
+	SessionRevision  int64
 	SessionToken     string
 	SessionExpiresAt time.Time
 	AccessToken      string
@@ -194,13 +195,17 @@ func (manager *Manager) login(ctx context.Context, input LoginInput) (LoginResul
 		return LoginResult{}, err
 	}
 	sessionExpiresAt := now.Add(manager.config.SessionTTL)
+	const sessionRevision int64 = 1
 	if _, err := transaction.ExecContext(ctx, `INSERT INTO iotd_local_sessions (
-id, organization_id, user_id, secret_digest, status, credential_revision, created_at, expires_at, revoked_at
-) VALUES (?, ?, ?, ?, 'active', ?, ?, ?, NULL)`,
-		sessionID, input.OrganizationID, input.UserID, digest[:], credentialRevision, formatTime(now), formatTime(sessionExpiresAt)); err != nil {
+id, organization_id, user_id, secret_digest, status, credential_revision, created_at, expires_at, revoked_at, revision
+) VALUES (?, ?, ?, ?, 'active', ?, ?, ?, NULL, ?)`,
+		sessionID, input.OrganizationID, input.UserID, digest[:], credentialRevision, formatTime(now), formatTime(sessionExpiresAt), sessionRevision); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), sessionCredentialStaleAbort) {
+			return LoginResult{}, ErrAuthenticationFailed
+		}
 		return LoginResult{}, ErrSessionPersistence
 	}
-	accessToken, accessExpiresAt, err := signAccessToken(manager.config, input.OrganizationID, input.UserID, sessionID, now)
+	accessToken, accessExpiresAt, err := signAccessTokenForSession(manager.config, input.OrganizationID, input.UserID, sessionID, sessionRevision, now)
 	if err != nil {
 		return LoginResult{}, err
 	}
@@ -208,6 +213,7 @@ id, organization_id, user_id, secret_digest, status, credential_revision, create
 		OrganizationID: input.OrganizationID,
 		UserID: input.UserID,
 		SessionID: sessionID,
+		SessionRevision: sessionRevision,
 		SessionToken: sessionToken,
 		SessionExpiresAt: sessionExpiresAt,
 		AccessToken: accessToken,
@@ -220,38 +226,20 @@ id, organization_id, user_id, secret_digest, status, credential_revision, create
 }
 
 // VerifyAccessToken establishes a human Principal only after strict JWT
-// signature/claim verification, a live server-side session lookup, and an
-// active tenant/User check. Credential-version and broader session revocation
-// policy remain YU-22/YU-25 concerns.
+// signature/claim verification, a live server-side session lookup, an exact
+// session revision match, and an active tenant/User check.
 func (manager *Manager) VerifyAccessToken(ctx context.Context, token string) (identity.Principal, error) {
 	if err := manager.ready(); err != nil {
 		return identity.Principal{}, err
 	}
-	now := manager.clock().UTC().Truncate(time.Second)
-	claims, err := verifyAccessTokenSignature(manager.config, token, now)
+	verified, err := manager.verifyAccessIdentity(ctx, token)
 	if err != nil {
-		return identity.Principal{}, ErrAccessTokenInvalid
+		if errors.Is(err, ErrAccessTokenInvalid) {
+			return identity.Principal{}, ErrAccessTokenInvalid
+		}
+		return identity.Principal{}, err
 	}
-	var expiresAt string
-	var credentialRevision int64
-	err = manager.database.QueryRowContext(ctx, `SELECT sessions.expires_at, sessions.credential_revision
-FROM iotd_local_sessions sessions
-JOIN organizations ON organizations.id = sessions.organization_id AND organizations.status = 'active'
-JOIN users ON users.organization_id = sessions.organization_id AND users.id = sessions.user_id AND users.status = 'active'
-WHERE sessions.id = ? AND sessions.organization_id = ? AND sessions.user_id = ?
-  AND sessions.status = 'active' AND sessions.expires_at > ?`,
-		claims.SessionID, claims.TenantID, claims.Subject, formatTime(now)).Scan(&expiresAt, &credentialRevision)
-	if errors.Is(err, sql.ErrNoRows) {
-		return identity.Principal{}, ErrAccessTokenInvalid
-	}
-	if err != nil {
-		return identity.Principal{}, errors.New("verify local access token session")
-	}
-	parsedExpiry, err := parseTime(expiresAt)
-	if err != nil || credentialRevision < 1 || parsedExpiry.Before(time.Unix(claims.ExpiresAt, 0).UTC()) {
-		return identity.Principal{}, ErrAccessTokenInvalid
-	}
-	return principalFromVerifiedClaims(claims), nil
+	return verified.Principal, nil
 }
 
 func requireActiveUser(ctx context.Context, transaction *sql.Tx, organizationID, userID string) error {
@@ -289,6 +277,7 @@ func (manager *Manager) recordSuccess(ctx context.Context, transaction *sql.Tx, 
 	metadata, err := json.Marshal(struct {
 		CredentialRevision int64 `json:"credential_revision"`
 		CredentialRehashed bool  `json:"credential_rehashed"`
+		SessionRevision    int64 `json:"session_revision"`
 		JWTVersion         int   `json:"jwt_version"`
 		KeyID              string `json:"key_id"`
 		AccessTTLSeconds    int64 `json:"access_ttl_seconds"`
@@ -296,6 +285,7 @@ func (manager *Manager) recordSuccess(ctx context.Context, transaction *sql.Tx, 
 	}{
 		CredentialRevision: credentialRevision,
 		CredentialRehashed: rehashed,
+		SessionRevision: result.SessionRevision,
 		JWTVersion: JWTVersion,
 		KeyID: manager.config.KeyID,
 		AccessTTLSeconds: int64(manager.config.AccessTTL / time.Second),
