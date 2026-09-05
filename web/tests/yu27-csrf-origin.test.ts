@@ -4,12 +4,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GET, POST } from "@/app/api/[...path]/route";
 import { GET as getAuthSession } from "@/app/auth/session/route";
-import { LOCAL_SESSION_COOKIE_NAME } from "@/lib/server/local-auth-session";
+import { LOCAL_CSRF_COOKIE_NAME, LOCAL_SESSION_COOKIE_NAME } from "@/lib/server/local-auth-session";
 import { serverSessions, SESSION_COOKIE_NAME } from "@/lib/server/session";
 
 const localSession = randomBytes(32).toString("base64url");
 const localCsrf = randomBytes(32).toString("base64url");
 const localAccess = `${randomBytes(24).toString("base64url")}.${randomBytes(24).toString("base64url")}.${randomBytes(24).toString("base64url")}`;
+const localCookieHeader = `${LOCAL_SESSION_COOKIE_NAME}=${localSession}; ${LOCAL_CSRF_COOKIE_NAME}=${localCsrf}`;
 
 const localCurrent = {
   authenticated: true,
@@ -69,7 +70,7 @@ describe("YU-27 API session source, Origin and CSRF", () => {
     const response = await POST(new Request("https://app.example/api/items", {
       method: "POST",
       headers: {
-        cookie: `${LOCAL_SESSION_COOKIE_NAME}=${localSession}`,
+        cookie: localCookieHeader,
         origin: "https://app.example",
         "x-csrf-token": localCsrf,
         "content-type": "application/json",
@@ -84,7 +85,7 @@ describe("YU-27 API session source, Origin and CSRF", () => {
     const current = observed[0];
     const upstream = observed[1];
     expect(new URL(current.url).pathname).toBe("/auth/local/current");
-    expect(current.headers.get("cookie")).toBe(`${LOCAL_SESSION_COOKIE_NAME}=${localSession}`);
+    expect(current.headers.get("cookie")).toBe(localCookieHeader);
     expect(current.headers.get("authorization")).toBeNull();
     expect(new URL(upstream.url).pathname).toBe("/api/items");
     expect(upstream.headers.get("authorization")).toBe(`Bearer ${localAccess}`);
@@ -105,7 +106,7 @@ describe("YU-27 API session source, Origin and CSRF", () => {
     const response = await POST(new Request("https://app.example/api/items", {
       method: "POST",
       headers: {
-        cookie: `${LOCAL_SESSION_COOKIE_NAME}=${localSession}`,
+        cookie: localCookieHeader,
         origin: "https://app.example",
         "x-csrf-token": randomBytes(32).toString("base64url"),
       },
@@ -117,7 +118,7 @@ describe("YU-27 API session source, Origin and CSRF", () => {
     expect(fetcher).toHaveBeenCalledOnce();
   });
 
-  it("does not require Origin or CSRF on a safe local API request", async () => {
+  it("does not require Origin or CSRF headers on a safe local API request", async () => {
     vi.stubEnv("IOT_DELIVERY_API_TARGET", "https://runtime.example");
     const fetcher = vi.fn(async (request: Request) => {
       if (new URL(request.url).pathname === "/auth/local/current") return Response.json(localCurrent);
@@ -126,7 +127,7 @@ describe("YU-27 API session source, Origin and CSRF", () => {
     vi.stubGlobal("fetch", fetcher);
 
     const response = await GET(new Request("https://app.example/api/projects", {
-      headers: { cookie: `${LOCAL_SESSION_COOKIE_NAME}=${localSession}` },
+      headers: { cookie: localCookieHeader },
     }), routeContext(["projects"]));
 
     expect(response.status).toBe(200);
@@ -139,26 +140,47 @@ describe("YU-27 API session source, Origin and CSRF", () => {
     vi.stubGlobal("fetch", fetcher);
 
     const response = await GET(new Request("https://app.example/api/projects", {
-      headers: { cookie: `${SESSION_COOKIE_NAME}=${oidc.id}; ${LOCAL_SESSION_COOKIE_NAME}=${localSession}` },
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${oidc.id}; ${localCookieHeader}` },
     }), routeContext(["projects"]));
 
     expect(response.status).toBe(401);
     expect(fetcher).not.toHaveBeenCalled();
   });
 
-  it("returns the local session CSRF through /auth/session without exposing the access JWT", async () => {
+  it("returns local CSRF through /auth/session without exposing the server-side access JWT", async () => {
     vi.stubEnv("IOT_DELIVERY_API_TARGET", "https://runtime.example");
-    const fetcher = vi.fn(async () => Response.json(localCurrent));
+    const fetcher = vi.fn(async (request: Request) => {
+      expect(request.headers.get("cookie")).toBe(localCookieHeader);
+      return Response.json(localCurrent);
+    });
     vi.stubGlobal("fetch", fetcher);
 
     const response = await getAuthSession(new Request("https://app.example/auth/session", {
-      headers: { cookie: `${LOCAL_SESSION_COOKIE_NAME}=${localSession}` },
+      headers: { cookie: localCookieHeader },
     }));
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toContain("no-store");
     await expect(response.json()).resolves.toEqual({ authenticated: true, csrfToken: localCsrf });
     expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it("propagates a regenerated YU-26 CSRF cookie when the browser lost it", async () => {
+    vi.stubEnv("IOT_DELIVERY_API_TARGET", "https://runtime.example");
+    const replacement = randomBytes(32).toString("base64url");
+    const setCookie = `${LOCAL_CSRF_COOKIE_NAME}=${replacement}; Path=/; Secure; SameSite=Strict`;
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json(
+      { ...localCurrent, csrfToken: replacement },
+      { headers: { "set-cookie": setCookie } },
+    )));
+
+    const response = await getAuthSession(new Request("https://app.example/auth/session", {
+      headers: { cookie: `${LOCAL_SESSION_COOKIE_NAME}=${localSession}` },
+    }));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("set-cookie")).toContain(`${LOCAL_CSRF_COOKIE_NAME}=${replacement}`);
+    await expect(response.json()).resolves.toEqual({ authenticated: true, csrfToken: replacement });
   });
 });
 
