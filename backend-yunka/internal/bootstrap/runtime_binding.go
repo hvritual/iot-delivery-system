@@ -15,6 +15,8 @@ import (
 	deliveryapplication "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryruntime"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/httpapi"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localcredential"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localmemberadmin"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localtx"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/obsidian"
@@ -97,6 +99,20 @@ func (binder *applicationRuntimeBinder) Bind(
 	if err != nil {
 		return generatedassembly.RuntimeBindings{}, fmt.Errorf("configure config revision operations: %w", err)
 	}
+	credentialStore, err := localcredential.NewSQLiteRepository(binder.repository.Database())
+	if err != nil {
+		return generatedassembly.RuntimeBindings{}, fmt.Errorf("configure local member credential store: %w", err)
+	}
+	memberAdmin, err := localmemberadmin.NewManager(
+		binder.repository.Database(),
+		credentialStore,
+		binder.auditStore,
+		dependencies.DeliveryOutbox,
+		executor,
+	)
+	if err != nil {
+		return generatedassembly.RuntimeBindings{}, fmt.Errorf("configure local member administration: %w", err)
+	}
 	operations := deliveryapplication.NewOperations(auditedAdapter, executor, service)
 	if binder.bootstrapMode == BootstrapModeExample {
 		if err := seedExample(ctx, operations); err != nil {
@@ -126,6 +142,7 @@ func (binder *applicationRuntimeBinder) Bind(
 	httpapi.Register(httpMux, operations)
 	binder.application.operations = operations
 	binder.application.configOps = configOps
+	binder.application.memberAdmin = memberAdmin
 	binder.bound = true
 	return generatedassembly.RuntimeBindings{
 		Factories: applicationFactories{deliveryManagement: auditedAdapter},
