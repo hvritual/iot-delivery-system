@@ -3,6 +3,7 @@ package delivery
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hvritual/yunka.io/framework/event"
@@ -32,10 +33,14 @@ func (stager *transactionalOutboxStager) Stage(ctx context.Context, eventType st
 	if err != nil {
 		return fmt.Errorf("get delivery transaction handle: %w", err)
 	}
-	envelope, err := event.NewJSON(workItemEventTopic, eventType, "iot-delivery-system/local", struct {
-		WorkItemID string    `json:"workItemId"`
-		UpdatedAt  time.Time `json:"updatedAt"`
-	}{WorkItemID: item.ID, UpdatedAt: item.UpdatedAt.UTC()})
+	topic, err := mutationEventTopic(eventType)
+	if err != nil {
+		return err
+	}
+	envelope, err := event.NewJSON(topic, eventType, "iot-delivery-system/local", struct {
+		AggregateID string    `json:"aggregateId"`
+		UpdatedAt   time.Time `json:"updatedAt"`
+	}{AggregateID: item.ID, UpdatedAt: item.UpdatedAt.UTC()})
 	if err != nil {
 		return fmt.Errorf("create delivery outbox event: %w", err)
 	}
@@ -47,4 +52,17 @@ func (stager *transactionalOutboxStager) Stage(ctx context.Context, eventType st
 		return fmt.Errorf("stage delivery outbox event: %w", err)
 	}
 	return nil
+}
+
+// mutationEventTopic keeps event routing aligned with the aggregate named by
+// the event type. Work-item projections subscribe only to delivery.work-item;
+// project, planning, and saved-view events must not enter that projection by
+// pretending their aggregate IDs are work-item IDs.
+func mutationEventTopic(eventType string) (string, error) {
+	eventType = strings.TrimSpace(eventType)
+	parts := strings.Split(eventType, ".")
+	if len(parts) < 3 || parts[0] != "delivery" || strings.TrimSpace(parts[1]) == "" {
+		return "", fmt.Errorf("delivery mutation event type %q does not identify an aggregate", eventType)
+	}
+	return "delivery." + parts[1], nil
 }
