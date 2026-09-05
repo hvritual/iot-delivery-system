@@ -21,7 +21,9 @@ export async function GET(request: Request) {
       }
       return unauthenticated(true);
     }
-    return Response.json({ authenticated: true, csrfToken: current.session.csrfToken }, { headers: noStoreHeaders });
+    const headers = new Headers(noStoreHeaders);
+    if (current.setCookie) headers.append("set-cookie", current.setCookie);
+    return Response.json({ authenticated: true, csrfToken: current.session.csrfToken }, { headers });
   }
 
   const result = guardSessionRequest(request, serverSessions);
