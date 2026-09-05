@@ -74,9 +74,10 @@ func (guard *OperationGuard) Prepare(ctx context.Context, authorized authz.Autho
 	var found int
 	err := guard.database.QueryRowContext(ctx, activeSystemAdministratorGrantQuery,
 		principal.UserID,
+		PermissionManageUsers,
 		principal.TenantID,
 		principal.UserID,
-		PermissionManageUsers,
+		principal.UserID,
 	).Scan(&found)
 	if err != nil || found != 1 {
 		return nil, denied()
