@@ -146,14 +146,42 @@ func verifyBootstrapStateSchema(ctx context.Context, tx *sql.Tx) error {
 			return fmt.Errorf("local bootstrap state column %d = %#v, want %#v", index, columns[index], want[index])
 		}
 	}
-	var triggerCount int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'trigger' AND name IN ('iotd_local_admin_bootstrap_state_immutable_update', 'iotd_local_admin_bootstrap_state_immutable_delete')`).Scan(&triggerCount); err != nil {
-		return fmt.Errorf("inspect local bootstrap state triggers: %w", err)
-	}
-	if triggerCount != 2 {
-		return errors.New("local bootstrap state immutability triggers are incomplete")
+	if err := verifyImmutabilityTriggers(ctx, tx); err != nil {
+		return err
 	}
 	return verifyClosedState(ctx, tx)
+}
+
+func verifyImmutabilityTriggers(ctx context.Context, tx *sql.Tx) error {
+	want := map[string]string{
+		"iotd_local_admin_bootstrap_state_immutable_update": "before update on iotd_local_admin_bootstrap_state",
+		"iotd_local_admin_bootstrap_state_immutable_delete": "before delete on iotd_local_admin_bootstrap_state",
+	}
+	rows, err := tx.QueryContext(ctx, `SELECT name, COALESCE(sql, '') FROM sqlite_master WHERE type = 'trigger' AND name IN ('iotd_local_admin_bootstrap_state_immutable_update', 'iotd_local_admin_bootstrap_state_immutable_delete')`)
+	if err != nil {
+		return fmt.Errorf("inspect local bootstrap state triggers: %w", err)
+	}
+	defer rows.Close()
+	seen := make(map[string]bool, len(want))
+	for rows.Next() {
+		var name, sqlText string
+		if err := rows.Scan(&name, &sqlText); err != nil {
+			return fmt.Errorf("scan local bootstrap state trigger: %w", err)
+		}
+		expectedEvent, ok := want[name]
+		normalized := strings.ToLower(strings.Join(strings.Fields(sqlText), " "))
+		if !ok || !strings.Contains(normalized, expectedEvent) || !strings.Contains(normalized, "raise(abort, 'local administrator bootstrap state is immutable')") {
+			return fmt.Errorf("local bootstrap state trigger %q is not the immutable contract", name)
+		}
+		seen[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate local bootstrap state triggers: %w", err)
+	}
+	if len(seen) != len(want) {
+		return errors.New("local bootstrap state immutability triggers are incomplete")
+	}
+	return nil
 }
 
 func verifyClosedState(ctx context.Context, tx *sql.Tx) error {
