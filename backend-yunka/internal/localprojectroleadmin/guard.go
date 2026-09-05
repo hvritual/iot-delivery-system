@@ -77,12 +77,24 @@ func (guard *OperationGuard) Prepare(ctx context.Context, authorized authz.Autho
 	}
 	var found int
 	err := guard.database.QueryRowContext(ctx, activeSystemAdministratorGrantQuery,
-		principal.UserID, principal.TenantID, principal.UserID, principal.UserID, PermissionManageRoleBindings,
+		principal.UserID,
+		principal.TenantID,
+		PermissionManageRoleBindings,
+		principal.UserID,
+		principal.UserID,
 	).Scan(&found)
 	if err != nil || found != 1 {
 		return nil, denied()
 	}
 	return projectRoleOrganizationKey.With(ctx, principal.TenantID), nil
+}
+
+func OrganizationIDFromContext(ctx context.Context) string {
+	value, ok := projectRoleOrganizationKey.From(ctx)
+	if !ok {
+		return ""
+	}
+	return value
 }
 
 const activeSystemAdministratorGrantQuery = `
@@ -111,9 +123,9 @@ WHERE organizations.id = ?
       AND binding.scope_type = 'organization'
       AND binding.scope_id = organizations.id
       AND binding.status = 'active'
-      AND role_grant.permission_id = ?5
+      AND role_grant.permission_id = ?
       AND (
-        binding.user_id = ?3
+        binding.user_id = ?
         OR EXISTS (
           SELECT 1
           FROM teams
@@ -123,7 +135,7 @@ WHERE organizations.id = ?
           WHERE teams.id = binding.team_id
             AND teams.organization_id = organizations.id
             AND teams.status = 'active'
-            AND membership.user_id = ?4
+            AND membership.user_id = ?
         )
       )
   )
