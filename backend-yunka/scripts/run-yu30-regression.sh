@@ -72,11 +72,8 @@ make_yunka yunka-generate
 make_yunka yunka-check
 require_clean_tree
 
-log "ownership, audit, ChangeSet-equivalence and no-bypass focused gates"
-go_backend test . -count=1
-go_backend test ./internal/delivery -run 'Ownership|GeneratedRPCOperationPlansRemainCanonical|Transactional|Segregation' -count=1
-go_backend test ./internal/audit ./internal/bffhttp -count=1
-go_backend test ./internal/httpapi ./internal/localbffhttp -count=1
+log "ownership, audit, ChangeSet-equivalence and no-bypass package gates"
+go_backend test . ./internal/delivery ./internal/audit ./internal/bffhttp ./internal/httpapi ./internal/localbffhttp -count=1
 
 log "Go module and full regression"
 go_backend mod tidy -diff
