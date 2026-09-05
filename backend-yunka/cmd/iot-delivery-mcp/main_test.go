@@ -104,3 +104,39 @@ func TestYU23MCPRejectsMissingOrMixedCredentialFamiliesWithoutLeakingValues(t *t
 		t.Fatalf("mixed MCP credential error leaked secret: %q", err)
 	}
 }
+
+func TestYU23MCPExplicitLocalMemberCredentialIgnoresGlobalDevelopmentAPIKey(t *testing.T) {
+	clearMCPAuthEnvironment(t)
+	t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "development")
+	t.Setenv("IOT_DELIVERY_BOOTSTRAP_MODE", "disabled")
+	t.Setenv(mcpAccessTokenEnvironment, "YU23-explicit-access-token")
+	t.Setenv("IOT_DELIVERY_LOCAL_API_KEY", "YU23-global-development-api-key")
+	key := base64.RawURLEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef"))
+	t.Setenv(localAuthKeyEnvironment, key)
+
+	credential, err := mcpCredentialFromEnv()
+	if err != nil || credential.kind != mcpCredentialAccess || credential.value != "YU23-explicit-access-token" {
+		t.Fatalf("explicit local-member credential=%#v error=%v", credential, err)
+	}
+	configuration, err := configurationFromEnv()
+	if err != nil || configuration.LocalAuthJWTSigningKey != key || !configuration.LegacyLocalAPIKeyEnabled {
+		t.Fatalf("development local-member configuration=%#v error=%v", configuration, err)
+	}
+}
+
+func TestYU23MCPFallsBackToLegacyGlobalAPIKeyOnlyWhenNoExplicitCredentialExists(t *testing.T) {
+	clearMCPAuthEnvironment(t)
+	t.Setenv("IOT_DELIVERY_RUNTIME_ENVIRONMENT", "development")
+	t.Setenv("IOT_DELIVERY_BOOTSTRAP_MODE", "disabled")
+	t.Setenv("IOT_DELIVERY_LOCAL_API_KEY", "YU23-legacy-mcp-api-key")
+	credential, err := mcpCredentialFromEnv()
+	if err != nil || credential.kind != mcpCredentialAPIKey || credential.value != "YU23-legacy-mcp-api-key" {
+		t.Fatalf("legacy MCP credential=%#v error=%v", credential, err)
+	}
+
+	t.Setenv(mcpAPIKeyEnvironment, "YU23-explicit-mcp-api-key")
+	credential, err = mcpCredentialFromEnv()
+	if err != nil || credential.kind != mcpCredentialAPIKey || credential.value != "YU23-explicit-mcp-api-key" {
+		t.Fatalf("explicit MCP API-key credential=%#v error=%v", credential, err)
+	}
+}
