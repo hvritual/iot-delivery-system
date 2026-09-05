@@ -15,6 +15,16 @@ const MigrationID = "YU-20_local_member_admin_v1"
 
 const PermissionManageUsers = "identity.users.manage"
 
+const requireUserDisableRevisionTrigger = `
+CREATE TRIGGER IF NOT EXISTS users_require_revision_on_disable
+BEFORE UPDATE OF status ON users
+WHEN OLD.status = 'active'
+ AND NEW.status = 'disabled'
+ AND NEW.revision <> OLD.revision + 1
+BEGIN
+    SELECT RAISE(ABORT, 'user disable requires revision CAS');
+END;`
+
 const preserveLastAdministratorTrigger = `
 CREATE TRIGGER IF NOT EXISTS users_preserve_last_system_administrator
 BEFORE UPDATE OF status ON users
@@ -108,6 +118,12 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 		return err
 	}
 	if err := ensureSystemAdministratorGrant(ctx, tx); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, requireUserDisableRevisionTrigger); err != nil {
+		return fmt.Errorf("install user disable revision trigger: %w", err)
+	}
+	if err := verifyUserDisableRevisionTrigger(ctx, tx); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, preserveLastAdministratorTrigger); err != nil {
@@ -279,6 +295,26 @@ func ensureSystemAdministratorGrant(ctx context.Context, tx *sql.Tx) error {
 		}
 	} else if !sameStrings(scopes, []string{"organization"}) {
 		return errors.New("system administrator member-management grant must be organization-scoped")
+	}
+	return nil
+}
+
+func verifyUserDisableRevisionTrigger(ctx context.Context, tx *sql.Tx) error {
+	var definition string
+	if err := tx.QueryRowContext(ctx, `SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = 'users_require_revision_on_disable'`).Scan(&definition); err != nil {
+		return errors.New("user disable revision trigger is missing")
+	}
+	normalized := strings.ToLower(strings.Join(strings.Fields(definition), " "))
+	for _, required := range []string{
+		"before update of status on users",
+		"old.status = 'active'",
+		"new.status = 'disabled'",
+		"new.revision <> old.revision + 1",
+		"raise(abort, 'user disable requires revision cas')",
+	} {
+		if !strings.Contains(normalized, required) {
+			return errors.New("user disable revision trigger definition is invalid")
+		}
 	}
 	return nil
 }
