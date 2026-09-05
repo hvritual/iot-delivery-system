@@ -15,28 +15,28 @@ import (
 )
 
 const (
-	JWTVersion       = 1
-	JWTAlgorithm     = "HS256"
-	JWTType          = "JWT"
-	DefaultIssuer    = "iot-delivery.local"
-	DefaultAudience  = "iot-delivery.internal"
-	DefaultKeyID     = "local-auth-v1"
-	DefaultSessionTTL = 12 * time.Hour
-	DefaultAccessTTL  = 5 * time.Minute
+	JWTVersion             = 1
+	JWTAlgorithm           = "HS256"
+	JWTType                = "JWT"
+	DefaultIssuer          = "iot-delivery.local"
+	DefaultAudience        = "iot-delivery.internal"
+	DefaultKeyID           = "local-auth-v1"
+	DefaultSessionTTL      = 12 * time.Hour
+	DefaultAccessTTL       = 5 * time.Minute
 	minimumSigningKeyBytes = 32
-	maximumJWTBytes  = 8192
-	allowedClockSkew = 30 * time.Second
+	maximumJWTBytes        = 8192
+	allowedClockSkew       = 30 * time.Second
 )
 
 var ErrAccessTokenInvalid = errors.New("local access token is invalid")
 
 type Config struct {
-	Issuer       string
-	Audience     string
-	KeyID        string
-	SigningKey   []byte
-	SessionTTL   time.Duration
-	AccessTTL    time.Duration
+	Issuer     string
+	Audience   string
+	KeyID      string
+	SigningKey []byte
+	SessionTTL time.Duration
+	AccessTTL  time.Duration
 }
 
 func DefaultConfig(signingKey []byte) Config {
@@ -73,14 +73,14 @@ type jwtHeader struct {
 }
 
 type jwtClaims struct {
-	Issuer     string `json:"iss"`
-	Audience   string `json:"aud"`
-	Subject    string `json:"sub"`
-	TenantID   string `json:"tid"`
-	SessionID  string `json:"sid"`
-	IssuedAt   int64  `json:"iat"`
-	ExpiresAt  int64  `json:"exp"`
-	Version    int    `json:"ver"`
+	Issuer    string `json:"iss"`
+	Audience  string `json:"aud"`
+	Subject   string `json:"sub"`
+	TenantID  string `json:"tid"`
+	SessionID string `json:"sid"`
+	IssuedAt  int64  `json:"iat"`
+	ExpiresAt int64  `json:"exp"`
+	Version   int    `json:"ver"`
 }
 
 func signAccessToken(config Config, organizationID, userID, sessionID string, issuedAt time.Time) (string, time.Time, error) {
@@ -156,7 +156,7 @@ func verifyAccessTokenSignature(config Config, token string, now time.Time) (jwt
 	}
 	if claims.Issuer != config.Issuer || claims.Audience != config.Audience || claims.Version != JWTVersion ||
 		!canonicalIdentifier(claims.Subject) || !canonicalIdentifier(claims.TenantID) || !canonicalIdentifier(claims.SessionID) ||
-		claims.IssuedAt <= 0 || claims.ExpiresAt <= claims.IssuedAt || time.Duration(claims.ExpiresAt-claims.IssuedAt)*time.Second != config.AccessTTL {
+		claims.IssuedAt <= 0 || claims.ExpiresAt <= claims.IssuedAt || claims.ExpiresAt-claims.IssuedAt != int64(config.AccessTTL/time.Second) {
 		return jwtClaims{}, ErrAccessTokenInvalid
 	}
 	now = now.UTC()
