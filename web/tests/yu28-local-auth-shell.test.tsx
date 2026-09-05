@@ -92,6 +92,28 @@ describe("YU-28 local auth shell", () => {
     expect(screen.getByText(/提交后由服务端 durable authorization 决定/)).toBeInTheDocument();
   });
 
+  it("maps server CAS conflicts to a stable revision-oriented management state", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const path = requestPath(input);
+      if (path === "/auth/session") return Response.json({ authenticated: true, csrfToken });
+      if (path === "/auth/local/current") return Response.json(localMember);
+      if (path === "/auth/local/admin/project-role-bindings") return Response.json({ error: "conflict" }, { status: 409 });
+      throw new Error(`unexpected request ${path}`);
+    }));
+
+    const user = userEvent.setup();
+    render(<LocalAuthShell />);
+
+    await user.click(await screen.findByRole("button", { name: "账号与管理" }));
+    await user.click(screen.getByRole("button", { name: "项目角色" }));
+    await user.type(screen.getByLabelText("ProjectID"), "project-a");
+    await user.type(screen.getByLabelText("UserID"), "user-b");
+    await user.type(screen.getByLabelText("RoleID"), "contributor");
+    await user.click(screen.getByRole("button", { name: "分配" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("revision 已变化");
+  });
+
   it("returns to login after a successful self password change because the old session is invalid", async () => {
     let changed = false;
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
@@ -119,6 +141,17 @@ describe("YU-28 local auth shell", () => {
     expect(await screen.findByRole("form", { name: "本地成员登录" })).toBeInTheDocument();
     expect(screen.getByText(/旧会话已失效/)).toBeInTheDocument();
     await waitFor(() => expect(changed).toBe(true));
+  });
+
+  it("fails closed into an explicit service-unavailable state when current session truth cannot be read", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: "session_unavailable" }, { status: 503 })));
+
+    render(<LocalAuthShell />);
+
+    expect(await screen.findByText("身份服务暂不可用")).toBeInTheDocument();
+    expect(screen.getByText(/不会进入业务工作区/)).toBeInTheDocument();
+    expect(screen.queryByTestId("delivery-workspace")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重新检查" })).toBeInTheDocument();
   });
 });
 
