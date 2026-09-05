@@ -11,10 +11,11 @@ import (
 const SessionControlMigrationID = "YU-22_local_session_controls_v1"
 
 const (
-	sessionRevocationCASAbort      = "local session revocation requires revision CAS"
-	sessionResurrectionAbort      = "revoked local session cannot be reactivated"
-	sessionRevisionMutationAbort  = "local session revision may change only on revocation"
-	sessionCredentialStaleAbort   = "local session credential revision is stale"
+	sessionRevocationCASAbort     = "local session revocation requires revision CAS"
+	sessionResurrectionAbort     = "revoked local session cannot be reactivated"
+	sessionRevisionMutationAbort = "local session revision may change only on revocation"
+	sessionCredentialStaleAbort  = "local session credential revision is stale"
+	sessionIdentityMutationAbort = "local session identity is immutable"
 )
 
 const sessionRevocationCASTrigger = `
@@ -57,6 +58,18 @@ BEGIN
     SELECT RAISE(ABORT, 'local session credential revision is stale');
 END;`
 
+const sessionIdentityMutationTrigger = `
+CREATE TRIGGER IF NOT EXISTS iotd_local_sessions_identity_immutable
+BEFORE UPDATE OF id, organization_id, user_id, secret_digest, credential_revision ON iotd_local_sessions
+WHEN NEW.id <> OLD.id
+  OR NEW.organization_id <> OLD.organization_id
+  OR NEW.user_id <> OLD.user_id
+  OR NEW.secret_digest <> OLD.secret_digest
+  OR NEW.credential_revision <> OLD.credential_revision
+BEGIN
+    SELECT RAISE(ABORT, 'local session identity is immutable');
+END;`
+
 func applySessionControlMigration(ctx context.Context, tx *sql.Tx) error {
 	if err := ensureSessionRevision(ctx, tx); err != nil {
 		return err
@@ -66,6 +79,7 @@ func applySessionControlMigration(ctx context.Context, tx *sql.Tx) error {
 		"reactivation":        sessionResurrectionTrigger,
 		"revision mutation":   sessionRevisionMutationTrigger,
 		"credential revision": sessionCredentialRevisionTrigger,
+		"identity mutation":   sessionIdentityMutationTrigger,
 	} {
 		if _, err := tx.ExecContext(ctx, statement); err != nil {
 			return fmt.Errorf("install local session %s trigger: %w", name, err)
@@ -158,6 +172,11 @@ func verifySessionControlTriggers(ctx context.Context, tx *sql.Tx) error {
 			"before insert on iotd_local_sessions",
 			"credential.revision = new.credential_revision",
 			"raise(abort, 'local session credential revision is stale')",
+		},
+		"iotd_local_sessions_identity_immutable": {
+			"before update of id, organization_id, user_id, secret_digest, credential_revision on iotd_local_sessions",
+			"new.credential_revision <> old.credential_revision",
+			"raise(abort, 'local session identity is immutable')",
 		},
 	}
 	for name, fragments := range required {
