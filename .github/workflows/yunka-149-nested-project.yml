@@ -116,6 +116,12 @@ jobs:
           REPO: ${{ github.workspace }}/consumer
           ROOT: ${{ github.workspace }}/consumer/backend-yunka
           EVIDENCE: ${{ runner.temp }}/yunka-149-evidence
+          # The historical superproject workspace also includes the legacy
+          # `backend` module, whose obsolete go-kit compatibility replace is
+          # unrelated to the nested `backend-yunka` pressure. Run the preserved
+          # nested module in its own canonical module context instead of editing
+          # that sibling historical module.
+          GOWORK: off
         run: |
           set -euo pipefail
           bash consumer/.github/qualification/yunka-149-nested-project-pressure.sh
