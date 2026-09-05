@@ -27,13 +27,13 @@ func TestYU21JWTRejectsAlgorithmNoneAndUnknownClaims(t *testing.T) {
 	config := DefaultConfig(bytes.Repeat([]byte{0x21}, 32))
 	now := time.Date(2026, 9, 5, 7, 0, 0, 0, time.UTC)
 	claims := `{"iss":"iot-delivery.local","aud":"iot-delivery.internal","sub":"user-a","tid":"org-a","sid":"session-a","iat":1788591600,"exp":1788591900,"ver":1}`
-	for name, header, payload := range map[string][2]string{
+	for name, testCase := range map[string][2]string{
 		"algorithm none": {`{"alg":"none","typ":"JWT","kid":"local-auth-v1"}`, claims},
 		"unknown claim": {`{"alg":"HS256","typ":"JWT","kid":"local-auth-v1"}`, `{"iss":"iot-delivery.local","aud":"iot-delivery.internal","sub":"user-a","tid":"org-a","sid":"session-a","iat":1788591600,"exp":1788591900,"ver":1,"role":"system-administrator"}`},
 	} {
 		t.Run(name, func(t *testing.T) {
-			headerPart := base64.RawURLEncoding.EncodeToString([]byte(header))
-			payloadPart := base64.RawURLEncoding.EncodeToString([]byte(payload))
+			headerPart := base64.RawURLEncoding.EncodeToString([]byte(testCase[0]))
+			payloadPart := base64.RawURLEncoding.EncodeToString([]byte(testCase[1]))
 			input := headerPart + "." + payloadPart
 			mac := hmac.New(sha256.New, config.SigningKey)
 			_, _ = mac.Write([]byte(input))
