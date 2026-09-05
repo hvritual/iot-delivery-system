@@ -2,7 +2,9 @@ package localtransportauth
 
 import (
 	"context"
+	"strings"
 
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localauth"
 	"github.com/hvritual/yunka.io/framework/core/identity"
 	"github.com/hvritual/yunka.io/framework/core/runtimecontext"
 	stdgrpc "google.golang.org/grpc"
@@ -22,6 +24,7 @@ func (verifier *Verifier) GRPCUnaryServerInterceptor(fallback stdgrpc.UnaryServe
 	return func(ctx context.Context, request any, info *stdgrpc.UnaryServerInfo, handler stdgrpc.UnaryHandler) (any, error) {
 		incoming, _ := grpcmetadata.FromIncomingContext(ctx)
 		values := incoming.Get(GRPCAuthorizationMetadata)
+		legacyValues := incoming.Get(strings.ToLower(localauth.APIKeyHeader))
 		if len(values) == 0 {
 			if fallback != nil {
 				return fallback(ctx, request, info, handler)
@@ -29,7 +32,7 @@ func (verifier *Verifier) GRPCUnaryServerInterceptor(fallback stdgrpc.UnaryServe
 			verifier.recordGRPCFailure(ctx, info, "authentication.missing_credential")
 			return nil, status.Error(codes.Unauthenticated, "unauthenticated")
 		}
-		if len(values) != 1 {
+		if len(values) != 1 || len(legacyValues) > 0 {
 			verifier.recordGRPCFailure(ctx, info, "authentication.mixed_credentials")
 			return nil, status.Error(codes.Unauthenticated, "unauthenticated")
 		}
