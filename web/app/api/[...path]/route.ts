@@ -1,5 +1,5 @@
 import { BffAssertionConfigurationError, generateTraceID } from "@/lib/server/bff-assertion";
-import { ApplicationOriginConfigurationError, resolveTrustedApplicationOrigin } from "@/lib/server/application-origin";
+import { resolveTrustedApplicationOrigin } from "@/lib/server/application-origin";
 import { cookieNameCount, LOCAL_SESSION_COOKIE_NAME, readLocalCurrentSession } from "@/lib/server/local-auth-session";
 import { forwardLocalRuntimeRequest, forwardRuntimeRequest } from "@/lib/server/runtime-forwarder";
 import { guardSessionRequest } from "@/lib/server/session-guard";
@@ -31,8 +31,7 @@ async function proxyOidc(request: Request, context: RuntimeRouteContext, traceId
   if (!SAFE_METHODS.has(request.method.toUpperCase())) {
     try {
       trustedOrigin = resolveTrustedApplicationOrigin(request, process.env);
-    } catch (error) {
-      if (error instanceof ApplicationOriginConfigurationError) return unavailable(traceId);
+    } catch {
       return unavailable(traceId);
     }
   }
