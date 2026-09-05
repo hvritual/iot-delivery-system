@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "task_id": "YU-09",
+  "framework_version": "057ebcf88a87303eb633eb6e604d306f633dfac0",
+  "status": "existing-issue-reproduced-workaround-verified-framework-unmodified",
+  "problems": [
+    {
+      "id": "YU-07-FW-002",
+      "status": "confirmed-reproduced-yu-09",
+      "issue": {
+        "repository": "hvritual/yunka.io",
+        "number": 150,
+        "url": "https://github.com/hvritual/yunka.io/issues/150",
+        "state": "open",
+        "yu_09_comment_id": 5548683856,
+        "yu_09_comment_url": "https://github.com/hvritual/yunka.io/issues/150#issuecomment-5548683856"
+      },
+      "title": "add-operation service/service-token vocabulary is inconsistent",
+      "scope": "Fixed Yunka create-operation plan and ChangeSet semantics for delivery.items.get, delivery.items.search, and delivery.items.similarity.",
+      "consumer_workaround": "Create each Operation with API-key and JWT, add AUTHENTICATION_SERVICE in the developer-owned canonical protobuf source, and regenerate all managed outputs.",
+      "verification": "All three final generated plans contain api-key, jwt, and service-token; double generation, full check, Go tests/race/vet/tidy passed; third_party/yunka remained unchanged."
+    }
+  ],
+  "new_framework_issues": []
+}
