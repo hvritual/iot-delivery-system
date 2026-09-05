@@ -43,8 +43,11 @@ func TestPlanningCreateOperationsAreGeneratedContractBoundaries(t *testing.T) {
 		"rpc CreateProject(CreateProjectRequest) returns (ProjectResponse)",
 		"rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse)",
 		"rpc CreateRelease(CreateReleaseRequest) returns (ReleaseResponse)",
+		"rpc ListReleases(ListReleasesRequest) returns (ListReleasesResponse)",
 		"rpc CreateSprint(CreateSprintRequest) returns (SprintResponse)",
+		"rpc ListSprints(ListSprintsRequest) returns (ListSprintsResponse)",
 		"rpc CreateMilestone(CreateMilestoneRequest) returns (MilestoneResponse)",
+		"rpc ListMilestones(ListMilestonesRequest) returns (ListMilestonesResponse)",
 	} {
 		if !strings.Contains(contract, declaration) {
 			t.Errorf("delivery proto contract is missing %q", declaration)
@@ -59,7 +62,7 @@ func TestPlanningCreateOperationsAreGeneratedContractBoundaries(t *testing.T) {
 		if readErr != nil {
 			t.Fatalf("read generated contract artifact %s: %v", generatedPath, readErr)
 		}
-		for _, method := range []string{"CreateProject", "ListProjects", "CreateRelease", "CreateSprint", "CreateMilestone"} {
+		for _, method := range []string{"CreateProject", "ListProjects", "CreateRelease", "ListReleases", "CreateSprint", "ListSprints", "CreateMilestone", "ListMilestones"} {
 			if !strings.Contains(string(generated), method) {
 				t.Errorf("generated contract artifact %s is missing %q", generatedPath, method)
 			}
@@ -91,8 +94,11 @@ func TestGeneratedOperationPlansDeclareLocalAPIKeyAuthorizationAndTransactions(t
 		"delivery.projects.create":      {permission: "delivery.projects.create", transaction: "local"},
 		"delivery.projects.list":        {permission: "delivery.projects.read", transaction: "read_only"},
 		"delivery.releases.create":      {permission: "delivery.releases.create", transaction: "local"},
+		"delivery.releases.list":        {permission: "delivery.releases.read", transaction: "read_only"},
 		"delivery.sprints.create":       {permission: "delivery.sprints.create", transaction: "local"},
+		"delivery.sprints.list":         {permission: "delivery.sprints.read", transaction: "read_only"},
 		"delivery.milestones.create":    {permission: "delivery.milestones.create", transaction: "local"},
+		"delivery.milestones.list":      {permission: "delivery.milestones.read", transaction: "read_only"},
 	}
 	if len(plans.Operations) != len(want) {
 		t.Fatalf("generated operation count = %d, want %d", len(plans.Operations), len(want))
