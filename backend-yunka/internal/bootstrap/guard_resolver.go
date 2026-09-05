@@ -2,7 +2,9 @@ package bootstrap
 
 import (
 	"context"
+	"strings"
 
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localauth"
 	"github.com/hvritual/yunka.io/framework/core/identity"
 	"github.com/hvritual/yunka.io/gateway/authz"
 )
@@ -45,8 +47,18 @@ type developmentCompatibleGuard struct {
 }
 
 func (guard developmentCompatibleGuard) Prepare(ctx context.Context, authorized authz.AuthorizedOperation, input any) (context.Context, error) {
-	if authorized.Principal.Authenticated && authorized.Principal.AuthMethod == identity.AuthMethodAPIKey {
+	if isDevelopmentCompatibilityPrincipal(authorized.Principal) {
 		return ctx, nil
 	}
 	return guard.durable.Prepare(ctx, authorized, input)
+}
+
+func isDevelopmentCompatibilityPrincipal(principal identity.Principal) bool {
+	const prefix = "local-api-key/"
+	return principal.Authenticated &&
+		principal.AuthMethod == identity.AuthMethodAPIKey &&
+		principal.TenantID == localauth.DevelopmentTenantID &&
+		principal.Subject == principal.UserID &&
+		strings.HasPrefix(principal.UserID, prefix) &&
+		len(strings.TrimPrefix(principal.UserID, prefix)) > 0
 }
