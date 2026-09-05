@@ -53,13 +53,14 @@
 
 ## 下一原子任务派发说明
 
-**建议下一侧边栏任务：YU-24「管理项目角色分配/撤销，复用 durable RoleBinding 与项目 scope」**。
+**建议下一侧边栏任务：YU-25「停用、密码重置、角色撤权的集中 session 有效性检查」**。
 
-- 固定 parent：使用 YU-23 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
-- 输入：YU-20 成员生命周期与 `system-administrator` 管理边界、YU-23 verified local-member durable authorization chain、现有 `roles` / `role_permission_grants` / `role_bindings` / project ownership 与 scope model。
-- 允许：消费者侧项目角色分配/撤销 application operations、必要的 RoleBinding revision/CAS 或等价并发控制、目标 User/Project/tenant durable 校验、仅使用现有 project-capable role/permission contract、transactional audit/Outbox、跨 transport application-level authorization regression、YU-24 证据文档。
-- 禁止：修改 Yunka 源码、手改 generated 文件、以邮箱/显示名作为成员身份、创建跨租户或跨 project 的 RoleBinding、扩展为任意角色/权限编辑器、实现管理员重置/User disable/角色撤权后的 session 集中撤销或 session-version 策略（YU-25）、新增 BFF auth/role routes（YU-26）或 UI。
-- RED：必须由真实 durable 路径证明管理员可把项目角色绑定到其他 tenant 的 User/Project、角色 binding scope 与 role contract 不匹配、重复/并发 assign/revoke 可绕过 CAS 或产生多条 active binding、普通成员可提升自己或他人权限、撤销 RoleBinding 后 YU-23 的下一次受保护请求仍继续获得该 grant，或 audit/Outbox 失败后 RoleBinding 仍提交；环境缺工具不算 RED。
-- GREEN：只有 durable `system-administrator` 可管理同 tenant、真实存在且 active 的 User 与 Project 的项目角色；RoleBinding 必须使用 canonical UserID + project scope，且 role binding scope/permission allowed scopes 匹配；assign/revoke 有明确 CAS/幂等冲突语义并原子提交 audit/Outbox；跨租户/越权/陈旧 revision 拒绝且零业务事件；撤销后无需等待 token 过期，YU-23 durable GrantResolver/OperationGuard 在下一请求立即不再授予对应项目权限，但 session 本身是否集中失效仍留给 YU-25。
-- 框架问题：如复现 Yunka 缺陷，只创建/更新框架 Issue，不修改框架源码；消费者 RoleBinding 管理不得表述为框架修复。
-- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-25。
+- 固定 parent：使用 YU-24 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
+- 输入：YU-22 的服务端 opaque session / session version / credential revision / revocation 事实，YU-20 管理员停用与凭据重置 CAS，YU-24 project RoleBinding 撤权事实，以及 YU-23 每次请求重新验证 local-member Principal 与 durable grant 的 HTTP/gRPC/MCP 链路。
+- 允许：消费者侧集中 session validity policy、必要的 User/credential/session/RoleBinding 有效性版本或撤销事实校验、旧 session/JWT fail-closed、跨 HTTP/gRPC/MCP 的一致性回归、安全 audit 与 YU-25 evidence；允许复用现有 YU-22 session schema/CAS，但不得另造并行认证体系。
+- 禁止：修改 Yunka 源码、手改 generated 文件、重新设计 YU-24 RoleBinding 管理语义、把角色/权限写入 JWT 作为长期授权快照、新增 BFF auth/role routes（YU-26）、UI 或与集中有效性无关的 session 大改。
+- RED：必须由真实 durable 路径证明成员被管理员停用后旧 session/JWT 仍可建立 Principal，管理员重置密码后旧 session/JWT 仍可继续使用，RoleBinding 撤销后存在缓存/快照导致已撤权限继续生效，或 HTTP/gRPC/MCP 对同一旧凭据的有效性结论不一致；环境缺工具不算 RED。
+- GREEN：至少两个真实 durable 账号；User disable、管理员 credential reset 与相关 session revocation/version 事实在下一请求 fail-closed；RoleBinding revoke 继续由 YU-24/YU-23 durable GrantResolver 在下一请求立即移除对应 grant，YU-25 只集中定义是否还需使该会话整体失效；不缓存角色权限快照，不因旧 JWT 未过期而越权；HTTP/gRPC/MCP 使用同一 validity 判定；状态变更与安全 audit 有明确事务边界。
+- 边界说明：YU-24 已完成“撤权后下一次授权解析不再授予对应项目 grant”；YU-25 不重复实现项目角色管理，而是把 User disable、credential reset、session version/revocation 与角色撤权对会话整体有效性的规则集中到一个 fail-closed 判定点。
+- 框架问题：如复现 Yunka 缺陷，只创建/更新框架 Issue，不修改框架源码；消费者 session validity policy 不得表述为框架修复。
+- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-26。
