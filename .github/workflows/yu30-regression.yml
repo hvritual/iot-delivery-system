@@ -1,0 +1,135 @@
+name: YU-30 regression
+
+on:
+  push:
+    branches: [main, codex/yu-30-full-regression]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yu30-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    name: YU-30 / ${{ matrix.suite }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [canonical-full, go-diagnostics, web-diagnostics]
+    env:
+      GOWORK: 'off'
+      GOTOOLCHAIN: local
+      CI: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Checkout exact source and pinned framework
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - name: Prepare evidence directory
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/yu30-evidence"
+          git rev-parse HEAD > "$RUNNER_TEMP/yu30-evidence/head.txt"
+          git submodule status > "$RUNNER_TEMP/yu30-evidence/submodules.txt"
+      - name: Install canonical Go
+        if: matrix.suite != 'web-diagnostics'
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: '1.25.13'
+          check-latest: false
+          cache: false
+      - name: Install Node
+        if: matrix.suite != 'go-diagnostics'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.16.0'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install pinned protobuf compiler and plugins
+        if: matrix.suite == 'canonical-full'
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools="$RUNNER_TEMP/yu30-tools"
+          mkdir -p "$tools/protoc-21.12" "$tools/bin"
+          curl --fail --location --retry 3 --output "$tools/protoc.zip" https://github.com/protocolbuffers/protobuf/releases/download/v21.12/protoc-21.12-linux-x86_64.zip
+          sha256sum "$tools/protoc.zip" > "$RUNNER_TEMP/yu30-evidence/protoc-download.sha256"
+          unzip -q "$tools/protoc.zip" -d "$tools/protoc-21.12"
+          GOBIN="$tools/bin" go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+          GOBIN="$tools/bin" go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
+          echo "TOOLS_DIR=$tools" >> "$GITHUB_ENV"
+          browser="$(command -v google-chrome || command -v chromium || true)"
+          test -n "$browser"
+          echo "IOT_DELIVERY_E2E_BROWSER=$browser" >> "$GITHUB_ENV"
+          "$browser" --version > "$RUNNER_TEMP/yu30-evidence/browser-version.txt"
+      - name: Run canonical full gate
+        if: matrix.suite == 'canonical-full'
+        shell: bash
+        run: |
+          set -o pipefail
+          bash backend-yunka/scripts/run-yu30-regression.sh 2>&1 | tee "$RUNNER_TEMP/yu30-evidence/canonical-full.log"
+      - name: Run independent Go diagnostics
+        if: matrix.suite == 'go-diagnostics'
+        working-directory: backend-yunka
+        shell: bash
+        run: |
+          set -uo pipefail
+          result=0
+          capture() {
+            name="$1"; shift
+            "$@" 2>&1 | tee "$RUNNER_TEMP/yu30-evidence/$name.log"
+            code=$?
+            printf '%s\t%s\n' "$name" "$code" >> "$RUNNER_TEMP/yu30-evidence/exit-codes.tsv"
+            if [ "$code" -ne 0 ]; then result=1; fi
+          }
+          set +e
+          capture module-tidy go mod tidy -diff
+          capture go-test go test -mod=readonly -count=1 -timeout=10m ./...
+          capture go-vet go vet -mod=readonly ./...
+          capture go-race go test -mod=readonly -race -count=1 -timeout=10m ./...
+          exit "$result"
+      - name: Run independent frontend diagnostics
+        if: matrix.suite == 'web-diagnostics'
+        working-directory: web
+        shell: bash
+        run: |
+          set -uo pipefail
+          npm ci || exit "$?"
+          result=0
+          capture() {
+            name="$1"; shift
+            "$@" 2>&1 | tee "$RUNNER_TEMP/yu30-evidence/$name.log"
+            code=$?
+            printf '%s\t%s\n' "$name" "$code" >> "$RUNNER_TEMP/yu30-evidence/exit-codes.tsv"
+            if [ "$code" -ne 0 ]; then result=1; fi
+          }
+          set +e
+          capture web-test npm test
+          capture web-typecheck npm run typecheck
+          capture web-build npm run build
+          exit "$result"
+      - name: Capture final source drift
+        if: always()
+        shell: bash
+        run: |
+          git status --porcelain --untracked-files=all > "$RUNNER_TEMP/yu30-evidence/worktree.txt"
+          git diff --binary > "$RUNNER_TEMP/yu30-evidence/worktree.patch"
+      - name: Preserve command evidence only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: yu30-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/yu30-evidence/
+          if-no-files-found: error
+          retention-days: 7
