@@ -21,10 +21,9 @@ fi
 GO_BIN="$(CDPATH= cd -- "$(dirname -- "$GO_BIN")" && pwd)/$(basename -- "$GO_BIN")"
 TOOLS_DIR="${TOOLS_DIR:-$BACKEND_ROOT/.tools}"
 export PATH="$(dirname -- "$GO_BIN"):$PATH"
+export GOWORK=off GOTOOLCHAIN=local
 
-log() {
-  printf '\n==> %s\n' "$*"
-}
+log() { printf '\n==> %s\n' "$*"; }
 
 require_clean_tree() {
   local state
@@ -49,18 +48,15 @@ require_canonical_identity() {
   }
 }
 
-make_yunka() {
-  make -C "$BACKEND_ROOT" GO="$GO_BIN" TOOLS_DIR="$TOOLS_DIR" "$@"
-}
+make_yunka() { make -C "$BACKEND_ROOT" GO="$GO_BIN" TOOLS_DIR="$TOOLS_DIR" "$@"; }
+go_backend() { (cd "$BACKEND_ROOT" && env GOWORK=off "$GO_BIN" "$@"); }
 
-go_backend() {
-  (cd "$BACKEND_ROOT" && env GOWORK=off "$GO_BIN" "$@")
-}
-
-log "identity and clean-tree preflight"
+log "identity, clean-tree and syntax preflight"
 require_canonical_identity
 require_clean_tree
 make_yunka yunka-toolchain-check
+# Parse every committed consumer Go file, including tests, without rewriting it.
+(cd "$REPOSITORY_ROOT" && git ls-files -z 'backend-yunka/*.go' | xargs -0 "$(dirname -- "$GO_BIN")/gofmt" -e > /dev/null)
 
 log "canonical generate/check pass 1"
 make_yunka yunka-generate
@@ -72,32 +68,33 @@ make_yunka yunka-generate
 make_yunka yunka-check
 require_clean_tree
 
-log "ownership, audit, ChangeSet-equivalence and no-bypass package gates"
+log "real ownership / audit / ChangeSet CLI gates"
+GO="$GO_BIN" bash "$SCRIPT_DIR/run-yu30-governance.sh"
+require_clean_tree
+
+log "application no-bypass, authorization, audit and transaction packages"
 go_backend test . ./internal/delivery ./internal/audit ./internal/bffhttp ./internal/httpapi ./internal/localbffhttp -count=1
 
 log "Go module and full regression"
 go_backend mod tidy -diff
-go_backend test ./... -count=1
+go_backend test ./... -count=1 -timeout=10m
 go_backend vet ./...
-go_backend test -race ./... -count=1
+go_backend test -race ./... -count=1 -timeout=10m
 
-log "frontend install/test/typecheck/build"
+log "frontend install/test/typecheck/build/security"
 (
   cd "$WEB_ROOT"
   npm ci
   npm test
   npm run typecheck
   npm run build
+  npm audit --audit-level=high
 )
 
 log "YU-29 real browser E2E"
-(
-  cd "$WEB_ROOT"
-  npm run e2e:yu29
-)
+(cd "$WEB_ROOT" && npm run e2e:yu29)
 
 log "final drift and whitespace gates"
 git -C "$REPOSITORY_ROOT" diff --check
 require_clean_tree
-
 printf '\nYU-30 REGRESSION PASS\n'
