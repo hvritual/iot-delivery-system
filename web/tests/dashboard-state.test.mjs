@@ -25,6 +25,17 @@ test("normalizes the five IoT owner boards even when the API returns one board",
   assert.equal(dashboard.items[0].id, "IOT-001");
 });
 
+test("preserves nested IoT and trace DTO fields in the cockpit model", () => {
+  const item = {
+    id: "IOT-DTO-001",
+    iotBindings: [{ kind: "device", reference: "SN-001", label: "测试机", attributes: { site: "lab-a" } }],
+    traceLinks: [{ kind: "build", reference: "build-9", title: "固件构建", url: "https://example.test/build-9", status: "passed", recordedAt: "2026-09-05T08:09:10Z" }],
+  };
+
+  const dashboard = normalizeDashboard({ items: [item] });
+  assert.deepEqual(dashboard.items[0], item);
+});
+
 test("maps a delivery gate to a visible sequence and its permitted next gate", () => {
   assert.equal(gatePosition("test_passed"), 4);
   assert.equal(nextGate("test_passed"), "production_validated");

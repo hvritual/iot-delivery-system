@@ -2,10 +2,12 @@ package delivery_test
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localoutbox"
 	"github.com/hvritual/yunka.io/framework/event/outbox"
 )
 
@@ -77,6 +79,54 @@ func TestDueReminderSchedulerSkipsCompletedItems(t *testing.T) {
 	}
 	if queued != 0 {
 		t.Fatalf("queued reminders = %d, want completed item skipped", queued)
+	}
+}
+
+func TestDueReminderSchedulerIsIdempotentAcrossSQLiteRestart(t *testing.T) {
+	ctx := context.Background()
+	databasePath := filepath.Join(t.TempDir(), "reminders.db")
+	repository, err := delivery.NewSQLiteRepository(databasePath)
+	if err != nil {
+		t.Fatalf("open SQLite repository: %v", err)
+	}
+	service := delivery.NewService(repository, nil)
+	if _, err := service.Create(ctx, delivery.CreateInput{Title: "持久提醒验收", Board: delivery.BoardResearchDelivery, Owner: "发布负责人", DueDate: time.Now().UTC().Format("2006-01-02")}); err != nil {
+		t.Fatalf("create due item: %v", err)
+	}
+	store, err := localoutbox.NewSQLiteStore(repository.Database())
+	if err != nil {
+		t.Fatalf("open SQLite outbox: %v", err)
+	}
+	scheduler, err := delivery.NewDueReminderScheduler(service, store, delivery.DueReminderConfig{})
+	if err != nil {
+		t.Fatalf("create first scheduler: %v", err)
+	}
+	if queued, err := scheduler.RunOnce(ctx); err != nil || queued != 1 {
+		t.Fatalf("first reminder run queued=%d err=%v, want one", queued, err)
+	}
+	if err := repository.Close(); err != nil {
+		t.Fatalf("close first runtime database: %v", err)
+	}
+
+	reopened, err := delivery.NewSQLiteRepository(databasePath)
+	if err != nil {
+		t.Fatalf("reopen SQLite repository: %v", err)
+	}
+	defer reopened.Close()
+	restartedStore, err := localoutbox.NewSQLiteStore(reopened.Database())
+	if err != nil {
+		t.Fatalf("reopen SQLite outbox: %v", err)
+	}
+	restarted, err := delivery.NewDueReminderScheduler(delivery.NewService(reopened, nil), restartedStore, delivery.DueReminderConfig{})
+	if err != nil {
+		t.Fatalf("create restarted scheduler: %v", err)
+	}
+	if queued, err := restarted.RunOnce(ctx); err != nil || queued != 0 {
+		t.Fatalf("restart reminder run queued=%d err=%v, want duplicate suppressed", queued, err)
+	}
+	snapshot, err := restartedStore.Snapshot(ctx)
+	if err != nil || snapshot.Pending != 1 {
+		t.Fatalf("restart outbox snapshot=%#v err=%v, want one durable reminder", snapshot, err)
 	}
 }
 

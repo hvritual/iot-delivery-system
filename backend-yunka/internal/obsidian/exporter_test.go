@@ -57,9 +57,10 @@ func TestExporterWritesTraceableLinkedDeliveryNotes(t *testing.T) {
 			RecordedAt: time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC),
 		}},
 		IoTBindings: []delivery.IoTBinding{{
-			Kind:      delivery.IoTBindingDevice,
-			Reference: "SN-OTA-001",
-			Label:     "灰度设备",
+			Kind:       delivery.IoTBindingDevice,
+			Reference:  "SN-OTA-001",
+			Label:      "灰度设备",
+			Attributes: map[string]string{"region": "cn-east", "site": "lab-a"},
 		}, {
 			Kind:      delivery.IoTBindingRolloutBatch,
 			Reference: "BATCH-CN-EAST-01",
@@ -154,9 +155,12 @@ func TestExporterWritesTraceableLinkedDeliveryNotes(t *testing.T) {
 	for _, expected := range []string{
 		"## IoT 交付范围",
 		"SN-OTA-001",
+		`{"region":"cn-east","site":"lab-a"}`,
 		"BATCH-CN-EAST-01",
 		"## 研发交付关联",
 		"PR-481",
+		"https://git.example.test/pr/481",
+		"2026-09-02 18:30",
 		"TEST-OTA-009",
 	} {
 		if !strings.Contains(string(validation), expected) {

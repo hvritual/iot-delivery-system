@@ -5,12 +5,14 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/application"
 	"github.com/hvritual/yunka.io/framework/core/identity"
 	"github.com/hvritual/yunka.io/gateway/authz"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestAdapterImplementsGeneratedPortAndMapsCreateItem(t *testing.T) {
@@ -46,6 +48,34 @@ func TestAdapterRejectsUnknownUpdateMask(t *testing.T) {
 	stored, err := service.Get(context.Background(), created.GetItem().GetId())
 	if err != nil || stored.Title != "item" {
 		t.Fatalf("unknown mask changed item=%#v err=%v", stored, err)
+	}
+}
+
+func TestAdapterRoundTripsIoTAndTraceFieldsThroughDashboardDTO(t *testing.T) {
+	service := delivery.NewService(delivery.NewMemoryRepository(), nil)
+	adapter := application.NewAdapter(service)
+	recordedAt := time.Date(2026, 9, 5, 8, 9, 10, 0, time.UTC)
+	created, err := adapter.CreateItem(t.Context(), &deliveryv1.CreateItemRequest{
+		Title: "DTO 字段零丢失验收", Board: string(delivery.BoardResearchDelivery), Owner: "研发负责人",
+		IotBindings: []*deliveryv1.IoTBinding{{Kind: "device", Reference: "SN-001", Label: "测试机", Attributes: map[string]string{"site": "lab-a"}}},
+		TraceLinks:  []*deliveryv1.TraceLink{{Kind: "build", Reference: "build-9", Title: "固件构建", Url: "https://example.test/build-9", Status: "passed", RecordedAt: timestamppb.New(recordedAt)}},
+	})
+	if err != nil {
+		t.Fatalf("create through generated DTO: %v", err)
+	}
+	dashboard, err := adapter.GetDashboard(t.Context(), &deliveryv1.GetDashboardRequest{})
+	if err != nil {
+		t.Fatalf("get dashboard through generated DTO: %v", err)
+	}
+	if len(dashboard.GetDashboard().GetItems()) != 1 || dashboard.GetDashboard().GetItems()[0].GetId() != created.GetItem().GetId() {
+		t.Fatalf("dashboard items = %#v, want created item", dashboard.GetDashboard().GetItems())
+	}
+	item := dashboard.GetDashboard().GetItems()[0]
+	if len(item.GetIotBindings()) != 1 || item.GetIotBindings()[0].GetAttributes()["site"] != "lab-a" {
+		t.Fatalf("dashboard IoT bindings = %#v, want attributes preserved", item.GetIotBindings())
+	}
+	if len(item.GetTraceLinks()) != 1 || item.GetTraceLinks()[0].GetUrl() != "https://example.test/build-9" || item.GetTraceLinks()[0].GetStatus() != "passed" || !item.GetTraceLinks()[0].GetRecordedAt().AsTime().Equal(recordedAt) {
+		t.Fatalf("dashboard trace links = %#v, want every field preserved", item.GetTraceLinks())
 	}
 }
 

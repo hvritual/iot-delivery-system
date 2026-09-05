@@ -6,6 +6,8 @@ import {
   parseIoTBindings,
   parseTraceLinks,
   projectProgressLabel,
+  stringifyIoTBindings,
+  stringifyTraceLinks,
 } from "../src/lib/r2-presentation.mjs";
 
 test("filters tasks by project, owner, status, kind, and text", () => {
@@ -28,6 +30,30 @@ test("parses structured IoT and engineering evidence associations from editable 
   assert.deepEqual(parseTraceLinks("pull_request | PR-12 | 灰度实现 | https://example.test/pr/12 | merged"), [
     { kind: "pull_request", reference: "PR-12", title: "灰度实现", url: "https://example.test/pr/12", status: "merged" },
   ]);
+});
+
+test("round-trips every editable IoT field without losing attributes", () => {
+  const bindings = [{
+    kind: "device",
+    reference: "SN-001",
+    label: "华东测试机",
+    attributes: { region: "cn-east", site: "lab-a" },
+  }];
+
+  assert.deepEqual(parseIoTBindings(stringifyIoTBindings(bindings)), bindings);
+});
+
+test("round-trips every editable trace field without replacing its recorded time", () => {
+  const links = [{
+    kind: "pull_request",
+    reference: "PR-12",
+    title: "灰度实现",
+    url: "https://example.test/pr/12",
+    status: "merged",
+    recordedAt: "2026-09-05T08:09:10Z",
+  }];
+
+  assert.deepEqual(parseTraceLinks(stringifyTraceLinks(links)), links);
 });
 
 test("formats weighted project progress for the project cockpit", () => {

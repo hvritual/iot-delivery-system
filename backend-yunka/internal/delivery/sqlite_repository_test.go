@@ -56,6 +56,45 @@ func TestSQLiteRepositoryPersistsItemsAcrossReopen(t *testing.T) {
 	}
 }
 
+func TestSQLiteRepositoryRoundTripsIoTAndTraceFieldsAcrossReopen(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	databasePath := filepath.Join(t.TempDir(), "delivery-fields.db")
+	repository, err := NewSQLiteRepository(databasePath)
+	if err != nil {
+		t.Fatalf("open sqlite repository: %v", err)
+	}
+	recordedAt := time.Date(2026, 9, 5, 8, 9, 10, 0, time.UTC)
+	created, err := NewService(repository, nil).Create(ctx, CreateInput{
+		Title: "字段零丢失验收", Board: BoardResearchDelivery, Owner: "研发负责人",
+		IoTBindings: []IoTBinding{{Kind: IoTBindingDevice, Reference: "SN-001", Label: "测试机", Attributes: map[string]string{"site": "lab-a", "region": "cn-east"}}},
+		TraceLinks:  []TraceLink{{Kind: TraceBuild, Reference: "build-9", Title: "固件构建", URL: "https://example.test/build-9", Status: "passed", RecordedAt: recordedAt}},
+	})
+	if err != nil {
+		t.Fatalf("create item with IoT and trace fields: %v", err)
+	}
+	if err := repository.Close(); err != nil {
+		t.Fatalf("close first repository: %v", err)
+	}
+
+	reopened, err := NewSQLiteRepository(databasePath)
+	if err != nil {
+		t.Fatalf("reopen sqlite repository: %v", err)
+	}
+	defer reopened.Close()
+	stored, err := reopened.Get(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("get persisted item: %v", err)
+	}
+	if len(stored.IoTBindings) != 1 || stored.IoTBindings[0].Kind != IoTBindingDevice || stored.IoTBindings[0].Reference != "SN-001" || stored.IoTBindings[0].Label != "测试机" || stored.IoTBindings[0].Attributes["site"] != "lab-a" || stored.IoTBindings[0].Attributes["region"] != "cn-east" {
+		t.Fatalf("stored IoT bindings = %#v, want all fields preserved", stored.IoTBindings)
+	}
+	if len(stored.TraceLinks) != 1 || stored.TraceLinks[0].Kind != TraceBuild || stored.TraceLinks[0].Reference != "build-9" || stored.TraceLinks[0].Title != "固件构建" || stored.TraceLinks[0].URL != "https://example.test/build-9" || stored.TraceLinks[0].Status != "passed" || !stored.TraceLinks[0].RecordedAt.Equal(recordedAt) {
+		t.Fatalf("stored trace links = %#v, want all fields preserved", stored.TraceLinks)
+	}
+}
+
 func TestSQLiteRepositoryWaitsForConcurrentWriterInsteadOfFailingBusy(t *testing.T) {
 	repository, err := NewSQLiteRepository(filepath.Join(t.TempDir(), "delivery.db"))
 	if err != nil {
