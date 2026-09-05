@@ -905,6 +905,13 @@ func TestOperationsPlanningCreatesUseGeneratedContractsAndPersistResponses(t *te
 	if err != nil || persistedRelease != release {
 		t.Fatalf("persisted release = %#v, %v; want %#v", persistedRelease, err, release)
 	}
+	releases, err := operations.ListReleases(administrator, project.ID)
+	if err != nil {
+		t.Fatalf("list releases through generated operation: %v", err)
+	}
+	if len(releases) != 1 || releases[0] != release {
+		t.Fatalf("listed releases = %#v, want %#v", releases, []delivery.Release{release})
+	}
 
 	sprint, err := operations.CreateSprint(administrator, delivery.SprintInput{ProjectID: project.ID, Name: "Sprint 1", Goal: "合同收口", StartDate: "2026-09-03", EndDate: "2026-09-10", Status: "active"})
 	if err != nil {
@@ -917,6 +924,13 @@ func TestOperationsPlanningCreatesUseGeneratedContractsAndPersistResponses(t *te
 	if err != nil || persistedSprint != sprint {
 		t.Fatalf("persisted sprint = %#v, %v; want %#v", persistedSprint, err, sprint)
 	}
+	sprints, err := operations.ListSprints(administrator, project.ID)
+	if err != nil {
+		t.Fatalf("list sprints through generated operation: %v", err)
+	}
+	if len(sprints) != 1 || sprints[0] != sprint {
+		t.Fatalf("listed sprints = %#v, want %#v", sprints, []delivery.Sprint{sprint})
+	}
 
 	milestone, err := operations.CreateMilestone(administrator, delivery.MilestoneInput{ProjectID: project.ID, Name: "合同完成", TargetDate: "2026-09-15", Status: "planned", Description: "发布前检查"})
 	if err != nil {
@@ -928,6 +942,13 @@ func TestOperationsPlanningCreatesUseGeneratedContractsAndPersistResponses(t *te
 	persistedMilestone, err := repository.GetMilestone(ctx, milestone.ID)
 	if err != nil || persistedMilestone != milestone {
 		t.Fatalf("persisted milestone = %#v, %v; want %#v", persistedMilestone, err, milestone)
+	}
+	milestones, err := operations.ListMilestones(administrator, project.ID)
+	if err != nil {
+		t.Fatalf("list milestones through generated operation: %v", err)
+	}
+	if len(milestones) != 1 || milestones[0] != milestone {
+		t.Fatalf("listed milestones = %#v, want %#v", milestones, []delivery.Milestone{milestone})
 	}
 
 	snapshot, err := store.Snapshot(ctx)

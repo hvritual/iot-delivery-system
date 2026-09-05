@@ -8,6 +8,7 @@ import (
 	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/policy"
 	"github.com/hvritual/yunka.io/pkg/operationplan"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 func TestGeneratedRPCOperationPlansRemainCanonical(t *testing.T) {
@@ -19,7 +20,7 @@ func TestGeneratedRPCOperationPlansRemainCanonical(t *testing.T) {
 
 	const (
 		serviceName       = "iot.delivery.v1.DeliveryService"
-		generatedRPCCount = 13
+		generatedRPCCount = 16
 	)
 
 	services := deliveryv1.File_iot_delivery_proto.Services()
@@ -32,6 +33,11 @@ func TestGeneratedRPCOperationPlansRemainCanonical(t *testing.T) {
 	}
 	if got := service.Methods().Len(); got != generatedRPCCount {
 		t.Fatalf("generated descriptor RPC count = %d, want %d", got, generatedRPCCount)
+	}
+	for _, methodName := range []string{"ListReleases", "ListSprints", "ListMilestones"} {
+		if method := service.Methods().ByName(protoreflect.Name(methodName)); method == nil {
+			t.Errorf("generated descriptor is missing %s", methodName)
+		}
 	}
 
 	filePlans, err := operationplan.Load(filepath.Join("..", "..", "contracts", "generated", "operation-plans.json"))
