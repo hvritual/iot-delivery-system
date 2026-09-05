@@ -19,22 +19,34 @@ import (
 
 var errMCPUnauthenticated = errors.New("MCP principal is not authenticated")
 
+type PrincipalResolver func(context.Context) (identity.Principal, error)
+
 type server struct {
-	operations *application.Operations
-	principal  identity.Principal
+	operations       *application.Operations
+	principalResolver PrincipalResolver
 }
 
-// New creates an in-process MCP server. Run it over stdio from the local
-// command; it never exposes a remote MCP endpoint or sends notifications to a
-// third party by itself.
+// New preserves the explicit static-principal development compatibility path.
+// Local-member MCP should use NewWithPrincipalResolver so revocation is checked
+// for every tool invocation instead of freezing identity at process startup.
 func New(operations *application.Operations, principal identity.Principal) *mcp.Server {
+	principal = principal.Clone()
+	return NewWithPrincipalResolver(operations, func(context.Context) (identity.Principal, error) {
+		return principal.Clone(), nil
+	})
+}
+
+// NewWithPrincipalResolver resolves a Principal for every tool invocation.
+// The resolver is expected to re-verify a YU-22 access JWT or opaque session;
+// failures are normalized to MCP unauthenticated before application invocation.
+func NewWithPrincipalResolver(operations *application.Operations, resolver PrincipalResolver) *mcp.Server {
 	implementation := mcp.NewServer(&mcp.Implementation{
 		Name:    "iot-delivery-system",
 		Version: "0.2.0",
 	}, &mcp.ServerOptions{
 		Instructions: "用于本地 IoT 研发交付生命周期管理。写操作仅改变本地交付系统；创建相似任务前必须先确认。",
 	})
-	current := &server{operations: operations, principal: principal}
+	current := &server{operations: operations, principalResolver: resolver}
 	current.addTools(implementation)
 	return implementation
 }
@@ -103,16 +115,21 @@ func normalizeToolError(err error) error {
 }
 
 func (server *server) toolContext(ctx context.Context) (context.Context, error) {
-	if server == nil || server.operations == nil {
+	if server == nil || server.operations == nil || server.principalResolver == nil {
 		return nil, errors.New("delivery MCP operations are not configured")
 	}
-	if !server.principal.Authenticated {
+	principal, err := server.principalResolver(ctx)
+	if err != nil || !principal.Authenticated {
 		return nil, errMCPUnauthenticated
 	}
-	ctx = identity.WithPrincipal(ctx, server.principal)
-	if _, exists := runtimecontext.MetadataFrom(ctx); !exists {
-		ctx = runtimecontext.WithMetadata(ctx, runtimecontext.Metadata{Transport: "mcp", Protocol: "mcp"})
+	ctx = identity.WithPrincipal(ctx, principal)
+	metadata, exists := runtimecontext.MetadataFrom(ctx)
+	if !exists {
+		metadata = runtimecontext.Metadata{}
 	}
+	metadata.Transport = "mcp"
+	metadata.Protocol = "mcp"
+	ctx = runtimecontext.WithMetadata(ctx, metadata)
 	return ctx, nil
 }
 
@@ -132,457 +149,129 @@ func (server *server) createProject(ctx context.Context, _ *mcp.CallToolRequest,
 	if err != nil {
 		return nil, projectOutput{}, err
 	}
-	project, err := server.operations.CreateProject(ctx, delivery.ProjectInput{
-		Name:        args.Name,
-		Board:       args.Board,
-		Owner:       args.Owner,
-		Description: args.Description,
-	})
+	project, err := server.operations.CreateProject(ctx, delivery.ProjectInput{Name: args.Name, Board: args.Board, Owner: args.Owner, Description: args.Description})
 	return nil, projectOutput{Project: project}, err
 }
 
-type projectsOutput struct {
-	Projects []delivery.Project `json:"projects"`
-}
+type projectsOutput struct { Projects []delivery.Project `json:"projects"` }
 
 func (server *server) listProjects(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, projectsOutput, error) {
 	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, projectsOutput{}, err
-	}
+	if err != nil { return nil, projectsOutput{}, err }
 	projects, err := server.operations.ListProjects(ctx)
 	return nil, projectsOutput{Projects: projects}, err
 }
 
 type listWorkItemsArgs struct {
-	ProjectID   string                `json:"projectId,omitempty"`
-	Board       delivery.Board        `json:"board,omitempty"`
-	Owner       string                `json:"owner,omitempty"`
-	Status      delivery.Status       `json:"status,omitempty"`
-	Kind        delivery.WorkItemKind `json:"kind,omitempty"`
-	ReleaseID   string                `json:"releaseId,omitempty"`
-	SprintID    string                `json:"sprintId,omitempty"`
-	MilestoneID string                `json:"milestoneId,omitempty"`
-	Query       string                `json:"query,omitempty"`
+	ProjectID string `json:"projectId,omitempty"`
+	Board delivery.Board `json:"board,omitempty"`
+	Owner string `json:"owner,omitempty"`
+	Status delivery.Status `json:"status,omitempty"`
+	Kind delivery.WorkItemKind `json:"kind,omitempty"`
+	ReleaseID string `json:"releaseId,omitempty"`
+	SprintID string `json:"sprintId,omitempty"`
+	MilestoneID string `json:"milestoneId,omitempty"`
+	Query string `json:"query,omitempty"`
 }
-
-type workItemsOutput struct {
-	Items []delivery.WorkItem `json:"items"`
-}
-
-type getWorkItemArgs struct {
-	ID string `json:"id" jsonschema:"the work item ID"`
-}
-
-type getWorkItemOutput struct {
-	Item delivery.WorkItem `json:"item"`
-}
+type workItemsOutput struct { Items []delivery.WorkItem `json:"items"` }
+type getWorkItemArgs struct { ID string `json:"id" jsonschema:"the work item ID"` }
+type getWorkItemOutput struct { Item delivery.WorkItem `json:"item"` }
 
 func (server *server) getWorkItem(ctx context.Context, _ *mcp.CallToolRequest, args getWorkItemArgs) (*mcp.CallToolResult, getWorkItemOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, getWorkItemOutput{}, err
-	}
-	item, err := server.operations.Get(ctx, args.ID)
-	return nil, getWorkItemOutput{Item: item}, err
+	ctx, err := server.toolContext(ctx); if err != nil { return nil, getWorkItemOutput{}, err }
+	item, err := server.operations.Get(ctx, args.ID); return nil, getWorkItemOutput{Item: item}, err
 }
-
 func (server *server) listWorkItems(ctx context.Context, _ *mcp.CallToolRequest, args listWorkItemsArgs) (*mcp.CallToolResult, workItemsOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, workItemsOutput{}, err
-	}
-	filter := delivery.WorkItemFilter{
-		ProjectID: args.ProjectID, Board: args.Board, Owner: args.Owner, Status: args.Status, Kind: args.Kind,
-		ReleaseID: args.ReleaseID, SprintID: args.SprintID, MilestoneID: args.MilestoneID, Query: args.Query,
-	}
-	items, err := server.operations.Search(ctx, filter)
-	if err != nil {
-		return nil, workItemsOutput{}, err
-	}
+	ctx, err := server.toolContext(ctx); if err != nil { return nil, workItemsOutput{}, err }
+	filter := delivery.WorkItemFilter{ProjectID: args.ProjectID, Board: args.Board, Owner: args.Owner, Status: args.Status, Kind: args.Kind, ReleaseID: args.ReleaseID, SprintID: args.SprintID, MilestoneID: args.MilestoneID, Query: args.Query}
+	items, err := server.operations.Search(ctx, filter); if err != nil { return nil, workItemsOutput{}, err }
 	return nil, workItemsOutput{Items: items}, nil
 }
 
-type similarArgs struct {
-	Title     string                `json:"title"`
-	Board     delivery.Board        `json:"board"`
-	ProjectID string                `json:"projectId,omitempty"`
-	Kind      delivery.WorkItemKind `json:"kind,omitempty"`
-	Limit     int                   `json:"limit,omitempty"`
-}
-
-type similarOutput struct {
-	Candidates []delivery.SimilarityCandidate `json:"candidates"`
-}
-
+type similarArgs struct { Title string `json:"title"`; Board delivery.Board `json:"board"`; ProjectID string `json:"projectId,omitempty"`; Kind delivery.WorkItemKind `json:"kind,omitempty"`; Limit int `json:"limit,omitempty"` }
+type similarOutput struct { Candidates []delivery.SimilarityCandidate `json:"candidates"` }
 func (server *server) findSimilar(ctx context.Context, _ *mcp.CallToolRequest, args similarArgs) (*mcp.CallToolResult, similarOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, similarOutput{}, err
-	}
-	candidates, err := server.operations.FindSimilar(ctx, delivery.SimilarityQuery(args))
-	return nil, similarOutput{Candidates: candidates}, err
+	ctx, err := server.toolContext(ctx); if err != nil { return nil, similarOutput{}, err }
+	candidates, err := server.operations.FindSimilar(ctx, delivery.SimilarityQuery(args)); return nil, similarOutput{Candidates: candidates}, err
 }
 
 type createWorkItemArgs struct {
-	Title           string                        `json:"title"`
-	Board           delivery.Board                `json:"board"`
-	ProjectID       string                        `json:"projectId,omitempty"`
-	ParentID        string                        `json:"parentId,omitempty"`
-	Kind            delivery.WorkItemKind         `json:"kind,omitempty"`
-	Dependencies    []delivery.WorkItemDependency `json:"dependencies,omitempty"`
-	Type            string                        `json:"type,omitempty"`
-	Owner           string                        `json:"owner"`
-	Priority        delivery.Priority             `json:"priority,omitempty"`
-	ReleaseID       string                        `json:"releaseId,omitempty"`
-	SprintID        string                        `json:"sprintId,omitempty"`
-	MilestoneID     string                        `json:"milestoneId,omitempty"`
-	StartDate       string                        `json:"startDate,omitempty"`
-	DueDate         string                        `json:"dueDate,omitempty"`
-	EstimatePoints  float64                       `json:"estimatePoints,omitempty"`
-	ProgressPercent int                           `json:"progressPercent,omitempty"`
-	Plan            string                        `json:"plan,omitempty"`
-	Solution        string                        `json:"solution,omitempty"`
-	IoTBindings     []delivery.IoTBinding         `json:"iotBindings,omitempty"`
-	TraceLinks      []delivery.TraceLink          `json:"traceLinks,omitempty"`
-	ConfirmSimilar  bool                          `json:"confirmSimilar,omitempty" jsonschema:"set true only after reviewing returned similar candidates"`
+	Title string `json:"title"`; Board delivery.Board `json:"board"`; ProjectID string `json:"projectId,omitempty"`; ParentID string `json:"parentId,omitempty"`; Kind delivery.WorkItemKind `json:"kind,omitempty"`; Dependencies []delivery.WorkItemDependency `json:"dependencies,omitempty"`; Type string `json:"type,omitempty"`; Owner string `json:"owner"`; Priority delivery.Priority `json:"priority,omitempty"`; ReleaseID string `json:"releaseId,omitempty"`; SprintID string `json:"sprintId,omitempty"`; MilestoneID string `json:"milestoneId,omitempty"`; StartDate string `json:"startDate,omitempty"`; DueDate string `json:"dueDate,omitempty"`; EstimatePoints float64 `json:"estimatePoints,omitempty"`; ProgressPercent int `json:"progressPercent,omitempty"`; Plan string `json:"plan,omitempty"`; Solution string `json:"solution,omitempty"`; IoTBindings []delivery.IoTBinding `json:"iotBindings,omitempty"`; TraceLinks []delivery.TraceLink `json:"traceLinks,omitempty"`; ConfirmSimilar bool `json:"confirmSimilar,omitempty" jsonschema:"set true only after reviewing returned similar candidates"`
 }
-
-type createWorkItemOutput struct {
-	Created              delivery.WorkItem              `json:"created,omitempty"`
-	SimilarCandidates    []delivery.SimilarityCandidate `json:"similarCandidates,omitempty"`
-	RequiresConfirmation bool                           `json:"requiresConfirmation"`
-}
-
+type createWorkItemOutput struct { Created delivery.WorkItem `json:"created,omitempty"`; SimilarCandidates []delivery.SimilarityCandidate `json:"similarCandidates,omitempty"`; RequiresConfirmation bool `json:"requiresConfirmation"` }
 func (server *server) createWorkItem(ctx context.Context, _ *mcp.CallToolRequest, args createWorkItemArgs) (*mcp.CallToolResult, createWorkItemOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, createWorkItemOutput{}, err
-	}
-	kind := args.Kind
-	if kind == "" {
-		kind = delivery.WorkItemKindTask
-	}
-	candidates, err := server.operations.FindSimilar(ctx, delivery.SimilarityQuery{
-		Title: args.Title, Board: args.Board, ProjectID: args.ProjectID, Kind: kind, Limit: 5,
-	})
-	if err != nil {
-		return nil, createWorkItemOutput{}, err
-	}
-	if len(candidates) > 0 && !args.ConfirmSimilar {
-		return nil, createWorkItemOutput{SimilarCandidates: candidates, RequiresConfirmation: true}, nil
-	}
-	created, err := server.operations.Create(ctx, delivery.CreateInput{
-		Title: args.Title, Board: args.Board, ProjectID: args.ProjectID, ParentID: args.ParentID, Kind: kind,
-		Dependencies: args.Dependencies, Type: args.Type, Owner: args.Owner, Priority: args.Priority,
-		ReleaseID: args.ReleaseID, SprintID: args.SprintID, MilestoneID: args.MilestoneID,
-		StartDate: args.StartDate, DueDate: args.DueDate, EstimatePoints: args.EstimatePoints,
-		ProgressPercent: args.ProgressPercent, Plan: args.Plan, Solution: args.Solution,
-		IoTBindings: args.IoTBindings, TraceLinks: args.TraceLinks,
-	})
+	ctx, err := server.toolContext(ctx); if err != nil { return nil, createWorkItemOutput{}, err }
+	kind := args.Kind; if kind == "" { kind = delivery.WorkItemKindTask }
+	candidates, err := server.operations.FindSimilar(ctx, delivery.SimilarityQuery{Title: args.Title, Board: args.Board, ProjectID: args.ProjectID, Kind: kind, Limit: 5}); if err != nil { return nil, createWorkItemOutput{}, err }
+	if len(candidates) > 0 && !args.ConfirmSimilar { return nil, createWorkItemOutput{SimilarCandidates: candidates, RequiresConfirmation: true}, nil }
+	created, err := server.operations.Create(ctx, delivery.CreateInput{Title: args.Title, Board: args.Board, ProjectID: args.ProjectID, ParentID: args.ParentID, Kind: kind, Dependencies: args.Dependencies, Type: args.Type, Owner: args.Owner, Priority: args.Priority, ReleaseID: args.ReleaseID, SprintID: args.SprintID, MilestoneID: args.MilestoneID, StartDate: args.StartDate, DueDate: args.DueDate, EstimatePoints: args.EstimatePoints, ProgressPercent: args.ProgressPercent, Plan: args.Plan, Solution: args.Solution, IoTBindings: args.IoTBindings, TraceLinks: args.TraceLinks})
 	return nil, createWorkItemOutput{Created: created}, err
 }
 
-type updateWorkItemArgs struct {
-	ID               string                         `json:"id"`
-	ExpectedRevision int64                          `json:"expectedRevision"`
-	Title            *string                        `json:"title,omitempty"`
-	Owner            *string                        `json:"owner,omitempty"`
-	Priority         *delivery.Priority             `json:"priority,omitempty"`
-	ReleaseID        *string                        `json:"releaseId,omitempty"`
-	SprintID         *string                        `json:"sprintId,omitempty"`
-	MilestoneID      *string                        `json:"milestoneId,omitempty"`
-	StartDate        *string                        `json:"startDate,omitempty"`
-	DueDate          *string                        `json:"dueDate,omitempty"`
-	EstimatePoints   *float64                       `json:"estimatePoints,omitempty"`
-	ProgressPercent  *int                           `json:"progressPercent,omitempty"`
-	Dependencies     *[]delivery.WorkItemDependency `json:"dependencies,omitempty"`
-	IoTBindings      *[]delivery.IoTBinding         `json:"iotBindings,omitempty"`
-	TraceLinks       *[]delivery.TraceLink          `json:"traceLinks,omitempty"`
-}
-
-type workItemOutput struct {
-	Item delivery.WorkItem `json:"item"`
-}
-
+type updateWorkItemArgs struct { ID string `json:"id"`; ExpectedRevision int64 `json:"expectedRevision"`; Title *string `json:"title,omitempty"`; Owner *string `json:"owner,omitempty"`; Priority *delivery.Priority `json:"priority,omitempty"`; ReleaseID *string `json:"releaseId,omitempty"`; SprintID *string `json:"sprintId,omitempty"`; MilestoneID *string `json:"milestoneId,omitempty"`; StartDate *string `json:"startDate,omitempty"`; DueDate *string `json:"dueDate,omitempty"`; EstimatePoints *float64 `json:"estimatePoints,omitempty"`; ProgressPercent *int `json:"progressPercent,omitempty"`; Dependencies *[]delivery.WorkItemDependency `json:"dependencies,omitempty"`; IoTBindings *[]delivery.IoTBinding `json:"iotBindings,omitempty"`; TraceLinks *[]delivery.TraceLink `json:"traceLinks,omitempty"` }
+type workItemOutput struct { Item delivery.WorkItem `json:"item"` }
 func (server *server) updateWorkItem(ctx context.Context, _ *mcp.CallToolRequest, args updateWorkItemArgs) (*mcp.CallToolResult, workItemOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, workItemOutput{}, err
-	}
-	item, err := server.operations.UpdateWorkItem(ctx, args.ID, args.ExpectedRevision, delivery.WorkItemUpdate{
-		Title: args.Title, Owner: args.Owner, Priority: args.Priority, ReleaseID: args.ReleaseID, SprintID: args.SprintID,
-		MilestoneID: args.MilestoneID, StartDate: args.StartDate, DueDate: args.DueDate, EstimatePoints: args.EstimatePoints,
-		ProgressPercent: args.ProgressPercent, Dependencies: args.Dependencies, IoTBindings: args.IoTBindings, TraceLinks: args.TraceLinks,
-	})
+	ctx, err := server.toolContext(ctx); if err != nil { return nil, workItemOutput{}, err }
+	item, err := server.operations.UpdateWorkItem(ctx, args.ID, args.ExpectedRevision, delivery.WorkItemUpdate{Title: args.Title, Owner: args.Owner, Priority: args.Priority, ReleaseID: args.ReleaseID, SprintID: args.SprintID, MilestoneID: args.MilestoneID, StartDate: args.StartDate, DueDate: args.DueDate, EstimatePoints: args.EstimatePoints, ProgressPercent: args.ProgressPercent, Dependencies: args.Dependencies, IoTBindings: args.IoTBindings, TraceLinks: args.TraceLinks})
 	return nil, workItemOutput{Item: item}, err
 }
 
-type addCommentArgs struct {
-	ID               string `json:"id"`
-	ExpectedRevision int64  `json:"expectedRevision"`
-	Body             string `json:"body"`
-}
+type addCommentArgs struct { ID string `json:"id"`; ExpectedRevision int64 `json:"expectedRevision"`; Body string `json:"body"` }
+type commentOutput struct { Comment delivery.Comment `json:"comment"` }
+func (server *server) addComment(ctx context.Context, _ *mcp.CallToolRequest, args addCommentArgs) (*mcp.CallToolResult, commentOutput, error) { ctx, err := server.toolContext(ctx); if err != nil { return nil, commentOutput{}, err }; comment, err := server.operations.AddComment(ctx, args.ID, args.ExpectedRevision, delivery.CommentInput{Body: args.Body}); return nil, commentOutput{Comment: comment}, err }
 
-type commentOutput struct {
-	Comment delivery.Comment `json:"comment"`
-}
+type advanceGateArgs struct { ID string `json:"id"`; ExpectedRevision int64 `json:"expectedRevision"`; Gate delivery.Gate `json:"gate"`; Evidence []evidenceArgs `json:"evidence"` }
+type evidenceArgs struct { Kind string `json:"kind"`; Title string `json:"title"`; Reference string `json:"reference,omitempty"`; RecordedAt *time.Time `json:"recordedAt,omitempty"` }
+func (args evidenceArgs) toDeliveryEvidence() delivery.Evidence { value := delivery.Evidence{Kind: args.Kind, Title: args.Title, Reference: args.Reference}; if args.RecordedAt != nil { value.RecordedAt = args.RecordedAt.UTC() }; return value }
+func (server *server) advanceGate(ctx context.Context, _ *mcp.CallToolRequest, args advanceGateArgs) (*mcp.CallToolResult, workItemOutput, error) { ctx, err := server.toolContext(ctx); if err != nil { return nil, workItemOutput{}, err }; evidence := make([]delivery.Evidence, 0, len(args.Evidence)); for _, value := range args.Evidence { evidence = append(evidence, value.toDeliveryEvidence()) }; item, err := server.operations.AdvanceGate(ctx, args.ID, args.ExpectedRevision, args.Gate, evidence); return nil, workItemOutput{Item: item}, err }
 
-func (server *server) addComment(ctx context.Context, _ *mcp.CallToolRequest, args addCommentArgs) (*mcp.CallToolResult, commentOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, commentOutput{}, err
-	}
-	comment, err := server.operations.AddComment(ctx, args.ID, args.ExpectedRevision, delivery.CommentInput{Body: args.Body})
-	return nil, commentOutput{Comment: comment}, err
-}
-
-type advanceGateArgs struct {
-	ID               string         `json:"id"`
-	ExpectedRevision int64          `json:"expectedRevision"`
-	Gate             delivery.Gate  `json:"gate"`
-	Evidence         []evidenceArgs `json:"evidence"`
-}
-
-// evidenceArgs keeps MCP's optional timestamp semantics aligned with the
-// generated gRPC request. A missing timestamp is passed through as a zero
-// time so the delivery service can assign its normal recorded time.
-type evidenceArgs struct {
-	Kind       string     `json:"kind"`
-	Title      string     `json:"title"`
-	Reference  string     `json:"reference,omitempty"`
-	RecordedAt *time.Time `json:"recordedAt,omitempty"`
-}
-
-func (args evidenceArgs) toDeliveryEvidence() delivery.Evidence {
-	value := delivery.Evidence{Kind: args.Kind, Title: args.Title, Reference: args.Reference}
-	if args.RecordedAt != nil {
-		value.RecordedAt = args.RecordedAt.UTC()
-	}
-	return value
-}
-
-func (server *server) advanceGate(ctx context.Context, _ *mcp.CallToolRequest, args advanceGateArgs) (*mcp.CallToolResult, workItemOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, workItemOutput{}, err
-	}
-	evidence := make([]delivery.Evidence, 0, len(args.Evidence))
-	for _, value := range args.Evidence {
-		evidence = append(evidence, value.toDeliveryEvidence())
-	}
-	item, err := server.operations.AdvanceGate(ctx, args.ID, args.ExpectedRevision, args.Gate, evidence)
-	return nil, workItemOutput{Item: item}, err
-}
-
-type closeWorkItemArgs struct {
-	ID               string `json:"id"`
-	ExpectedRevision int64  `json:"expectedRevision"`
-	Retrospective    string `json:"retrospective"`
-}
-
-func (server *server) closeWorkItem(ctx context.Context, _ *mcp.CallToolRequest, args closeWorkItemArgs) (*mcp.CallToolResult, workItemOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, workItemOutput{}, err
-	}
-	item, err := server.operations.Close(ctx, args.ID, args.ExpectedRevision, args.Retrospective)
-	return nil, workItemOutput{Item: item}, err
-}
+type closeWorkItemArgs struct { ID string `json:"id"`; ExpectedRevision int64 `json:"expectedRevision"`; Retrospective string `json:"retrospective"` }
+func (server *server) closeWorkItem(ctx context.Context, _ *mcp.CallToolRequest, args closeWorkItemArgs) (*mcp.CallToolResult, workItemOutput, error) { ctx, err := server.toolContext(ctx); if err != nil { return nil, workItemOutput{}, err }; item, err := server.operations.Close(ctx, args.ID, args.ExpectedRevision, args.Retrospective); return nil, workItemOutput{Item: item}, err }
 
 type createReleaseArgs delivery.ReleaseInput
-type releaseOutput struct {
-	Release delivery.Release `json:"release"`
-}
-
-type planningListArgs struct {
-	ProjectID string `json:"projectId"`
-}
-
-type releasesOutput struct {
-	Releases []delivery.Release `json:"releases"`
-}
-
-func (server *server) createRelease(ctx context.Context, _ *mcp.CallToolRequest, args createReleaseArgs) (*mcp.CallToolResult, releaseOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, releaseOutput{}, err
-	}
-	release, err := server.operations.CreateRelease(ctx, delivery.ReleaseInput(args))
-	return nil, releaseOutput{Release: release}, err
-}
-
-func (server *server) listReleases(ctx context.Context, _ *mcp.CallToolRequest, args planningListArgs) (*mcp.CallToolResult, releasesOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, releasesOutput{}, err
-	}
-	values, err := server.operations.ListReleases(ctx, args.ProjectID)
-	return nil, releasesOutput{Releases: values}, err
-}
+type releaseOutput struct { Release delivery.Release `json:"release"` }
+type planningListArgs struct { ProjectID string `json:"projectId"` }
+type releasesOutput struct { Releases []delivery.Release `json:"releases"` }
+func (server *server) createRelease(ctx context.Context, _ *mcp.CallToolRequest, args createReleaseArgs) (*mcp.CallToolResult, releaseOutput, error) { ctx, err := server.toolContext(ctx); if err != nil { return nil, releaseOutput{}, err }; release, err := server.operations.CreateRelease(ctx, delivery.ReleaseInput(args)); return nil, releaseOutput{Release: release}, err }
+func (server *server) listReleases(ctx context.Context, _ *mcp.CallToolRequest, args planningListArgs) (*mcp.CallToolResult, releasesOutput, error) { ctx, err := server.toolContext(ctx); if err != nil { return nil, releasesOutput{}, err }; values, err := server.operations.ListReleases(ctx, args.ProjectID); return nil, releasesOutput{Releases: values}, err }
 
 type createSprintArgs delivery.SprintInput
-type sprintOutput struct {
-	Sprint delivery.Sprint `json:"sprint"`
-}
-
-type sprintsOutput struct {
-	Sprints []delivery.Sprint `json:"sprints"`
-}
-
-func (server *server) createSprint(ctx context.Context, _ *mcp.CallToolRequest, args createSprintArgs) (*mcp.CallToolResult, sprintOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, sprintOutput{}, err
-	}
-	sprint, err := server.operations.CreateSprint(ctx, delivery.SprintInput(args))
-	return nil, sprintOutput{Sprint: sprint}, err
-}
-
-func (server *server) listSprints(ctx context.Context, _ *mcp.CallToolRequest, args planningListArgs) (*mcp.CallToolResult, sprintsOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, sprintsOutput{}, err
-	}
-	values, err := server.operations.ListSprints(ctx, args.ProjectID)
-	return nil, sprintsOutput{Sprints: values}, err
-}
+type sprintOutput struct { Sprint delivery.Sprint `json:"sprint"` }
+type sprintsOutput struct { Sprints []delivery.Sprint `json:"sprints"` }
+func (server *server) createSprint(ctx context.Context, _ *mcp.CallToolRequest, args createSprintArgs) (*mcp.CallToolResult, sprintOutput, error) { ctx, err := server.toolContext(ctx); if err != nil { return nil, sprintOutput{}, err }; sprint, err := server.operations.CreateSprint(ctx, delivery.SprintInput(args)); return nil, sprintOutput{Sprint: sprint}, err }
+func (server *server) listSprints(ctx context.Context, _ *mcp.CallToolRequest, args planningListArgs) (*mcp.CallToolResult, sprintsOutput, error) { ctx, err := server.toolContext(ctx); if err != nil { return nil, sprintsOutput{}, err }; values, err := server.operations.ListSprints(ctx, args.ProjectID); return nil, sprintsOutput{Sprints: values}, err }
 
 type createMilestoneArgs delivery.MilestoneInput
-type milestoneOutput struct {
-	Milestone delivery.Milestone `json:"milestone"`
-}
+type milestoneOutput struct { Milestone delivery.Milestone `json:"milestone"` }
+type milestonesOutput struct { Milestones []delivery.Milestone `json:"milestones"` }
+func (server *server) createMilestone(ctx context.Context, _ *mcp.CallToolRequest, args createMilestoneArgs) (*mcp.CallToolResult, milestoneOutput, error) { ctx, err := server.toolContext(ctx); if err != nil { return nil, milestoneOutput{}, err }; milestone, err := server.operations.CreateMilestone(ctx, delivery.MilestoneInput(args)); return nil, milestoneOutput{Milestone: milestone}, err }
+func (server *server) listMilestones(ctx context.Context, _ *mcp.CallToolRequest, args planningListArgs) (*mcp.CallToolResult, milestonesOutput, error) { ctx, err := server.toolContext(ctx); if err != nil { return nil, milestonesOutput{}, err }; values, err := server.operations.ListMilestones(ctx, args.ProjectID); return nil, milestonesOutput{Milestones: values}, err }
 
-type milestonesOutput struct {
-	Milestones []delivery.Milestone `json:"milestones"`
-}
+type memberWeekArgs struct { Member string `json:"member"`; WeekStart string `json:"weekStart,omitempty"` }
+type memberWeekOutput struct { Week delivery.MemberWeek `json:"week"` }
+func (server *server) memberWeek(ctx context.Context, _ *mcp.CallToolRequest, args memberWeekArgs) (*mcp.CallToolResult, memberWeekOutput, error) { ctx, err := server.toolContext(ctx); if err != nil { return nil, memberWeekOutput{}, err }; week, err := server.operations.MemberWeek(ctx, args.Member, args.WeekStart); return nil, memberWeekOutput{Week: week}, err }
 
-func (server *server) createMilestone(ctx context.Context, _ *mcp.CallToolRequest, args createMilestoneArgs) (*mcp.CallToolResult, milestoneOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, milestoneOutput{}, err
-	}
-	milestone, err := server.operations.CreateMilestone(ctx, delivery.MilestoneInput(args))
-	return nil, milestoneOutput{Milestone: milestone}, err
-}
+type projectProgressArgs struct { ProjectID string `json:"projectId"` }
+type projectProgressOutput struct { Progress delivery.ProjectProgress `json:"progress"` }
+func (server *server) projectProgress(ctx context.Context, _ *mcp.CallToolRequest, args projectProgressArgs) (*mcp.CallToolResult, projectProgressOutput, error) { ctx, err := server.toolContext(ctx); if err != nil { return nil, projectProgressOutput{}, err }; progress, err := server.operations.ProjectProgress(ctx, args.ProjectID); return nil, projectProgressOutput{Progress: progress}, err }
+type projectScheduleOutput struct { Schedule delivery.ProjectSchedule `json:"schedule"` }
+func (server *server) projectSchedule(ctx context.Context, _ *mcp.CallToolRequest, args projectProgressArgs) (*mcp.CallToolResult, projectScheduleOutput, error) { ctx, err := server.toolContext(ctx); if err != nil { return nil, projectScheduleOutput{}, err }; schedule, err := server.operations.ProjectSchedule(ctx, args.ProjectID); return nil, projectScheduleOutput{Schedule: schedule}, err }
 
-func (server *server) listMilestones(ctx context.Context, _ *mcp.CallToolRequest, args planningListArgs) (*mcp.CallToolResult, milestonesOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, milestonesOutput{}, err
-	}
-	values, err := server.operations.ListMilestones(ctx, args.ProjectID)
-	return nil, milestonesOutput{Milestones: values}, err
-}
+type listNotificationsArgs struct { Limit int `json:"limit,omitempty"` }
+type notificationsOutput struct { Notifications []notification.Notification `json:"notifications"` }
+func (server *server) listNotifications(ctx context.Context, _ *mcp.CallToolRequest, args listNotificationsArgs) (*mcp.CallToolResult, notificationsOutput, error) { ctx, err := server.toolContext(ctx); if err != nil { return nil, notificationsOutput{}, err }; values, err := server.operations.ListNotifications(ctx, args.Limit); return nil, notificationsOutput{Notifications: values}, err }
 
-type memberWeekArgs struct {
-	Member    string `json:"member"`
-	WeekStart string `json:"weekStart,omitempty"`
-}
-
-type memberWeekOutput struct {
-	Week delivery.MemberWeek `json:"week"`
-}
-
-func (server *server) memberWeek(ctx context.Context, _ *mcp.CallToolRequest, args memberWeekArgs) (*mcp.CallToolResult, memberWeekOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, memberWeekOutput{}, err
-	}
-	week, err := server.operations.MemberWeek(ctx, args.Member, args.WeekStart)
-	return nil, memberWeekOutput{Week: week}, err
-}
-
-type projectProgressArgs struct {
-	ProjectID string `json:"projectId"`
-}
-
-type projectProgressOutput struct {
-	Progress delivery.ProjectProgress `json:"progress"`
-}
-
-func (server *server) projectProgress(ctx context.Context, _ *mcp.CallToolRequest, args projectProgressArgs) (*mcp.CallToolResult, projectProgressOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, projectProgressOutput{}, err
-	}
-	progress, err := server.operations.ProjectProgress(ctx, args.ProjectID)
-	return nil, projectProgressOutput{Progress: progress}, err
-}
-
-type projectScheduleOutput struct {
-	Schedule delivery.ProjectSchedule `json:"schedule"`
-}
-
-func (server *server) projectSchedule(ctx context.Context, _ *mcp.CallToolRequest, args projectProgressArgs) (*mcp.CallToolResult, projectScheduleOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, projectScheduleOutput{}, err
-	}
-	schedule, err := server.operations.ProjectSchedule(ctx, args.ProjectID)
-	return nil, projectScheduleOutput{Schedule: schedule}, err
-}
-
-type listNotificationsArgs struct {
-	Limit int `json:"limit,omitempty"`
-}
-
-type notificationsOutput struct {
-	Notifications []notification.Notification `json:"notifications"`
-}
-
-func (server *server) listNotifications(ctx context.Context, _ *mcp.CallToolRequest, args listNotificationsArgs) (*mcp.CallToolResult, notificationsOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, notificationsOutput{}, err
-	}
-	values, err := server.operations.ListNotifications(ctx, args.Limit)
-	return nil, notificationsOutput{Notifications: values}, err
-}
-
-type saveViewArgs struct {
-	Name   string                  `json:"name"`
-	Filter delivery.WorkItemFilter `json:"filter"`
-}
-
-type savedViewOutput struct {
-	View delivery.SavedView `json:"view"`
-}
-
-func (server *server) saveView(ctx context.Context, _ *mcp.CallToolRequest, args saveViewArgs) (*mcp.CallToolResult, savedViewOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, savedViewOutput{}, err
-	}
-	view, err := server.operations.SaveView(ctx, delivery.SavedViewInput{Name: args.Name, Filter: args.Filter})
-	return nil, savedViewOutput{View: view}, err
-}
-
-type savedViewsOutput struct {
-	Views []delivery.SavedView `json:"views"`
-}
-
-func (server *server) listSavedViews(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, savedViewsOutput, error) {
-	ctx, err := server.toolContext(ctx)
-	if err != nil {
-		return nil, savedViewsOutput{}, err
-	}
-	views, err := server.operations.ListSavedViews(ctx)
-	return nil, savedViewsOutput{Views: views}, err
-}
+type saveViewArgs struct { Name string `json:"name"`; Filter delivery.WorkItemFilter `json:"filter"` }
+type savedViewOutput struct { View delivery.SavedView `json:"view"` }
+func (server *server) saveView(ctx context.Context, _ *mcp.CallToolRequest, args saveViewArgs) (*mcp.CallToolResult, savedViewOutput, error) { ctx, err := server.toolContext(ctx); if err != nil { return nil, savedViewOutput{}, err }; view, err := server.operations.SaveView(ctx, delivery.SavedViewInput{Name: args.Name, Filter: args.Filter}); return nil, savedViewOutput{View: view}, err }
+type savedViewsOutput struct { Views []delivery.SavedView `json:"views"` }
+func (server *server) listSavedViews(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, savedViewsOutput, error) { ctx, err := server.toolContext(ctx); if err != nil { return nil, savedViewsOutput{}, err }; views, err := server.operations.ListSavedViews(ctx); return nil, savedViewsOutput{Views: views}, err }
 
 func readTool(name, title, description string) *mcp.Tool {
 	falseValue := false
-	return &mcp.Tool{
-		Name: name, Title: title, Description: description,
-		Annotations: &mcp.ToolAnnotations{Title: title, ReadOnlyHint: true, DestructiveHint: &falseValue, OpenWorldHint: &falseValue, IdempotentHint: true},
-	}
+	return &mcp.Tool{Name: name, Title: title, Description: description, Annotations: &mcp.ToolAnnotations{Title: title, ReadOnlyHint: true, DestructiveHint: &falseValue, OpenWorldHint: &falseValue, IdempotentHint: true}}
 }
-
 func writeTool(name, title, description string) *mcp.Tool {
 	falseValue := false
-	return &mcp.Tool{
-		Name: name, Title: title, Description: description,
-		Annotations: &mcp.ToolAnnotations{Title: title, DestructiveHint: &falseValue, OpenWorldHint: &falseValue},
-	}
+	return &mcp.Tool{Name: name, Title: title, Description: description, Annotations: &mcp.ToolAnnotations{Title: title, DestructiveHint: &falseValue, OpenWorldHint: &falseValue}}
 }
