@@ -762,6 +762,68 @@ func TestProductionPlanningListsEnforceProjectAndTenantScopeAcrossRESTGRPCAndMCP
 	}
 }
 
+func TestProductionItemReadsKeepRESTAndMCPInsideTheSameProjectScope(t *testing.T) {
+	fixture := newAuthorizationMatrixFixture(t)
+	allowedProject, allowedItem := fixture.createProtectedItem(t)
+	admin := matrixPrincipal("admin")
+	adminContext := identity.WithPrincipal(t.Context(), admin)
+	otherProject, err := fixture.operations.CreateProject(adminContext, delivery.ProjectInput{Name: "Other", Board: delivery.BoardResearchDelivery, Owner: "admin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherItem, err := fixture.operations.Create(adminContext, delivery.CreateInput{Title: allowedItem.Title, Board: delivery.BoardResearchDelivery, ProjectID: otherProject.ID, Owner: "admin", Kind: delivery.WorkItemKindTask})
+	if err != nil {
+		t.Fatal(err)
+	}
+	viewer := matrixPrincipal("viewer")
+	beforeOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/api/items?query=Protected", nil).WithContext(identity.WithPrincipal(t.Context(), viewer))
+	recorder := httptest.NewRecorder()
+	fixture.handler.ServeHTTP(recorder, request)
+	var restItems []delivery.WorkItem
+	if recorder.Code != http.StatusOK || json.NewDecoder(recorder.Body).Decode(&restItems) != nil || len(restItems) != 1 || restItems[0].ID != allowedItem.ID {
+		t.Fatalf("scoped REST search = status %d items %#v", recorder.Code, restItems)
+	}
+	mcpSearch := callMatrixMCPContext(t, t.Context(), fixture.operations, viewer, "delivery.list_work_items", map[string]any{"query": "Protected"})
+	var mcpItems struct {
+		Items []delivery.WorkItem `json:"items"`
+	}
+	payload, _ := json.Marshal(mcpSearch.StructuredContent)
+	if mcpSearch.IsError || json.Unmarshal(payload, &mcpItems) != nil || len(mcpItems.Items) != 1 || mcpItems.Items[0].ID != allowedItem.ID {
+		t.Fatalf("scoped MCP search = %#v", mcpSearch)
+	}
+
+	request = httptest.NewRequest(http.MethodGet, "/api/items/"+otherItem.ID, nil).WithContext(identity.WithPrincipal(t.Context(), viewer))
+	recorder = httptest.NewRecorder()
+	fixture.handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("other-project REST get status = %d, want 403", recorder.Code)
+	}
+	if result := callMatrixMCPContext(t, t.Context(), fixture.operations, viewer, "delivery.get_work_item", map[string]any{"id": otherItem.ID}); !result.IsError || matrixMCPError(result) != "permission_denied" {
+		t.Fatalf("other-project MCP get = %#v", result)
+	}
+
+	body, _ := json.Marshal(map[string]any{"projectId": allowedProject.ID, "title": allowedItem.Title, "kind": string(delivery.WorkItemKindTask)})
+	request = httptest.NewRequest(http.MethodPost, "/api/items/similarity", bytes.NewReader(body)).WithContext(identity.WithPrincipal(t.Context(), viewer))
+	recorder = httptest.NewRecorder()
+	fixture.handler.ServeHTTP(recorder, request)
+	var restCandidates []delivery.SimilarityCandidate
+	if recorder.Code != http.StatusOK || json.NewDecoder(recorder.Body).Decode(&restCandidates) != nil || len(restCandidates) != 1 || restCandidates[0].ID != allowedItem.ID || !restCandidates[0].Exact {
+		t.Fatalf("scoped REST similarity = status %d candidates %#v", recorder.Code, restCandidates)
+	}
+	if result := callMatrixMCPContext(t, t.Context(), fixture.operations, viewer, "delivery.find_similar", map[string]any{"projectId": otherProject.ID, "title": otherItem.Title, "kind": string(delivery.WorkItemKindTask), "board": string(delivery.BoardResearchDelivery)}); !result.IsError || matrixMCPError(result) != "permission_denied" {
+		t.Fatalf("other-project MCP similarity = %#v", result)
+	}
+	afterOutbox, err := fixture.outbox.Snapshot(t.Context())
+	if err != nil || !reflect.DeepEqual(afterOutbox, beforeOutbox) {
+		t.Fatalf("item reads changed Outbox: before=%#v after=%#v err=%v", beforeOutbox, afterOutbox, err)
+	}
+}
+
 func TestProductionAuthorizationMatrixUsesStableGRPCRevisionErrors(t *testing.T) {
 	fixture := newAuthorizationMatrixFixture(t)
 	_, item := fixture.createProtectedItem(t)
