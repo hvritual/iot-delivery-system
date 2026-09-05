@@ -15,6 +15,63 @@ const MigrationID = "YU-20_local_member_admin_v1"
 
 const PermissionManageUsers = "identity.users.manage"
 
+const preserveLastAdministratorTrigger = `
+CREATE TRIGGER IF NOT EXISTS users_preserve_last_system_administrator
+BEFORE UPDATE OF status ON users
+WHEN OLD.status = 'active'
+ AND NEW.status = 'disabled'
+ AND EXISTS (
+    SELECT 1 FROM role_bindings binding
+    WHERE binding.organization_id = OLD.organization_id
+      AND binding.role_id = 'system-administrator'
+      AND binding.scope_type = 'organization'
+      AND binding.scope_id = OLD.organization_id
+      AND binding.status = 'active'
+      AND (
+        binding.user_id = OLD.id
+        OR EXISTS (
+          SELECT 1 FROM teams
+          JOIN team_memberships
+            ON team_memberships.team_id = teams.id
+           AND team_memberships.organization_id = teams.organization_id
+          WHERE teams.id = binding.team_id
+            AND teams.organization_id = OLD.organization_id
+            AND teams.status = 'active'
+            AND team_memberships.user_id = OLD.id
+        )
+      )
+ )
+ AND NOT EXISTS (
+    SELECT 1 FROM users candidate
+    WHERE candidate.organization_id = OLD.organization_id
+      AND candidate.id <> OLD.id
+      AND candidate.status = 'active'
+      AND EXISTS (
+        SELECT 1 FROM role_bindings other_binding
+        WHERE other_binding.organization_id = candidate.organization_id
+          AND other_binding.role_id = 'system-administrator'
+          AND other_binding.scope_type = 'organization'
+          AND other_binding.scope_id = candidate.organization_id
+          AND other_binding.status = 'active'
+          AND (
+            other_binding.user_id = candidate.id
+            OR EXISTS (
+              SELECT 1 FROM teams
+              JOIN team_memberships
+                ON team_memberships.team_id = teams.id
+               AND team_memberships.organization_id = teams.organization_id
+              WHERE teams.id = other_binding.team_id
+                AND teams.organization_id = candidate.organization_id
+                AND teams.status = 'active'
+                AND team_memberships.user_id = candidate.id
+            )
+          )
+      )
+ )
+BEGIN
+    SELECT RAISE(ABORT, 'cannot disable last system administrator');
+END;`
+
 func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	if database == nil {
 		return errors.New("local member admin SQLite database is required")
@@ -35,7 +92,7 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 		return fmt.Errorf("begin local member admin migration: %w", err)
 	}
 	defer tx.Rollback()
-	for _, table := range []string{"users", "roles", "permissions", "permission_allowed_scopes", "role_permission_grants", "role_permission_grant_allowed_scopes", "iotd_local_user_credentials", "iotd_schema_migrations"} {
+	for _, table := range []string{"users", "roles", "permissions", "permission_allowed_scopes", "role_permission_grants", "role_permission_grant_allowed_scopes", "role_bindings", "teams", "team_memberships", "iotd_local_user_credentials", "iotd_schema_migrations"} {
 		var count int
 		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, table).Scan(&count); err != nil {
 			return fmt.Errorf("inspect local member admin dependency %s: %w", table, err)
@@ -51,6 +108,12 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 		return err
 	}
 	if err := ensureSystemAdministratorGrant(ctx, tx); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, preserveLastAdministratorTrigger); err != nil {
+		return fmt.Errorf("install last administrator trigger: %w", err)
+	}
+	if err := verifyLastAdministratorTrigger(ctx, tx); err != nil {
 		return err
 	}
 	var applied int
@@ -216,6 +279,27 @@ func ensureSystemAdministratorGrant(ctx context.Context, tx *sql.Tx) error {
 		}
 	} else if !sameStrings(scopes, []string{"organization"}) {
 		return errors.New("system administrator member-management grant must be organization-scoped")
+	}
+	return nil
+}
+
+func verifyLastAdministratorTrigger(ctx context.Context, tx *sql.Tx) error {
+	var definition string
+	if err := tx.QueryRowContext(ctx, `SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = 'users_preserve_last_system_administrator'`).Scan(&definition); err != nil {
+		return errors.New("last system administrator trigger is missing")
+	}
+	normalized := strings.ToLower(strings.Join(strings.Fields(definition), " "))
+	for _, required := range []string{
+		"before update of status on users",
+		"old.status = 'active'",
+		"new.status = 'disabled'",
+		"role_id = 'system-administrator'",
+		"candidate.id <> old.id",
+		"raise(abort, 'cannot disable last system administrator')",
+	} {
+		if !strings.Contains(normalized, required) {
+			return errors.New("last system administrator trigger definition is invalid")
+		}
 	}
 	return nil
 }
