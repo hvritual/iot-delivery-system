@@ -17,7 +17,7 @@
 | --- | ---: | ---: | --- | --- | --- |
 | **YU-00** | 1 | 60–90m | 固定源 commit/tree/gitlink；完整消费者能力、手写计划与任务台账 | `main@4cd1209f` | 五份文档；文档-only commit；前端基线验证 |
 | **YU-00F** | 1 | 独立任务 | 固定框架要求矩阵、问题候选与 evidence manifest；本任务不重复 | Yunka `057ebcf` | 由会话 `6a9a8f55-fa44-83eb-b298-bc2e410761e0` 独立交付 |
-| **YU-01** | 2 | 60–90m | 更新 gitlink 到 `057ebcf`，把消费者 `yunka.io/framework|gateway|pkg` 迁至公开模块身份；不改行为 | YU-00 + YU-00F | 编译前依赖图、`go mod tidy` 零意外扩散、仅机械 import/module delta |
+| **YU-01** | 2 | 60–90m | 更新 gitlink到 `057ebcf`，把消费者 `yunka.io/framework|gateway|pkg` 迁至公开模块身份；不改行为 | YU-00 + YU-00F | 编译前依赖图、`go mod tidy` 零意外扩散、仅机械 import/module delta |
 | **YU-02** | 2 | 45–75m | 对齐 `.yunka/project.json`、provider/protobuf/dev manifest 与目标 CLI；保留 app/runtime 入口 | YU-01 | `yunka context --json`、ownership/audit 基线可读；不生成业务新语义 |
 | **YU-03** | 2 | 60–90m | 用目标 generator 重建 YU-03 当时源码基线的 12 RPC 全部派生物，禁止手改 | YU-02 | 两次 generate 后零 drift；`yunka check --full`；12 plans 等价 |
 | **YU-04** | 3 | 60–90m | 以公开 typed capability 接入 SQLite/transaction factory；必要时手写 descriptor wrapper | YU-03 | 无 service locator；root UoW 单一；rollback 集成测试 |
@@ -53,14 +53,14 @@
 
 ## 下一原子任务派发说明
 
-**建议下一侧边栏任务：YU-25「停用、密码重置、角色撤权的集中 session 有效性检查」**。
+**建议下一侧边栏任务：YU-26「新增本地 auth BFF routes：login/current/logout/change-password/admin members 与项目角色管理」**。
 
-- 固定 parent：使用 YU-24 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
-- 输入：YU-22 的服务端 opaque session / session version / credential revision / revocation 事实，YU-20 管理员停用与凭据重置 CAS，YU-24 project RoleBinding 撤权事实，以及 YU-23 每次请求重新验证 local-member Principal 与 durable grant 的 HTTP/gRPC/MCP 链路。
-- 允许：消费者侧集中 session validity policy、必要的 User/credential/session/RoleBinding 有效性版本或撤销事实校验、旧 session/JWT fail-closed、跨 HTTP/gRPC/MCP 的一致性回归、安全 audit 与 YU-25 evidence；允许复用现有 YU-22 session schema/CAS，但不得另造并行认证体系。
-- 禁止：修改 Yunka 源码、手改 generated 文件、重新设计 YU-24 RoleBinding 管理语义、把角色/权限写入 JWT 作为长期授权快照、新增 BFF auth/role routes（YU-26）、UI 或与集中有效性无关的 session 大改。
-- RED：必须由真实 durable 路径证明成员被管理员停用后旧 session/JWT 仍可建立 Principal，管理员重置密码后旧 session/JWT 仍可继续使用，RoleBinding 撤销后存在缓存/快照导致已撤权限继续生效，或 HTTP/gRPC/MCP 对同一旧凭据的有效性结论不一致；环境缺工具不算 RED。
-- GREEN：至少两个真实 durable 账号；User disable、管理员 credential reset 与相关 session revocation/version 事实在下一请求 fail-closed；RoleBinding revoke 继续由 YU-24/YU-23 durable GrantResolver 在下一请求立即移除对应 grant，YU-25 只集中定义是否还需使该会话整体失效；不缓存角色权限快照，不因旧 JWT 未过期而越权；HTTP/gRPC/MCP 使用同一 validity 判定；状态变更与安全 audit 有明确事务边界。
-- 边界说明：YU-24 已完成“撤权后下一次授权解析不再授予对应项目 grant”；YU-25 不重复实现项目角色管理，而是把 User disable、credential reset、session version/revocation 与角色撤权对会话整体有效性的规则集中到一个 fail-closed 判定点。
-- 框架问题：如复现 Yunka 缺陷，只创建/更新框架 Issue，不修改框架源码；消费者 session validity policy 不得表述为框架修复。
-- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-26。
+- 固定 parent：使用 YU-25 交付后同步到 `main` 的精确提交 SHA；不得跟随后续移动 HEAD。
+- 输入：YU-22 login/current/logout/change-password in-process capability、YU-20 member administration、YU-24 project RoleBinding administration、YU-25 centralized session validity，以及现有 BFF assertion/cookie/CSRF/HTTP error/no-store 基础设施。
+- 允许：消费者侧 local-auth BFF login/current/logout/change-password、管理员 member create/disable/reset 与 project-role assign/revoke routes；服务端 opaque session cookie、短期 access-token renewal/response、正确的 cache/no-store 与稳定错误映射；local-auth 与保留 OIDC/BFF assertion 路径的显式选择；必要的 HTTP adapter tests 与 YU-26 evidence。
+- 禁止：修改 Yunka 源码、手改 generated 文件、把 role/permission 快照写入 cookie/JWT、前端 API client CSRF 自动注入（YU-27）、登录/成员/项目角色 UI（YU-28）、改变 YU-20/YU-24 durable 管理语义或绕过 YU-25 validity policy。
+- RED：必须由真实 HTTP 边界证明无 OIDC 配置时本地登录不可用、local/OIDC credential family 被隐式混用、session cookie 缺少必要安全属性、current/logout/change-password 或管理员写操作绕过 verified session/CSRF/OperationGuard、错误泄漏账号/credential 细节、认证响应可被缓存，或管理员/项目角色 route 直接写 SQLite 绕开应用操作；环境缺工具不算 RED。
+- GREEN：local login 不依赖 OIDC 配置；成功登录仅通过 YU-21/25 manager 建立 server-side opaque session，并用明确 cookie 属性交付；current/logout/change-password 从 verified session/current JWT 事实构造；管理员 member 与 project-role routes 调用既有 YU-20/YU-24 application ports并继续经过 durable authorization/Guard/CAS/audit/Outbox；unsafe route 的服务端 CSRF/Origin 契约明确，前端自动发送留给 YU-27；认证/成员响应 `Cache-Control: no-store`，错误稳定且不区分敏感失败原因。
+- 边界说明：YU-26 只新增 BFF transport adapter，不复制身份、密码、session、RoleBinding 或 authorization 业务逻辑。YU-25 centralized validity 必须仍是本地 session/JWT 的唯一身份有效性判定；OIDC 若保留必须与 local-auth 显式分流而非 fallback 猜测。
+- 框架问题：如复现 Yunka 缺陷，只创建/更新框架 Issue，不修改框架源码；BFF adapter 缺口不得表述为框架修复。
+- 结束条件：独立提交、审查、同步任务分支并合并 `main` 后停止；不部署、不开始 YU-27。
