@@ -48,6 +48,32 @@ Two earlier carrier attempts were test-harness REDs, not framework/product defec
 
 The generated candidate source commit was `e39e8038e1e6e09a8399ab566b07e0237d4112f7`; subsequent documentation commits do not change contract or generated semantics and must still pass the normal PR regression stack on their own final SHA.
 
+## Real integration RED: managed protobuf ownership manifest
+
+The first full PR regression on `19db12d7ff59b2e58a65052db6d697019d735894` correctly failed after canonical generate/check. Yunka reported the expected nine protobuf-Go outputs, but the worktree became dirty only at:
+
+```text
+M .yunka/protobuf-go.json
+```
+
+Root cause: the initial carrier committed `backend-yunka/contracts/**` and therefore included the regenerated protobuf sources and contract manifest, but omitted Yunka's managed `.yunka/protobuf-go.json` ownership inventory. The committed inventory still named the old two monolithic generated files. This was a consumer delivery omission, not a framework multi-file defect; the YU-30 clean-tree gate behaved correctly.
+
+A second exact-source carrier regenerated with the same pinned framework/toolchain and required the **only** drift to be `.yunka/protobuf-go.json`. It then verified the framework-produced inventory contains exactly these nine managed outputs before committing that single generated ownership file:
+
+```text
+common.pb.go
+dashboard.pb.go
+delivery_service.pb.go
+delivery_service_grpc.pb.go
+notification.pb.go
+planning.pb.go
+project.pb.go
+saved_view.pb.go
+work_item.pb.go
+```
+
+The repair commit is `17f8023611020ddc3a05fbec2ba94ff976a821ac`. The automatic write-back itself received GitHub `action_required` on follow-on PR workflows because it was authored by `github-actions[bot]`; that status is workflow-trigger governance, not a test result. This evidence update creates the final human/connector-authored task SHA so all canonical PR workflows execute again on the complete source tree rather than reusing the earlier partial PASS/RED.
+
 ## Framework disposition
 
 Recursive/nested multi-file protobuf support is **not** a Yunka defect and no issue was filed for it.
