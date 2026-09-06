@@ -36,6 +36,7 @@ import {
 } from "./delivery/ui";
 import { NotificationsView } from "./delivery/collection-surfaces";
 import {
+  BOARD_NAMES,
   EMPTY_FILTER,
   EMPTY_PLANNING,
   type Board,
@@ -60,6 +61,7 @@ import {
   createRelease,
   createSprint,
   fetchDashboard,
+  fetchItems,
   fetchMemberWeek,
   fetchMilestones,
   fetchNotifications,
@@ -87,7 +89,7 @@ import {
   filterItems,
   normalizeDashboard,
 } from "@/src/lib/presentation.mjs";
-import { loadR2Workspace } from "@/src/lib/r2-capability.mjs";
+import { loadAuthorizedWorkspace, loadAuthorizedDashboard } from "@/src/lib/workspace-loaders.mjs";
 import { filterDeliveryItems } from "@/src/lib/r2-presentation.mjs";
 import {
   DeliverySidebar,
@@ -163,6 +165,7 @@ export function DeliveryWorkspace({
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dataUnavailable, setDataUnavailable] = useState(false);
+  const [dashboardScope, setDashboardScope] = useState("organization");
   const [error, setError] = useState<RequestFailure | string | null>(null);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const dirty = useRef(false);
@@ -193,9 +196,11 @@ export function DeliveryWorkspace({
     const seq = ++dashboardSeq.current;
     setLoading(true);
     try {
-      const next = normalizeDashboard(await fetchDashboard()) as Dashboard;
+      const result = await loadAuthorizedDashboard({ dashboard: fetchDashboard, items: fetchItems, boards: BOARD_NAMES });
+      const next = normalizeDashboard(result.value) as Dashboard;
       if (alive.current && seq === dashboardSeq.current) {
         setDashboard(next);
+        setDashboardScope(result.scope);
         setDataUnavailable(false);
       }
       return next;
@@ -212,13 +217,13 @@ export function DeliveryWorkspace({
   const refreshWorkspace = useCallback(async () => {
     const seq = ++workspaceSeq.current;
     try {
-      const result = (await loadR2Workspace({
-        projects: { load: fetchProjects, fallback: [] },
-        releases: { load: fetchReleases, fallback: [] },
-        sprints: { load: fetchSprints, fallback: [] },
-        milestones: { load: fetchMilestones, fallback: [] },
-        views: { load: fetchSavedViews, fallback: [] },
-        inbox: { load: fetchNotifications, fallback: [] },
+      const result = (await loadAuthorizedWorkspace({
+        projects: fetchProjects,
+        releases: fetchReleases,
+        sprints: fetchSprints,
+        milestones: fetchMilestones,
+        views: fetchSavedViews,
+        inbox: fetchNotifications,
       })) as {
         available: boolean;
         values: {
@@ -578,6 +583,7 @@ export function DeliveryWorkspace({
                 description="从五个板块查看风险，把关注项推进到可验证的交付。"
               />
               {!r2Available ? legacy : null}
+              {dashboardScope === "project" ? <Notice title="当前仅显示已授权项目">没有全组织驾驶舱权限。下列事项由服务端按项目授权过滤，不代表组织全量数据。</Notice> : null}
               {dataUnavailable ? (
                 <Notice title="数据暂不可用" tone="warning">
                   以下可能为上一次读取结果；不可据此判断当前健康状态。

@@ -236,7 +236,7 @@ export async function runUIReplicaScenario({ fixture, webBase, stopBackend }) {
     );
     await ui.click("交付驾驶舱", ".sidebar");
     await ui.click("刷新数据", ".topbar");
-    await ui.text(titles[0][2]);
+    await admin.waitFor(`Array.from(document.querySelectorAll('.metric strong')).some(el => el.textContent.trim() === "15")`);
     await ui.shot("02-cockpit");
     ok(
       "fixtures persisted through existing authenticated APIs; no client mock data",
@@ -355,13 +355,15 @@ export async function runUIReplicaScenario({ fixture, webBase, stopBackend }) {
       "denied production review must not mutate",
     );
     await ui.click("交付事项", ".sidebar");
-    await ru.request(`/api/items/${selected.id}/gates/production_validated`, {
-      method: "POST",
-      body: {
-        expectedRevision: returned.revision,
-        evidence: [{ kind: "e2e", title: "独立验证者确认灰度样本通过" }],
-      },
-    });
+    await ru.click("刷新数据", ".topbar");
+    await ru.click("交付事项", ".sidebar");
+    await ru.text(titles[0][0]);
+    await ru.click(titles[0][0], ".list-main");
+    await ru.click("提交生产验证证据", ".inspector");
+    await ru.field("证据标题", "独立验证者确认灰度样本通过");
+    await ru.click("提交生产验证证据", ".document");
+    await ru.text("交付概况");
+    assert((await ru.request(`/api/items/${selected.id}`)).gate === "production_validated", "independent reviewer UI uses server-scoped items and actual protected gate");
     await ui.click("刷新数据", ".topbar");
     await ui.click(titles[0][0], ".list-main");
     await ui.click("提交复盘并关闭", ".inspector");

@@ -46,6 +46,7 @@ vi.mock("@/src/api.js", () => ({
   createRelease: vi.fn(),
   createSprint: vi.fn(),
   fetchDashboard: vi.fn(async () => dashboard),
+  fetchItems: vi.fn(async () => dashboard.items),
   fetchMemberWeek: vi.fn(),
   fetchMilestones: vi.fn(async () => []),
   fetchNotifications: vi.fn(async () => []),
@@ -166,9 +167,6 @@ describe("DeliveryWorkspace", () => {
 	 it("degrades to the five-board read-only cockpit when the old comparison backend lacks R2 endpoints", async () => {
 		const unsupported = Object.assign(new Error("endpoint not found"), { status: 404 });
 		vi.mocked(fetchProjects).mockRejectedValueOnce(unsupported);
-		vi.mocked(fetchReleases).mockRejectedValueOnce(unsupported);
-		vi.mocked(fetchSprints).mockRejectedValueOnce(unsupported);
-		vi.mocked(fetchMilestones).mockRejectedValueOnce(unsupported);
 		vi.mocked(fetchSavedViews).mockRejectedValueOnce(unsupported);
 		vi.mocked(fetchNotifications).mockRejectedValueOnce(unsupported);
 

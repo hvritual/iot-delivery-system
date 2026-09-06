@@ -112,6 +112,10 @@ export function oidcLogout() {
   return request("/auth/logout", { method: "POST" });
 }
 
+export function fetchItems() {
+  return request("/api/items");
+}
+
 export function fetchDashboard() {
   return request("/api/dashboard");
 }

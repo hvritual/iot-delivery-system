@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import {
+  ArrowRightIcon,
   KeyRoundIcon,
   LogOutIcon,
   ShieldCheckIcon,
@@ -214,7 +215,7 @@ export function LocalAuthShell() {
       form.reset();
       accountDirty.current = false;
       await refreshSession();
-      setMessage("已使用本地成员账号登录。");
+      setMessage("");
     } catch (cause) {
       setError(humanizeError(cause, "登录未完成。"));
     } finally {
@@ -461,7 +462,7 @@ export function LocalAuthShell() {
     <div className="auth-brand">
       <span className="brand-mark">I</span>
       <strong>IoT Delivery</strong>
-      <span>研发交付工作台</span>
+      <span>研发交付系统</span>
     </div>
   );
   if (mode === "loading")
@@ -505,7 +506,7 @@ export function LocalAuthShell() {
           </div>
           <Heading
             title="登录 IoT 研发管理"
-            description="使用本地成员账号登录，或选择组织配置的 OIDC。"
+            description="本地成员账号登录，或使用已配置的 OIDC 身份。"
           />
           {message ? (
             <Notice title="状态" role="status">
@@ -518,10 +519,11 @@ export function LocalAuthShell() {
             </p>
           ) : null}
           <form onSubmit={handleLogin} aria-label="本地成员登录">
-            <Field id="local-organization" label="组织 ID">
+            <Field id="local-organization" label="组织 ID" hint="使用管理员分配的组织标识。">
               <Input
                 id="local-organization"
                 name="organizationId"
+                aria-describedby="local-organization-help"
                 autoComplete="organization"
                 required
               />
@@ -545,16 +547,18 @@ export function LocalAuthShell() {
             </Field>
             <Action className="full" primary type="submit" busy={busy}>
               使用本地成员账号登录
+              {!busy ? <ArrowRightIcon data-icon="inline-end" /> : null}
             </Action>
           </form>
           <div className="or">
             <span>或</span>
           </div>
           <a href="/auth/login" className="btn full">
+            <ShieldCheckIcon className="icon" aria-hidden="true" />
             使用 OIDC 登录
           </a>
           <p className="caption">
-            身份与会话由服务端确认，浏览器不保存管理员密钥。
+            账号由组织管理员创建，此处不提供自助注册。
           </p>
         </section>
       </main>
@@ -1058,16 +1062,19 @@ function ProjectRoleAdministration({
 function Field({
   id,
   label,
+  hint,
   children,
 }: {
   id: string;
   label: string;
+  hint?: string;
   children: ReactNode;
 }) {
   return (
     <BaseField className="field">
       <Label htmlFor={id}>{label}</Label>
       {children}
+      {hint ? <p id={`${id}-help`} className="hint">{hint}</p> : null}
     </BaseField>
   );
 }

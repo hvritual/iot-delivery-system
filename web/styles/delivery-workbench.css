@@ -492,3 +492,7 @@ button svg[data-icon]{height:14px;width:14px;flex:none}
 
 /* Metrics are scan-aligned with the accepted cockpit artboard. */
 .metric { text-align: left; }
+
+/* Required state is visual while the native input retains its semantics. */
+.field:has(input:required,select:required,textarea:required)>label::after{content:" *";color:var(--ext-color-danger)}
+.field>.hint{font-size:var(--font-size-micro);line-height:16px;color:var(--color-text-secondary);margin-top:4px}
