@@ -1,0 +1,45 @@
+name: UI replica offline workspace
+on:
+  push:
+    branches: [transfer/ui-replica-workspace-20260906]
+    paths: [.github/workflows/ui-replica-workspace.yml]
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.16.0'
+      - name: Install exact frontend dependencies
+        working-directory: web
+        run: npm ci
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+      - name: Export source and dependencies only
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/ui-offline"
+          mkdir -p "$out"
+          git rev-parse HEAD > "$out/consumer-head.txt"
+          git -C third_party/yunka rev-parse HEAD > "$out/framework-head.txt"
+          git bundle create "$out/consumer.bundle" HEAD
+          git -C third_party/yunka bundle create "$out/framework.bundle" HEAD
+          tar -C web -czf "$out/frontend-dependencies.tgz" node_modules
+          cd "$out"
+          sha256sum *.bundle *.tgz > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ui-replica-offline-workspace
+          path: ${{ runner.temp }}/ui-offline/
+          retention-days: 1
+          if-no-files-found: error
+          compression-level: 0
