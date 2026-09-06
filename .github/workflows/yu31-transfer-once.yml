@@ -7,71 +7,49 @@ permissions:
 jobs:
   transfer:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    env:
-      GOWORK: 'off'
-      GOTOOLCHAIN: local
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
-          submodules: recursive
-      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
-        with:
-          go-version: '1.25.13'
-          cache: true
-          cache-dependency-path: backend-yunka/go.sum
-      - name: Verify local object and exact consumer-only scope
+      - name: Reassemble exact locally committed bundle and validate scope
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/yu31-repair"
           python3 - <<'PY'
           import urllib.request, os, json, base64, hashlib
-          url='https://api.github.com/repos/hvritual/iot-delivery-system/git/blobs/dffc0165a4bfc1445baa2ade7f463a53c4caa332'
-          req=urllib.request.Request(url,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
-          raw=base64.b64decode(json.load(urllib.request.urlopen(req))['content'])
-          assert hashlib.sha256(raw).hexdigest()=='69d00fb602b269fcfb4f799c3d226765053bec0b4b7b957bdf2ccce7b64d0bb2'
+          ids=['bf07d8146487ae94a101fe1b7a658394e48dedd7','d0ea431727ba1a8a41bbe8e97abe970f353b85e4','a1998314e223b26f9e6abc8969a981acda580105','5b019f92fb58b9fde738727a041b437416780a6d']
+          chunks=[]
+          for sha in ids:
+            url='https://api.github.com/repos/hvritual/iot-delivery-system/git/blobs/'+sha
+            req=urllib.request.Request(url,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+            chunks.append(base64.b64decode(json.load(urllib.request.urlopen(req))['content']))
+          # Two identified transfer insertions are reversed. Both the reconstructed
+          # first chunk's Git hash and the entire original bundle's SHA-256 must
+          # match independently recorded local identities before importing objects.
+          encoded=base64.b64encode(chunks[0]).decode().rstrip('=')
+          encoded=encoded.replace('Z92rZCP9','Z92rCP9').replace('luWuz3L','luWz3L')
+          encoded=encoded[:-4]+'338t'
+          chunks[0]=base64.b64decode(encoded)
+          assert hashlib.sha1(b'blob '+str(len(chunks[0])).encode()+b'\0'+chunks[0]).hexdigest()=='1785a583b879b45c8af6cecbaf1d09dd5308782d'
+          raw=b''.join(chunks)
+          assert hashlib.sha256(raw).hexdigest()=='2c75e640a2c5f43c9dd3792b7c2641d3d8042f9a6eadca75fe41b29643a02667'
           open(os.environ['RUNNER_TEMP']+'/yu31.bundle','wb').write(raw)
           PY
           git bundle verify "$RUNNER_TEMP/yu31.bundle"
           git fetch "$RUNNER_TEMP/yu31.bundle" HEAD
-          head=9d552633e2b50110d3a74b4d1d3c0b02f4099bb4
+          head=20520f69d7eaf3c27c0fb3e9d79f03b4ecb059bd
+          parent=9d552633e2b50110d3a74b4d1d3c0b02f4099bb4
           test "$(git rev-parse FETCH_HEAD)" = "$head"
-          test "$(git rev-parse "$head^")" = ab85026e15186e9101d38810b4a0168cb1b2ec7c
+          test "$(git rev-parse "$head^")" = "$parent"
           python3 - <<'PY'
           import subprocess
-          changed=set(subprocess.check_output(['git','diff','--name-only','ab85026e15186e9101d38810b4a0168cb1b2ec7c','9d552633e2b50110d3a74b4d1d3c0b02f4099bb4'],text=True).splitlines())
-          assert changed=={'backend-yunka/internal/bootstrap/application.go','backend-yunka/internal/bootstrap/yu31_optional_legacy_auth_test.go'}
+          paths=set(subprocess.check_output(['git','diff','--name-only','9d552633e2b50110d3a74b4d1d3c0b02f4099bb4','20520f69d7eaf3c27c0fb3e9d79f03b4ecb059bd'],text=True).splitlines())
+          allowed={'backend-yunka/tests/runtime/process_test.go','backend-yunka/tests/runtime/smoke_test.go','docs/target/yunka-upgrade/TASKS.md','docs/target/yunka-upgrade/YU-31-EVIDENCE.md','docs/target/yunka-upgrade/YU-31-FRAMEWORK-PROBLEMS.json','docs/target/yunka-upgrade/YU-31-CI-RECEIPT.json'}
+          assert paths==allowed
           PY
-          git checkout --detach "$head"
-          git diff --check "$head^" "$head"
-      - name: Prove startup RED on parent and GREEN on exact local repair
-        run: |
-          set -euo pipefail
-          head=9d552633e2b50110d3a74b4d1d3c0b02f4099bb4
-          path=backend-yunka/internal/bootstrap/application.go
-          git show "$head^:$path" > "$path"
-          set +e
-          go -C backend-yunka test -mod=readonly -count=1 -run '^TestYU31LocalMemberRuntimeDoesNotRequireDevelopmentAPIKey$' ./internal/bootstrap > "$RUNNER_TEMP/yu31-repair/parent-red.log" 2>&1
-          code=$?
-          set -e
-          cat "$RUNNER_TEMP/yu31-repair/parent-red.log"
-          test "$code" -ne 0
-          grep -F 'local API key environment is required' "$RUNNER_TEMP/yu31-repair/parent-red.log"
-          git restore --source="$head" -- "$path"
-          go -C backend-yunka test -mod=readonly -count=1 -run '^TestYU31LocalMemberRuntimeDoesNotRequireDevelopmentAPIKey$' ./internal/bootstrap 2>&1 | tee "$RUNNER_TEMP/yu31-repair/fix-green.log"
-          test -z "$(git status --porcelain)"
-          git rev-parse HEAD > "$RUNNER_TEMP/yu31-repair/head.txt"
-          # The target already exists at the reviewed parent. No workflow change,
-          # force push, task ref write, or main write is performed by this token.
-          test "$(git ls-remote origin refs/heads/codex/yu-31-import-9d55263 | cut -f1)" = ab85026e15186e9101d38810b4a0168cb1b2ec7c
-          git push origin "$head:refs/heads/codex/yu-31-import-9d55263"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always()
-        with:
-          name: yu31-startup-repair-${{ github.run_id }}
-          path: ${{ runner.temp }}/yu31-repair/
-          retention-days: 14
-          if-no-files-found: error
+          git diff --check "$parent" "$head"
+          test "$(git ls-remote origin refs/heads/codex/yu-31-import-20520f6 | cut -f1)" = "$parent"
+          git push origin "$head:refs/heads/codex/yu-31-import-20520f6"
+          echo "Imported exact local commit $head; task/main refs unchanged"
