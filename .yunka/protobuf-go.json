@@ -1,7 +1,14 @@
 {
   "schemaVersion": 1,
   "files": [
-    "backend-yunka/contracts/delivery/v1/iot_delivery.pb.go",
-    "backend-yunka/contracts/delivery/v1/iot_delivery_grpc.pb.go"
+    "backend-yunka/contracts/delivery/v1/common.pb.go",
+    "backend-yunka/contracts/delivery/v1/dashboard.pb.go",
+    "backend-yunka/contracts/delivery/v1/delivery_service.pb.go",
+    "backend-yunka/contracts/delivery/v1/delivery_service_grpc.pb.go",
+    "backend-yunka/contracts/delivery/v1/notification.pb.go",
+    "backend-yunka/contracts/delivery/v1/planning.pb.go",
+    "backend-yunka/contracts/delivery/v1/project.pb.go",
+    "backend-yunka/contracts/delivery/v1/saved_view.pb.go",
+    "backend-yunka/contracts/delivery/v1/work_item.pb.go"
   ]
 }

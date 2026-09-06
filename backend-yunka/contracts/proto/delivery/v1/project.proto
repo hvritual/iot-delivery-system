@@ -1,0 +1,108 @@
+syntax = "proto3";
+
+package iot.delivery.v1;
+
+import "yunka/dsl/v1/options.proto";
+import "google/protobuf/timestamp.proto";
+
+
+option go_package = "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1";
+
+message ProjectResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  Project project = 1;
+}
+
+message Project {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string id = 1;
+  string name = 2;
+  string board = 3;
+  string owner = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+	string description = 7;
+}
+
+message CreateProjectRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string name = 1;
+  string board = 2;
+  string owner = 3;
+	string description = 4;
+}
+
+// ListProjectsRequest intentionally carries no caller-controlled scope. The
+// authenticated principal and durable grants determine the visible projects.
+message ListProjectsRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+}
+
+message ListProjectsResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  repeated Project projects = 1;
+}
+
+message GetProjectProgressRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string project_id = 1;
+}
+
+message ProjectProgressResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  ProjectProgress progress = 1;
+}
+
+message ProjectProgress {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string project_id = 1;
+  int32 total_items = 2;
+  int32 completed_items = 3;
+  double total_weight = 4;
+  double completed_weight = 5;
+  double progress_percent = 6;
+}
+
+message GetProjectScheduleRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string project_id = 1;
+}
+
+message ProjectScheduleResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  ProjectSchedule schedule = 1;
+}
+
+message ProjectSchedule {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string project_id = 1;
+  string as_of_date = 2;
+  int32 total_items = 3;
+  int32 scheduled_items = 4;
+  int32 unscheduled_items = 5;
+  int32 blocked_items = 6;
+  int32 overdue_items = 7;
+  int32 dependency_blocked_items = 8;
+  repeated OwnerCapacity capacity = 9;
+  repeated ScheduleRisk risks = 10;
+}
+
+message OwnerCapacity {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string owner = 1;
+  int32 item_count = 2;
+  int32 blocked_items = 3;
+  int32 overdue_items = 4;
+  double total_estimate_points = 5;
+  double completed_estimate_points = 6;
+  double remaining_estimate_points = 7;
+}
+
+message ScheduleRisk {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string item_id = 1;
+  string title = 2;
+  string owner = 3;
+  string due_date = 4;
+  string reason = 5;
+}

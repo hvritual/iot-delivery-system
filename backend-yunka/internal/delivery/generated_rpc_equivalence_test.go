@@ -6,29 +6,33 @@ import (
 	"slices"
 	"testing"
 
-	deliveryv1 "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
+	_ "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/policy"
 	"github.com/hvritual/yunka.io/pkg/operationplan"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
 func TestGeneratedRPCOperationPlansRemainCanonical(t *testing.T) {
 	t.Parallel()
 	// This test proves the descriptor RPC/type bijection and full normalized
-	// equality between the JSON artifact and generated Go policy plans. The
-	// protobuf operation options and generated transport source remain guarded
-	// by the canonical, read-only `make yunka-check` regeneration comparison.
+	// equality between the JSON artifact and generated Go policy plans. Resolve
+	// the service by protobuf full name so physical proto-file modularization is
+	// not accidentally promoted into an API invariant.
 
 	const (
 		serviceName       = "iot.delivery.v1.DeliveryService"
 		generatedRPCCount = 25
 	)
 
-	services := deliveryv1.File_iot_delivery_proto.Services()
-	if services.Len() != 1 {
-		t.Fatalf("generated descriptor service count = %d, want 1", services.Len())
+	descriptor, err := protoregistry.GlobalFiles.FindDescriptorByName(protoreflect.FullName(serviceName))
+	if err != nil {
+		t.Fatalf("find generated service descriptor %q: %v", serviceName, err)
 	}
-	service := services.Get(0)
+	service, ok := descriptor.(protoreflect.ServiceDescriptor)
+	if !ok {
+		t.Fatalf("generated descriptor %q is %T, want protoreflect.ServiceDescriptor", serviceName, descriptor)
+	}
 	if got := string(service.FullName()); got != serviceName {
 		t.Fatalf("generated descriptor service = %q, want %q", got, serviceName)
 	}

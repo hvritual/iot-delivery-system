@@ -1,0 +1,201 @@
+syntax = "proto3";
+
+package iot.delivery.v1;
+
+import "yunka/dsl/v1/options.proto";
+import "google/protobuf/timestamp.proto";
+import "delivery/v1/common.proto";
+
+
+option go_package = "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1";
+
+message ListItemsRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+}
+
+message ListItemsResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  repeated WorkItem items = 1;
+}
+
+message WorkItemResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  WorkItem item = 1;
+}
+
+message CommentResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  Comment comment = 1;
+  int64 revision = 2;
+}
+
+message WorkItem {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string id = 1;
+  string title = 2;
+  string board = 3;
+  string type = 4;
+  string owner = 5;
+  string priority = 6;
+  string status = 7;
+  string gate = 8;
+  string due_date = 9;
+  string plan = 10;
+  string solution = 11;
+  repeated Decision decisions = 12;
+  repeated Evidence evidence = 13;
+  string retrospective = 14;
+  string blocker = 15;
+  bool is_sample = 16;
+  google.protobuf.Timestamp created_at = 17;
+  google.protobuf.Timestamp updated_at = 18;
+  string project_id = 19;
+  string parent_id = 20;
+  string kind = 21;
+  repeated WorkItemDependency dependencies = 22;
+  string release_id = 23;
+  string sprint_id = 24;
+  string milestone_id = 25;
+  string start_date = 26;
+  double estimate_points = 27;
+  int32 progress_percent = 28;
+  repeated IoTBinding iot_bindings = 29;
+  repeated TraceLink trace_links = 30;
+  repeated Comment comments = 31;
+  repeated Activity activities = 32;
+  int64 revision = 33;
+}
+
+message CreateItemRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string title = 1;
+  string board = 2;
+  string type = 3;
+  string owner = 4;
+  string priority = 5;
+  string due_date = 6;
+  string plan = 7;
+  string solution = 8;
+  bool is_sample = 9;
+  string project_id = 10;
+  string parent_id = 11;
+  string kind = 12;
+  repeated WorkItemDependency dependencies = 13;
+  string release_id = 14;
+  string sprint_id = 15;
+  string milestone_id = 16;
+  string start_date = 17;
+  double estimate_points = 18;
+  int32 progress_percent = 19;
+  repeated IoTBinding iot_bindings = 20;
+  repeated TraceLink trace_links = 21;
+}
+
+message UpdateItemRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string id = 1;
+  repeated string update_mask = 2;
+  string title = 3;
+  string owner = 4;
+  string priority = 5;
+  string release_id = 6;
+  string sprint_id = 7;
+  string milestone_id = 8;
+  string start_date = 9;
+  string due_date = 10;
+  double estimate_points = 11;
+  int32 progress_percent = 12;
+  repeated WorkItemDependency dependencies = 13;
+  repeated IoTBinding iot_bindings = 14;
+  repeated TraceLink trace_links = 15;
+  int64 expected_revision = 16;
+}
+
+message CreateItemCommentRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string id = 1;
+  string body = 2;
+  int64 expected_revision = 3;
+}
+
+message UpdateItemContextRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string id = 1;
+  optional string plan = 2;
+  optional string solution = 3;
+  optional string blocker = 4;
+  optional Decision decision = 5;
+  int64 expected_revision = 6;
+}
+
+message AdvanceGateRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string id = 1;
+  string gate = 2;
+  repeated Evidence evidence = 3;
+  int64 expected_revision = 4;
+}
+
+message CloseItemRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string id = 1;
+  string retrospective = 2;
+  int64 expected_revision = 3;
+}
+
+message WorkItemFilter {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string project_id = 1;
+  string board = 2;
+  string owner = 3;
+  string status = 4;
+  string kind = 5;
+  string release_id = 6;
+  string sprint_id = 7;
+  string milestone_id = 8;
+  string query = 9;
+}
+
+message GetItemRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string id = 1;
+}
+
+message SearchItemsRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string project_id = 1;
+  string board = 2;
+  string owner = 3;
+  string status = 4;
+  string kind = 5;
+  string release_id = 6;
+  string sprint_id = 7;
+  string milestone_id = 8;
+  string query = 9;
+}
+
+message SearchItemsResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  repeated WorkItem items = 1;
+}
+
+message FindSimilarItemsRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string title = 1;
+  string board = 2;
+  string project_id = 3;
+  string kind = 4;
+  int32 limit = 5;
+}
+
+message FindSimilarItemsResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  repeated SimilarityCandidate candidates = 1;
+}
+
+message SimilarityCandidate {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  WorkItem item = 1;
+  double score = 2;
+  bool exact = 3;
+}

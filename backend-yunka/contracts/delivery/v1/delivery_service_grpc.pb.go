@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             v3.21.12
-// source: iot_delivery.proto
+// source: delivery/v1/delivery_service.proto
 
 package deliveryv1
 
@@ -50,9 +50,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// DeliveryService is the transport-neutral contract for the existing desktop
-// MVP. HTTP remains the compatibility adapter; generated gRPC types establish
-// an explicit evolution boundary for future integrations.
+// DeliveryService remains the single transport-neutral service identity.
+// DTO/schema ownership is split by bounded context to improve review and AI context locality.
 type DeliveryServiceClient interface {
 	GetDashboard(ctx context.Context, in *GetDashboardRequest, opts ...grpc.CallOption) (*GetDashboardResponse, error)
 	ListItems(ctx context.Context, in *ListItemsRequest, opts ...grpc.CallOption) (*ListItemsResponse, error)
@@ -343,9 +342,8 @@ func (c *deliveryServiceClient) ListNotifications(ctx context.Context, in *ListN
 // All implementations should embed UnimplementedDeliveryServiceServer
 // for forward compatibility.
 //
-// DeliveryService is the transport-neutral contract for the existing desktop
-// MVP. HTTP remains the compatibility adapter; generated gRPC types establish
-// an explicit evolution boundary for future integrations.
+// DeliveryService remains the single transport-neutral service identity.
+// DTO/schema ownership is split by bounded context to improve review and AI context locality.
 type DeliveryServiceServer interface {
 	GetDashboard(context.Context, *GetDashboardRequest) (*GetDashboardResponse, error)
 	ListItems(context.Context, *ListItemsRequest) (*ListItemsResponse, error)
@@ -1035,5 +1033,5 @@ var DeliveryService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "iot_delivery.proto",
+	Metadata: "delivery/v1/delivery_service.proto",
 }

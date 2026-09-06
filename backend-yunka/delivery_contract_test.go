@@ -7,51 +7,70 @@ import (
 	"strings"
 	"testing"
 
+	_ "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
 	"github.com/hvritual/yunka.io/pkg/operationplan"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
-func TestDeliveryContractDeclaresMVPReadAndGovernedMutationBoundaries(t *testing.T) {
-	contents, err := os.ReadFile("contracts/proto/iot_delivery.proto")
+const deliveryServiceFullName = protoreflect.FullName("iot.delivery.v1.DeliveryService")
+
+func deliveryServiceDescriptor(t *testing.T) protoreflect.ServiceDescriptor {
+	t.Helper()
+	descriptor, err := protoregistry.GlobalFiles.FindDescriptorByName(deliveryServiceFullName)
 	if err != nil {
-		t.Fatalf("read delivery proto contract: %v", err)
+		t.Fatalf("find DeliveryService descriptor: %v", err)
 	}
-	contract := string(contents)
-	for _, declaration := range []string{
-		"service DeliveryService",
-		"rpc GetDashboard",
-		"rpc ListItems",
-		"rpc CreateItem",
-		"rpc UpdateItemContext",
-		"rpc AdvanceGate",
-		"rpc CloseItem",
-		"message WorkItem",
-		"message Evidence",
-		"message Decision",
+	service, ok := descriptor.(protoreflect.ServiceDescriptor)
+	if !ok {
+		t.Fatalf("descriptor %q is %T, want protoreflect.ServiceDescriptor", deliveryServiceFullName, descriptor)
+	}
+	return service
+}
+
+func TestDeliveryContractDeclaresMVPReadAndGovernedMutationBoundaries(t *testing.T) {
+	service := deliveryServiceDescriptor(t)
+	for _, methodName := range []protoreflect.Name{
+		"GetDashboard",
+		"ListItems",
+		"CreateItem",
+		"UpdateItemContext",
+		"AdvanceGate",
+		"CloseItem",
 	} {
-		if !strings.Contains(contract, declaration) {
-			t.Fatalf("delivery contract is missing %q", declaration)
+		if method := service.Methods().ByName(methodName); method == nil {
+			t.Fatalf("DeliveryService is missing RPC %q", methodName)
+		}
+	}
+	for _, messageName := range []protoreflect.FullName{
+		"iot.delivery.v1.WorkItem",
+		"iot.delivery.v1.Evidence",
+		"iot.delivery.v1.Decision",
+	} {
+		descriptor, err := protoregistry.GlobalFiles.FindDescriptorByName(messageName)
+		if err != nil {
+			t.Fatalf("find delivery message %q: %v", messageName, err)
+		}
+		if _, ok := descriptor.(protoreflect.MessageDescriptor); !ok {
+			t.Fatalf("delivery descriptor %q is %T, want protoreflect.MessageDescriptor", messageName, descriptor)
 		}
 	}
 }
 
 func TestPlanningCreateOperationsAreGeneratedContractBoundaries(t *testing.T) {
-	contents, err := os.ReadFile("contracts/proto/iot_delivery.proto")
-	if err != nil {
-		t.Fatalf("read delivery proto contract: %v", err)
-	}
-	contract := string(contents)
-	for _, declaration := range []string{
-		"rpc CreateProject(CreateProjectRequest) returns (ProjectResponse)",
-		"rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse)",
-		"rpc CreateRelease(CreateReleaseRequest) returns (ReleaseResponse)",
-		"rpc ListReleases(ListReleasesRequest) returns (ListReleasesResponse)",
-		"rpc CreateSprint(CreateSprintRequest) returns (SprintResponse)",
-		"rpc ListSprints(ListSprintsRequest) returns (ListSprintsResponse)",
-		"rpc CreateMilestone(CreateMilestoneRequest) returns (MilestoneResponse)",
-		"rpc ListMilestones(ListMilestonesRequest) returns (ListMilestonesResponse)",
+	service := deliveryServiceDescriptor(t)
+	for _, methodName := range []protoreflect.Name{
+		"CreateProject",
+		"ListProjects",
+		"CreateRelease",
+		"ListReleases",
+		"CreateSprint",
+		"ListSprints",
+		"CreateMilestone",
+		"ListMilestones",
 	} {
-		if !strings.Contains(contract, declaration) {
-			t.Errorf("delivery proto contract is missing %q", declaration)
+		if method := service.Methods().ByName(methodName); method == nil {
+			t.Errorf("DeliveryService is missing RPC %q", methodName)
 		}
 	}
 

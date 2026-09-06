@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package iot.delivery.v1;
+
+import "yunka/dsl/v1/options.proto";
+import "google/protobuf/timestamp.proto";
+
+
+option go_package = "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1";
+
+// ListNotificationsRequest intentionally carries no caller-controlled project
+// scope. Durable grants determine which project subjects are visible.
+message ListNotificationsRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  int32 limit = 1;
+}
+
+message ListNotificationsResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  repeated Notification notifications = 1;
+}
+
+message Notification {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string delivery_id = 1;
+  string channel = 2;
+  string event_type = 3;
+  string subject = 4;
+  string title = 5;
+  string body = 6;
+  google.protobuf.Timestamp occurred_at = 7;
+  google.protobuf.Timestamp delivered_at = 8;
+}

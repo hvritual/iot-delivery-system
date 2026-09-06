@@ -5,21 +5,33 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	_ "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
 func TestServiceCredentialManagementHasNoRemoteWriteContract(t *testing.T) {
-	proto, err := os.ReadFile(filepath.Join("..", "..", "contracts", "proto", "iot_delivery.proto"))
+	descriptor, err := protoregistry.GlobalFiles.FindDescriptorByName("iot.delivery.v1.DeliveryService")
 	if err != nil {
-		t.Fatalf("read canonical delivery contract: %v", err)
+		t.Fatalf("find canonical DeliveryService descriptor: %v", err)
 	}
+	service, ok := descriptor.(protoreflect.ServiceDescriptor)
+	if !ok {
+		t.Fatalf("DeliveryService descriptor is %T, want protoreflect.ServiceDescriptor", descriptor)
+	}
+	for _, forbiddenMethod := range []protoreflect.Name{"IssueServiceCredential", "RotateServiceCredential", "RevokeServiceCredential"} {
+		if method := service.Methods().ByName(forbiddenMethod); method != nil {
+			t.Fatalf("S0-02-07 must not expose service credential management through a remote contract: found RPC %q", forbiddenMethod)
+		}
+	}
+
 	plans, err := os.ReadFile(filepath.Join("..", "..", "contracts", "generated", "operation-plans.json"))
 	if err != nil {
 		t.Fatalf("read generated operation plans: %v", err)
 	}
-	for _, forbidden := range []string{"IssueServiceCredential", "RotateServiceCredential", "RevokeServiceCredential", "service.credentials."} {
-		if strings.Contains(string(proto), forbidden) || strings.Contains(string(plans), forbidden) {
-			t.Fatalf("S0-02-07 must not expose service credential management through a remote contract: found %q", forbidden)
-		}
+	if strings.Contains(string(plans), "service.credentials.") {
+		t.Fatal("S0-02-07 must not expose service credential management through a canonical operation ID")
 	}
 }
 
