@@ -1,0 +1,38 @@
+name: YU-32 hardening source transfer
+on:
+  push:
+    branches: [transfer/yu32-hardening-20260906]
+    paths: [.github/workflows/yu32-hardening-transfer.yml]
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 5e57424b034ae8da0ac27d6fb920b457005ea253
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - name: Export committed source without credentials or runtime data
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/yu32-source"
+          mkdir -p "$out"
+          test "$(git rev-parse HEAD)" = 5e57424b034ae8da0ac27d6fb920b457005ea253
+          test "$(git -C third_party/yunka rev-parse HEAD)" = 057ebcf88a87303eb633eb6e604d306f633dfac0
+          git rev-parse HEAD > "$out/consumer-head.txt"
+          git -C third_party/yunka rev-parse HEAD > "$out/framework-head.txt"
+          git bundle create "$out/consumer.bundle" HEAD
+          git -C third_party/yunka bundle create "$out/framework.bundle" HEAD
+          cd "$out"
+          sha256sum *.bundle > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: yu32-hardening-source
+          path: ${{ runner.temp }}/yu32-source/
+          retention-days: 1
+          if-no-files-found: error
