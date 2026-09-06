@@ -1,0 +1,240 @@
+/* ==========================================================================
+   IOT-delivery Design Tokens
+   Version: 0.1.0
+   Canonical source of truth
+   Baseline reverse-engineered from the supplied settings reference image.
+   Tokens prefixed with --ext-* are proposed extensions, not directly observed.
+   ========================================================================== */
+
+:root {
+  /* ------------------------------------------------------------------------
+     Typography
+     ------------------------------------------------------------------------ */
+  --font-sans:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei",
+    "Noto Sans CJK SC",
+    sans-serif;
+
+  --font-mono:
+    "Geist Mono",
+    "SFMono-Regular",
+    Menlo,
+    Consolas,
+    monospace;
+
+  --font-size-micro: 11px;
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 20px;
+  --font-size-xl: 28px;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-micro: 14px;
+  --line-height-xs: 16px;
+  --line-height-sm: 20px;
+  --line-height-md: 24px;
+  --line-height-lg: 28px;
+  --line-height-xl: 36px;
+
+  /* ------------------------------------------------------------------------
+     Spacing
+     ------------------------------------------------------------------------ */
+  --space-0: 0px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+
+  /* ------------------------------------------------------------------------
+     Radius
+     ------------------------------------------------------------------------ */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-pill: 999px;
+
+  /* ------------------------------------------------------------------------
+     Border
+     ------------------------------------------------------------------------ */
+  --border-width-hairline: 0.5px;
+  --border-width-default: 1px;
+
+  /* ------------------------------------------------------------------------
+     Surface colors — extracted / inferred from reference
+     ------------------------------------------------------------------------ */
+  --color-bg-app: #fafafb;
+  --color-bg-sidebar: #f8f8f9;
+  --color-bg-panel: #ffffff;
+  --color-bg-subtle: #f6f6f7;
+  --color-bg-hover: #f2f2f4;
+  --color-bg-active: #ececef;
+  --color-bg-disabled: #f3f3f5;
+
+  --color-text-primary: #222226;
+  --color-text-secondary: #666a73;
+  --color-text-tertiary: #9297a1;
+  --color-text-disabled: #b6bac2;
+  --color-text-on-dark: #ffffff;
+
+  --color-border-subtle: #ececef;
+  --color-border-default: #e1e3e7;
+  --color-border-strong: #d4d7dd;
+
+  /* Primary interaction */
+  --color-primary: #242428;
+  --color-primary-hover: #18181b;
+  --color-primary-active: #111113;
+  --color-primary-foreground: #ffffff;
+
+  /* ------------------------------------------------------------------------
+     Component mapping
+     ------------------------------------------------------------------------ */
+  --sidebar-bg: var(--color-bg-sidebar);
+  --sidebar-border: var(--color-border-subtle);
+  --sidebar-text: var(--color-text-secondary);
+  --sidebar-text-active: var(--color-text-primary);
+  --sidebar-item-hover-bg: var(--color-bg-hover);
+  --sidebar-item-active-bg: var(--color-bg-active);
+
+  --toolbar-bg: var(--color-bg-panel);
+  --toolbar-border: var(--color-border-subtle);
+
+  --control-bg: var(--color-bg-panel);
+  --control-border: var(--color-border-default);
+  --control-hover-bg: var(--color-bg-hover);
+  --control-disabled-bg: var(--color-bg-disabled);
+
+  --switch-track-on: var(--color-primary);
+  --switch-track-off: #d8d8dd;
+  --switch-thumb: #ffffff;
+
+  /* ------------------------------------------------------------------------
+     Shadows — restrained by design
+     ------------------------------------------------------------------------ */
+  --shadow-none: none;
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.035);
+  --shadow-sm:
+    0 3px 6px -2px rgba(0, 0, 0, 0.02),
+    0 1px 1px rgba(0, 0, 0, 0.04);
+
+  /* ------------------------------------------------------------------------
+     Layout
+     ------------------------------------------------------------------------ */
+  --layout-sidebar-primary-width: 236px;
+  --layout-sidebar-secondary-width: 220px;
+  --layout-header-height: 48px;
+  --layout-page-padding-x: 24px;
+  --layout-page-padding-y: 24px;
+  --layout-content-max-width: 1040px;
+  --layout-content-wide-max-width: 1152px;
+
+  /* ------------------------------------------------------------------------
+     Controls
+     ------------------------------------------------------------------------ */
+  --control-height-sm: 28px;
+  --control-height-md: 32px;
+  --control-height-lg: 36px;
+
+  --nav-item-height: 36px;
+  --secondary-nav-item-height: 32px;
+
+  --switch-width: 32px;
+  --switch-height: 20px;
+  --switch-thumb-size: 14px;
+
+  /* ------------------------------------------------------------------------
+     Motion
+     ------------------------------------------------------------------------ */
+  --motion-fast: 120ms;
+  --motion-normal: 180ms;
+  --motion-slow: 240ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ------------------------------------------------------------------------
+     Proposed semantic extensions — NOT directly extracted from screenshot
+     ------------------------------------------------------------------------ */
+  --ext-color-success: #2f7d56;
+  --ext-color-warning: #a66a16;
+  --ext-color-danger: #c44536;
+  --ext-color-info: #4e6fae;
+  --ext-color-focus: #5c79b8;
+
+  --ext-chart-1: #4e6fae;
+  --ext-chart-2: #6f8cc1;
+  --ext-chart-3: #91a9d0;
+  --ext-chart-4: #b3c5df;
+  --ext-chart-5: #d7e0ec;
+
+  /* ------------------------------------------------------------------------
+     Breakpoints — documentary tokens for non-CSS consumers
+     ------------------------------------------------------------------------ */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+}
+
+/* Optional semantic helpers */
+
+.iot-focus-ring:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ext-color-focus) 65%, transparent);
+  outline-offset: 2px;
+}
+
+.iot-page {
+  min-height: 100vh;
+  background: var(--color-bg-app);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+}
+
+.iot-toolbar {
+  height: var(--layout-header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: var(--space-4);
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--toolbar-border);
+}
+
+.iot-setting-section {
+  padding-block: var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.iot-setting-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  align-items: center;
+  min-height: 40px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-normal: 0ms;
+    --motion-slow: 0ms;
+  }
+}

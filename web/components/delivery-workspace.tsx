@@ -1,14 +1,59 @@
 "use client";
-
-import { type ComponentType, useCallback, useEffect, useMemo, useState } from "react";
 import {
-  CircleAlertIcon,
-  FlaskConicalIcon,
-  PlusIcon,
-  RefreshCwIcon,
-  RouteIcon,
+  type ComponentType,
+  type ReactNode,
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  ArrowRight,
+  Archive,
+  Filter,
+  LayoutDashboard,
+  ListChecks,
+  PanelRight,
+  Plus,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  TriangleAlert,
 } from "lucide-react";
-
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import {
+  Action,
+  Chip,
+  Failure,
+  GateTrack,
+  Heading,
+  NoData,
+  Notice,
+  Status,
+} from "./delivery/ui";
+import { NotificationsView } from "./delivery/collection-surfaces";
+import {
+  BOARD_NAMES,
+  GATES,
+  gateText,
+  EMPTY_FILTER,
+  EMPTY_PLANNING,
+  type Board,
+  type WorkItem,
+  type Project,
+  type Planning,
+  type ItemFilter,
+  type SavedView,
+  type Notification,
+  type MemberWeek,
+  type Progress,
+  type Schedule,
+  type RequestFailure,
+} from "./delivery/model";
 import {
   addComment,
   advanceGate,
@@ -19,6 +64,7 @@ import {
   createRelease,
   createSprint,
   fetchDashboard,
+  fetchItems,
   fetchMemberWeek,
   fetchMilestones,
   fetchNotifications,
@@ -41,499 +87,745 @@ import { ItemPanel } from "@/src/components/ItemPanel.jsx";
 import { ProjectScheduleHealth } from "@/src/components/ProjectScheduleHealth.jsx";
 import { ProjectWorkspace } from "@/src/components/ProjectWorkspace.jsx";
 import { TaskOperationsPanel } from "@/src/components/TaskOperationsPanel.jsx";
-import { dailyFocus, filterItems, gateLabel, normalizeDashboard } from "@/src/lib/presentation.mjs";
-import { loadR2Workspace } from "@/src/lib/r2-capability.mjs";
+import {
+  dailyFocus,
+  filterItems,
+  normalizeDashboard,
+} from "@/src/lib/presentation.mjs";
+import { loadAuthorizedWorkspace, loadAuthorizedDashboard } from "@/src/lib/workspace-loaders.mjs";
 import { filterDeliveryItems } from "@/src/lib/r2-presentation.mjs";
-import { DeliverySidebar, type DeliverySurface } from "@/components/delivery-sidebar";
-import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { Skeleton } from "@/components/ui/skeleton";
-
-type WorkItem = {
-  id: string;
-  board: string;
-  revision?: number;
-  isSample?: boolean;
-  [key: string]: unknown;
-};
+import {
+  DeliverySidebar,
+  type DeliverySurface,
+} from "@/components/delivery-sidebar";
 
 type Dashboard = {
-  boards: Array<{ board: string; total?: number }>;
+  boards: Board[];
   items: WorkItem[];
+  generatedAt?: string | null;
 };
-
-type TaskFilter = {
-  projectId: string;
-  owner: string;
-  status: string;
-  kind: string;
-  query: string;
+type WorkspaceProps = {
+  sessionName?: string;
+  sessionDescription?: string;
+  onAccount?: () => void;
+  onOpenRules?: () => void;
+  onLogout?: () => void;
+  accountContent?: ReactNode;
+  accountOpen?: boolean;
+  onLeaveAccount?: () => boolean;
+  onSessionExpired?: () => void;
+  sessionBusy?: boolean;
+  notice?: ReactNode;
 };
-
-type R2WorkspaceData = {
-  projects: unknown[];
-  releases: unknown[];
-  sprints: unknown[];
-  milestones: unknown[];
-  views: unknown[];
-  inbox: unknown[];
+const surfaceCopy: Record<DeliverySurface, { title: string }> = {
+  cockpit: { title: "交付驾驶舱" },
+  items: { title: "交付事项" },
+  projects: { title: "项目与排期" },
+  weekly: { title: "成员周视图" },
+  notifications: { title: "通知收件箱" },
+  account: { title: "账号与管理" },
 };
-
-const emptyTaskFilter: TaskFilter = { projectId: "", owner: "", status: "", kind: "", query: "" };
-const deliveryGates = ["planning", "solution_reviewed", "development_completed", "test_passed", "production_validated"];
-
-const surfaceCopy: Record<DeliverySurface, { description: string; title: string }> = {
-  cockpit: { title: "交付驾驶舱", description: "跨项目查看交付健康、风险与节奏。" },
-  items: { title: "交付事项", description: "筛选、推进并沉淀可核验的交付证据。" },
-  projects: { title: "项目与排期", description: "管理项目、版本、Sprint、里程碑与容量风险。" },
-  weekly: { title: "成员周视图", description: "按成员查看当周工作与未排期事项。" },
-  notifications: { title: "通知收件箱", description: "查看本地可靠投递，并为外部通道留出接入点。" },
-};
-
-// The migration deliberately retains these feature-complete JavaScript flows while
-// their presentation is hosted by the new Next/shadcn workspace. The cast confines
-// JS default-prop inference to this adapter boundary.
-const LegacyBoardGrid = BoardGrid as ComponentType<any>;
-const LegacyCreateItemDialog = CreateItemDialog as ComponentType<any>;
-const LegacyDailyFocus = DailyFocus as ComponentType<any>;
-const LegacyDeliveryTable = DeliveryTable as ComponentType<any>;
-const LegacyItemPanel = ItemPanel as ComponentType<any>;
-const LegacyProjectWorkspace = ProjectWorkspace as ComponentType<any>;
-const LegacyStatusLegend = StatusLegend as ComponentType<any>;
-const LegacyTaskOperationsPanel = TaskOperationsPanel as ComponentType<any>;
-
-export function DeliveryWorkspace() {
-  const [dashboard, setDashboard] = useState<Dashboard>(() => normalizeDashboard() as Dashboard);
-  const [projects, setProjects] = useState<unknown[]>([]);
-  const [planning, setPlanning] = useState({ releases: [] as unknown[], sprints: [] as unknown[], milestones: [] as unknown[] });
-  const [savedViews, setSavedViews] = useState<unknown[]>([]);
-  const [notifications, setNotifications] = useState<unknown[]>([]);
-  const [taskFilter, setTaskFilter] = useState<TaskFilter>(emptyTaskFilter);
-  const [projectProgress, setProjectProgress] = useState<unknown>(null);
-  const [projectSchedule, setProjectSchedule] = useState<unknown>(null);
+// Keep the established import seams so contract tests exercise the coordinator independently.
+const ViewBoard = BoardGrid as ComponentType<any>;
+const ViewCreate = CreateItemDialog as ComponentType<any>;
+const ViewFocus = DailyFocus as ComponentType<any>;
+const ViewTable = DeliveryTable as ComponentType<any>;
+const ViewItem = ItemPanel as ComponentType<any>;
+const ViewProject = ProjectWorkspace as ComponentType<any>;
+const ViewTools = TaskOperationsPanel as ComponentType<any>;
+export function DeliveryWorkspace({
+  sessionName,
+  sessionDescription,
+  onAccount,
+  onOpenRules,
+  onLogout,
+  accountContent,
+  accountOpen,
+  onLeaveAccount,
+  onSessionExpired,
+  sessionBusy,
+  notice,
+}: WorkspaceProps = {}) {
+  const [dashboard, setDashboard] = useState<Dashboard>(
+    () => normalizeDashboard() as Dashboard,
+  );
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [planning, setPlanning] = useState<Planning>(EMPTY_PLANNING);
+  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [taskFilter, setTaskFilter] = useState<ItemFilter>(EMPTY_FILTER);
+  const [projectProgress, setProjectProgress] = useState<Progress | null>(null);
+  const [projectSchedule, setProjectSchedule] = useState<Schedule | null>(null);
+  const [memberWeek, setMemberWeek] = useState<MemberWeek | null>(null);
   const [r2Available, setR2Available] = useState(true);
-  const [memberWeek, setMemberWeek] = useState<unknown>(null);
   const [activeBoard, setActiveBoard] = useState<string | null>(null);
-  const [activeSurface, setActiveSurface] = useState<DeliverySurface>("cockpit");
+  const [activeSurface, setActiveSurface] =
+    useState<DeliverySurface>("cockpit");
   const [focusFilter, setFocusFilter] = useState("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [detailStart, setDetailStart] = useState<string>("overview");
+  const [split, setSplit] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
+  const [dataUnavailable, setDataUnavailable] = useState(false);
+  const [dashboardScope, setDashboardScope] = useState("organization");
+  const [error, setError] = useState<RequestFailure | string | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const dirty = useRef(false);
+  const mutationLock = useRef(false);
+  const alive = useRef(true);
+  const dashboardSeq = useRef(0);
+  const workspaceSeq = useRef(0);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      dashboardSeq.current++;
+      workspaceSeq.current++;
+    };
+  }, []);
+  const onError = useCallback(
+    (cause: unknown) => {
+      if (!alive.current) return;
+      if (cause instanceof Error && (cause as RequestFailure).status === 401) {
+        onSessionExpired?.();
+        return;
+      }
+      setError(cause instanceof Error ? cause : "操作未完成。");
+    },
+    [onSessionExpired],
+  );
   const refreshDashboard = useCallback(async () => {
+    const seq = ++dashboardSeq.current;
     setLoading(true);
     try {
-      const next = normalizeDashboard(await fetchDashboard()) as Dashboard;
-      setDashboard(next);
+      const result = await loadAuthorizedDashboard({ dashboard: fetchDashboard, items: fetchItems, boards: BOARD_NAMES });
+      const next = normalizeDashboard(result.value) as Dashboard;
+      if (alive.current && seq === dashboardSeq.current) {
+        setDashboard(next);
+        setDashboardScope(result.scope);
+        setDataUnavailable(false);
+      }
       return next;
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "暂时无法读取交付数据。");
+      if (seq === dashboardSeq.current) {
+        setDataUnavailable(true);
+        onError(cause);
+      }
       return null;
     } finally {
-      setLoading(false);
+      if (alive.current && seq === dashboardSeq.current) setLoading(false);
     }
-  }, []);
-
+  }, [onError]);
   const refreshWorkspace = useCallback(async () => {
+    const seq = ++workspaceSeq.current;
     try {
-      const result = await loadR2Workspace({
-        projects: { load: fetchProjects, fallback: [] },
-        releases: { load: fetchReleases, fallback: [] },
-        sprints: { load: fetchSprints, fallback: [] },
-        milestones: { load: fetchMilestones, fallback: [] },
-        views: { load: fetchSavedViews, fallback: [] },
-        inbox: { load: fetchNotifications, fallback: [] },
-      }) as { available: boolean; values: R2WorkspaceData };
+      const result = (await loadAuthorizedWorkspace({
+        projects: fetchProjects,
+        releases: fetchReleases,
+        sprints: fetchSprints,
+        milestones: fetchMilestones,
+        views: fetchSavedViews,
+        inbox: fetchNotifications,
+      })) as {
+        available: boolean;
+        values: {
+          projects: Project[];
+          releases: Planning["releases"];
+          sprints: Planning["sprints"];
+          milestones: Planning["milestones"];
+          views: SavedView[];
+          inbox: Notification[];
+        };
+      };
+      if (!alive.current || seq !== workspaceSeq.current) return;
       setProjects(result.values.projects);
-      setPlanning({ releases: result.values.releases, sprints: result.values.sprints, milestones: result.values.milestones });
+      setPlanning({
+        releases: result.values.releases,
+        sprints: result.values.sprints,
+        milestones: result.values.milestones,
+      });
       setSavedViews(result.values.views);
       setNotifications(result.values.inbox);
       setR2Available(result.available);
-      return true;
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "暂时无法读取项目与任务协作数据。");
-      return false;
+      onError(cause);
     }
-  }, []);
-
+  }, [onError]);
   const refreshAll = useCallback(async () => {
     const [next] = await Promise.all([refreshDashboard(), refreshWorkspace()]);
+    if (alive.current) setRefreshVersion((v) => v + 1);
     return next;
   }, [refreshDashboard, refreshWorkspace]);
-
   useEffect(() => {
-    void refreshAll().then((next) => {
-      if (next?.items?.[0]) {
-        setSelectedId((current) => current ?? next.items[0].id);
-      }
-    });
+    void refreshAll();
   }, [refreshAll]);
-
   useEffect(() => {
-    if (!taskFilter.projectId) {
-      setProjectProgress(null);
-      setProjectSchedule(null);
-      return;
-    }
+    setProjectProgress(null);
+    setProjectSchedule(null);
+    if (!taskFilter.projectId || !r2Available) return;
     let active = true;
-    void Promise.all([fetchProjectProgress(taskFilter.projectId), fetchProjectSchedule(taskFilter.projectId)])
-      .then(([nextProgress, nextSchedule]) => {
-        if (!active) return;
-        setProjectProgress(nextProgress);
-        setProjectSchedule(nextSchedule);
+    void Promise.all([
+      fetchProjectProgress(taskFilter.projectId),
+      fetchProjectSchedule(taskFilter.projectId),
+    ])
+      .then(([p, s]) => {
+        if (active && alive.current) {
+          setProjectProgress(p);
+          setProjectSchedule(s);
+        }
       })
       .catch((cause) => {
-        if (active) setError(cause instanceof Error ? cause.message : "暂时无法计算项目排期健康。");
+        if (active) onError(cause);
       });
     return () => {
       active = false;
     };
-  }, [taskFilter.projectId]);
-
-  const boardItems = activeBoard ? dashboard.items.filter((item) => item.board === activeBoard) : dashboard.items;
-  const focusItems = filterItems(boardItems, focusFilter) as WorkItem[];
+  }, [taskFilter.projectId, r2Available, refreshVersion, onError]);
   const visibleItems = useMemo(
-    () => filterDeliveryItems(focusItems, taskFilter) as WorkItem[],
-    [focusItems, taskFilter],
+    () =>
+      filterDeliveryItems(
+        filterItems(
+          activeBoard
+            ? dashboard.items.filter((i) => i.board === activeBoard)
+            : dashboard.items,
+          focusFilter,
+        ),
+        taskFilter,
+      ) as WorkItem[],
+    [dashboard.items, activeBoard, focusFilter, taskFilter],
   );
-  const selectedItem = visibleItems.find((item) => item.id === selectedId) ?? visibleItems[0] ?? null;
+  const selectedItem = expanded
+    ? (dashboard.items.find((i) => i.id === selectedId) ?? null)
+    : (visibleItems.find((i) => i.id === selectedId) ??
+      visibleItems[0] ??
+      null);
   const focus = dailyFocus(dashboard.items);
-  const sampleVisible = dashboard.items.some((item) => item.isSample);
-  const page = activeSurface === "items" && activeBoard
-    ? { ...surfaceCopy.items, title: activeBoard }
-    : surfaceCopy[activeSurface];
-
-  function navigateTo(surface: DeliverySurface) {
-    setActiveSurface(surface);
-    if (surface === "cockpit") setActiveBoard(null);
+  const surface = accountOpen ? "account" : activeSurface;
+  const sampleVisible = dashboard.items.some((i) => i.isSample);
+  const canWrite = r2Available && !dataUnavailable && !loading;
+  const onDirtyChange = useCallback((value: boolean) => {
+    dirty.current = value;
+  }, []);
+  function canLeave() {
+    if (!dirty.current) return true;
+    if (window.confirm("有未保存的事项草稿。确定放弃并离开吗？")) {
+      dirty.current = false;
+      return true;
+    }
+    return false;
   }
-
+  function navigateTo(s: DeliverySurface) {
+    if (!canLeave()) return;
+    if (onLeaveAccount?.() === false) return;
+    setExpanded(false);
+    setActiveSurface(s);
+    setActiveBoard(null);
+    setFocusFilter("all");
+  }
   function selectBoard(board: string | null) {
+    if (!canLeave()) return;
+    if (onLeaveAccount?.() === false) return;
+    setExpanded(false);
+    setSelectedId(null);
     setActiveBoard(board);
-    setSelectedId(null);
     setActiveSurface(board ? "items" : "cockpit");
+    setFocusFilter("all");
+    setTaskFilter({ ...EMPTY_FILTER });
   }
-
-  function selectFocus(filter: string) {
-    setFocusFilter((current) => (filter === current ? "all" : filter));
-    setSelectedId(null);
+  function selectFocus(value: string) {
+    if (!canLeave()) return;
+    if (onLeaveAccount?.() === false) return;
+    setExpanded(false);
+    setActiveSurface("items");
+    setActiveBoard(null);
+    setTaskFilter({ ...EMPTY_FILTER });
+    setFocusFilter(value);
   }
-
-  async function runMutation(operation: () => Promise<any>) {
-    try {
-      const result = await operation();
-      await refreshAll();
-      if (typeof result?.id === "string") setSelectedId(result.id);
-      return result;
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "操作未完成，请稍后重试。");
-      return null;
+  function openItem(id: string) {
+    if (!canLeave()) return;
+    if (!dashboard.items.some((i) => i.id === id)) {
+      setError("关联对象不在当前可读事项集合中；请刷新或核对对象类型。");
+      return;
     }
-  }
-
-  async function runWorkspaceMutation(operation: () => Promise<any>) {
-    try {
-      const result = await operation();
-      await refreshAll();
-      return result;
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "操作未完成，请稍后重试。");
-      return null;
-    }
-  }
-
-  async function handleCreate(input: any) {
-    const result = await runMutation(() => createItem(input));
-    if (result) setActiveSurface("items");
-    return result;
-  }
-  function expectedRevisionFor(id: string) {
-    const revision = dashboard.items.find((item) => item.id === id)?.revision;
-    if (typeof revision !== "number" || !Number.isInteger(revision) || revision <= 0) throw new Error("当前事项缺少有效版本，请刷新后重试。");
-    return revision;
-  }
-  function handleContext(id: string, input: any) { return runMutation(() => updateItemContext(id, expectedRevisionFor(id), input)); }
-  function handleUpdateItem(id: string, input: any) { return runMutation(() => updateWorkItem(id, expectedRevisionFor(id), input)); }
-  function handleAddComment(id: string, body: string) { return runMutation(() => addComment(id, expectedRevisionFor(id), body)); }
-  function handleAdvance(id: string, gate: string, evidence: string) { return runMutation(() => advanceGate(id, expectedRevisionFor(id), gate, evidence)); }
-  function handleClose(id: string, retrospective: string) { return runMutation(() => closeItem(id, expectedRevisionFor(id), retrospective)); }
-  function handleCreateProject(input: any) { return runWorkspaceMutation(() => createProject(input)); }
-  function handleCreateRelease(input: any) { return runWorkspaceMutation(() => createRelease(input)); }
-  function handleCreateSprint(input: any) { return runWorkspaceMutation(() => createSprint(input)); }
-  function handleCreateMilestone(input: any) { return runWorkspaceMutation(() => createMilestone(input)); }
-  function handleSaveView(input: any) { return runWorkspaceMutation(() => saveView(input)); }
-
-  async function handleCheckSimilar(input: any) {
-    try {
-      return await findSimilar({
-        title: input.title,
-        board: input.board,
-        projectId: input.projectId,
-        kind: input.kind || "task",
-      });
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "暂时无法检查相似事项。");
-      throw cause;
-    }
-  }
-
-  async function handleLoadMemberWeek(member: string, weekStart: string) {
-    try {
-      const next = await fetchMemberWeek(member, weekStart);
-      setMemberWeek(next);
-      return next;
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "暂时无法读取成员周任务。");
-      return null;
-    }
-  }
-
-  function selectProject(projectId: string) {
-    setTaskFilter((current) => ({ ...current, projectId }));
-    setSelectedId(null);
-  }
-
-  function applySavedView(view: { filter?: Partial<TaskFilter> }) {
-    setTaskFilter({ ...emptyTaskFilter, ...(view.filter ?? {}) });
-    setSelectedId(null);
+    if (onLeaveAccount?.() === false) return;
+    setDetailStart("overview");
+    setSelectedId(id);
+    setExpanded(true);
     setActiveSurface("items");
   }
-
-  const taskOperations = (
-    <LegacyTaskOperationsPanel
+  function selectItem(id: string) {
+    if (!canLeave()) return;
+    setSelectedId(id);
+    if (!split) {
+      setDetailStart("overview");
+      setExpanded(true);
+    }
+  }
+  function expectedRevisionFor(id: string, snapshot?: number) {
+    const revision =
+      snapshot ?? dashboard.items.find((i) => i.id === id)?.revision;
+    if (
+      typeof revision !== "number" ||
+      !Number.isInteger(revision) ||
+      revision <= 0
+    )
+      throw new Error("当前事项缺少有效版本，请刷新后重试。");
+    return revision;
+  }
+  async function mutate(
+    operation: () => Promise<any>,
+    options: { propagateError?: boolean } = {},
+  ) {
+    if (mutationLock.current) {
+      setError("另一项提交尚未返回，请等待回执后重试。");
+      return null;
+    }
+    mutationLock.current = true;
+    setError(null);
+    try {
+      const result = await operation();
+      await refreshAll();
+      return result;
+    } catch (cause) {
+      if (options.propagateError) {
+        // Creation errors belong inside the modal, but session expiry must still
+        // clear the protected workspace rather than leaving stale business data.
+        if (cause instanceof Error && (cause as RequestFailure).status === 401)
+          onError(cause);
+        throw cause;
+      }
+      onError(cause);
+      return null;
+    } finally {
+      mutationLock.current = false;
+    }
+  }
+  const handleContext = (
+    id: string,
+    input: Record<string, unknown>,
+    rev?: number,
+  ) => mutate(() => updateItemContext(id, expectedRevisionFor(id, rev), input));
+  const handleUpdate = (
+    id: string,
+    input: Record<string, unknown>,
+    rev?: number,
+  ) => mutate(() => updateWorkItem(id, expectedRevisionFor(id, rev), input));
+  const handleComment = (id: string, body: string, rev?: number) =>
+    mutate(() => addComment(id, expectedRevisionFor(id, rev), body));
+  const handleAdvance = (
+    id: string,
+    gate: string,
+    evidence: any,
+    rev?: number,
+  ) =>
+    mutate(() => advanceGate(id, expectedRevisionFor(id, rev), gate, evidence));
+  const handleClose = (id: string, retrospective: string, rev?: number) =>
+    mutate(() => closeItem(id, expectedRevisionFor(id, rev), retrospective));
+  async function handleCreate(input: Record<string, unknown>) {
+    const result = await mutate(() => createItem(input), { propagateError: true });
+    if (result?.id) {
+      setTaskFilter({ ...EMPTY_FILTER });
+      setActiveBoard(null);
+      setFocusFilter("all");
+      setSelectedId(result.id);
+      setDetailStart("overview");
+      setActiveSurface("items");
+      setExpanded(true);
+    }
+    return result;
+  }
+  async function handleWeek(member: string, start: string) {
+    try {
+      const result = await fetchMemberWeek(member, start);
+      if (alive.current) setMemberWeek(result);
+      return result;
+    } catch (cause) {
+      onError(cause);
+      return null;
+    }
+  }
+  function applyView(view: SavedView) {
+    if (!canLeave()) return;
+    setTaskFilter({ ...EMPTY_FILTER, ...view.filter });
+    setActiveBoard(null);
+    setFocusFilter("all");
+    setFiltersOpen(false);
+    setExpanded(false);
+    setActiveSurface("items");
+  }
+  const commonDetail = {
+    initialTab: detailStart,
+    item: selectedItem,
+    planning,
+    projectName: projects.find((p) => p.id === selectedItem?.projectId)?.name,
+    readOnly: !canWrite,
+    onUpdateContext: handleContext,
+    onUpdateItem: handleUpdate,
+    onAddComment: handleComment,
+    onAdvance: handleAdvance,
+    onClose: handleClose,
+    onDirtyChange,
+    onExpand: (action?: string) => {
+      setDetailStart(action || "overview");
+      setExpanded(true);
+      if (selectedItem) setSelectedId(selectedItem.id);
+    },
+    onBack: () => {
+      if (canLeave()) setExpanded(false);
+    },
+  };
+  const tools = (
+    <ViewTools
       filter={taskFilter}
-      notifications={notifications}
-      onApplyView={applySavedView}
       onFilterChange={setTaskFilter}
-      onLoadMemberWeek={handleLoadMemberWeek}
-      onSaveView={handleSaveView}
+      projects={projects}
+      notifications={notifications}
       savedViews={savedViews}
+      onSaveView={(input: Record<string, unknown>) =>
+        mutate(() => saveView(input))
+      }
+      onApplyView={applyView}
+      onLoadMemberWeek={handleWeek}
       week={memberWeek}
+      onOpenItem={openItem}
+      mode={surface === "weekly" ? "weekly" : "filters"}
     />
   );
-
-  const detailWorkspace = (
-    <section className="delivery-detail-workspace" aria-label="交付事项与详情">
-      <ResizablePanelGroup className="delivery-split-panel" orientation="horizontal">
-        <ResizablePanel defaultSize="64%" id="delivery-list" minSize="500px">
-          <Card className="delivery-list-card">
-            <CardContent className="delivery-list-content">
-              <div className="collection-heading">
-                <div>
-                  <p className="eyebrow">{activeBoard ?? "全部板块"}</p>
-                  <h2>交付事项</h2>
-                </div>
-                <span className="item-count">{visibleItems.length} 项</span>
-              </div>
-              <LegacyStatusLegend />
-              {loading ? (
-                <div className="delivery-loading" aria-label="正在同步交付数据">
-                  <Skeleton className="h-9 w-full" />
-                  <Skeleton className="h-9 w-full" />
-                  <Skeleton className="h-9 w-full" />
-                </div>
-              ) : <LegacyDeliveryTable items={visibleItems} onSelectItem={setSelectedId} selectedId={selectedItem?.id} />}
-            </CardContent>
-          </Card>
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize="36%" id="delivery-detail" minSize="320px">
-          <Card className="delivery-item-card">
-            <div className="detail-panel-heading">
-              <RouteIcon />
-              <span>事项详情与交付证据</span>
-            </div>
-            <LegacyItemPanel
-              item={selectedItem}
-              onAddComment={handleAddComment}
-              onAdvance={handleAdvance}
-              onClose={handleClose}
-              onUpdateContext={handleContext}
-              onUpdateItem={handleUpdateItem}
-              planning={planning}
-            />
-          </Card>
-        </ResizablePanel>
-      </ResizablePanelGroup>
-    </section>
+  const legacy = (
+    <Notice title="当前为旧后端对照模式">
+      五板块驾驶舱和事项列表保持可读；项目、排期、通知和 MCP 对应的 R2
+      工作流需要连接 Yunka 后端。
+    </Notice>
   );
-
-  const r2Fallback = (
-    <Alert className="legacy-comparison-notice">
-      <FlaskConicalIcon />
-      <AlertTitle>当前为旧后端对照模式</AlertTitle>
-      <AlertDescription>五板块驾驶舱和事项列表保持可读；项目、排期、通知和 MCP 对应的 R2 工作流需要连接 Yunka 后端。</AlertDescription>
-    </Alert>
-  );
-
   return (
-    <SidebarProvider className="delivery-shell" defaultOpen>
+    <SidebarProvider
+      className="app delivery-shell"
+      style={
+        {
+          "--sidebar-width": "var(--layout-sidebar-primary-width)",
+        } as CSSProperties
+      }
+    >
       <DeliverySidebar
         activeBoard={activeBoard}
-        activeSurface={activeSurface}
+        activeSurface={surface}
         boards={dashboard.boards}
         onNavigate={navigateTo}
         onSelectBoard={selectBoard}
         sampleVisible={sampleVisible}
+        onCreate={() => {
+          if (canLeave()) setCreateOpen(true);
+        }}
+        canCreate={canWrite}
+        sessionName={sessionName}
+        sessionDescription={sessionDescription}
+        onAccount={
+          onAccount
+            ? () => {
+                if (canLeave()) onAccount();
+              }
+            : undefined
+        }
+        onLogout={
+          onLogout
+            ? () => {
+                if (canLeave()) onLogout();
+              }
+            : undefined
+        }
+        busy={sessionBusy}
       />
-      <SidebarInset className="delivery-inset">
-        <div className="delivery-page">
-          <header className="delivery-page-header">
-            <div className="delivery-page-title">
-              <SidebarTrigger className="delivery-sidebar-trigger" />
-              <div>
-                <div className="delivery-title-line">
-                  <h1>{page.title}</h1>
-                  {activeSurface === "items" ? <span className="page-count">{visibleItems.length} 项</span> : null}
-                </div>
-                <p>{page.description}</p>
+      <main className="workspace">
+        <header className="topbar">
+          {surface === "cockpit" ? <LayoutDashboard className="icon" /> : <ListChecks className="icon" />}
+          <h1>
+            {surface === "items" && activeBoard
+              ? activeBoard
+              : surfaceCopy[surface].title}
+          </h1>
+          {surface === "items" ? <Chip>{visibleItems.length} 项</Chip> : null}
+          <div className="actions">
+            {surface !== "account" ? (
+              <>
+                <Action
+                  variant="ghost"
+                  className="ghost"
+                  busy={loading}
+                  icon={RefreshCw}
+                  onClick={() => {
+                    setError(null);
+                    void refreshAll();
+                  }}
+                >
+                  刷新数据
+                </Action>
+                <Action
+                  primary
+                  disabled={!canWrite}
+                  icon={Plus}
+                  onClick={() => {
+                    if (canLeave()) setCreateOpen(true);
+                  }}
+                >
+                  新建交付事项
+                </Action>
+              </>
+            ) : null}
+          </div>
+        </header>
+        {notice ? <div className="workspace-feedback">{notice}</div> : null}
+        {error ? (
+          <div className="workspace-feedback">
+            <Failure
+              error={error}
+              onRetry={() => {
+                setError(null);
+                void refreshAll();
+              }}
+            />
+          </div>
+        ) : null}
+        <div className="surface">
+          {surface === "account" ? (
+            accountContent
+          ) : surface === "cockpit" ? (
+            <div className="page cockpit-page">
+              <Heading
+                title="每日交付概况"
+                description={`${new Date().toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai", year: "numeric", month: "long", day: "numeric" })} · 按证据推进，把风险留在发布之前。`}
+                actions={<Action icon={ArrowRight} onClick={() => { setActiveBoard(null); setTaskFilter(EMPTY_FILTER); selectFocus("all"); }}>查看全部事项</Action>}
+              />
+              {!r2Available ? legacy : null}
+              {dashboardScope === "project" ? <Notice title="当前仅显示已授权项目">没有全组织驾驶舱权限。下列事项由服务端按项目授权过滤，不代表组织全量数据。</Notice> : null}
+              {dataUnavailable ? (
+                <Notice title="数据暂不可用" tone="warning">
+                  以下可能为上一次读取结果；不可据此判断当前健康状态。
+                </Notice>
+              ) : null}
+              <ViewFocus
+                focus={focus}
+                total={dashboard.items.length}
+                activeFilter={focusFilter}
+                onSelect={selectFocus}
+              />
+              <ViewBoard
+                boards={dashboard.boards}
+                items={dashboard.items}
+                activeBoard={activeBoard}
+                onSelectBoard={selectBoard}
+              />
+              <div className="two-columns cockpit-bottom">
+                <section>
+                  <div className="section-title with-action">
+                    <h3>需要关注</h3>
+                    <Action
+                      className="ghost"
+                      variant="ghost"
+                      onClick={() => selectFocus("attention")}
+                    >
+                      查看全部
+                    </Action>
+                  </div>
+                  {dashboard.items
+                    .filter(
+                      (i) =>
+                        i.status === "blocked" ||
+                        (i.dueDate &&
+                          i.dueDate <
+                            new Date().toLocaleDateString("sv-SE", {
+                              timeZone: "Asia/Shanghai",
+                            }) &&
+                          i.status !== "closed"),
+                    )
+                    .slice(0, 2)
+                    .map((i) => (
+                      <div className="attention-item" key={i.id}>
+                        <TriangleAlert className="icon" />
+                        <div>
+                          <button
+                            className="row-open"
+                            onClick={() => openItem(i.id)}
+                          >
+                            {i.title}
+                          </button>
+                          <p className="caption">
+                            {i.id} · {i.owner || "未指定"}
+                          </p>
+                        </div>
+                        <Status value={i.status} />
+                      </div>
+                    ))}
+                  {!dashboard.items.length && !loading ? (
+                    <p className="caption">
+                      尚无交付事项。创建后可查看交付关注项。
+                    </p>
+                  ) : null}
+                </section>
+                <section>
+                  <h3>交付路径</h3>
+                  <p className="caption delivery-path-description">
+                    规划、方案、研发、测试、生产验证；关闭前必须记录复盘。
+                  </p>
+                  <ol className="delivery-path" aria-label="交付关卡">
+                    {GATES.map((gate, index) => <li key={gate}>{index + 1} {gateText(gate)}</li>)}
+                  </ol>
+                  {onOpenRules ? <Action icon={ShieldCheck} onClick={onOpenRules}>查看关卡规则</Action> : null}
+                </section>
               </div>
             </div>
-            <div className="delivery-toolbar-actions">
-              <Button onClick={() => void refreshAll()} size="sm" type="button" variant="outline">
-                <RefreshCwIcon data-icon="inline-start" />
-                刷新数据
-              </Button>
-              <Button disabled={!r2Available} onClick={() => setCreateOpen(true)} size="sm" type="button">
-                <PlusIcon data-icon="inline-start" />
-                新建交付事项
-              </Button>
-            </div>
-          </header>
-
-          {error ? (
-            <Alert variant="destructive">
-              <CircleAlertIcon />
-              <AlertTitle>交付数据暂不可用</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-              <AlertAction>
-                <Button onClick={() => setError("")} size="xs" type="button" variant="outline">知道了</Button>
-              </AlertAction>
-            </Alert>
-          ) : null}
-
-          {sampleVisible ? (
-            <Alert className="sample-notice">
-              <FlaskConicalIcon />
-              <AlertTitle>本地示例数据</AlertTitle>
-              <AlertDescription>创建真实事项后，示例不会影响你的交付数据。</AlertDescription>
-            </Alert>
-          ) : null}
-
-          {activeSurface === "cockpit" ? (
-            <section className="delivery-cockpit" aria-label="每日交付概况">
-              {!r2Available ? r2Fallback : null}
-              <LegacyDailyFocus activeFilter={focusFilter} focus={focus} onSelect={selectFocus} />
-              <Card className="delivery-board-card" size="sm">
-                <CardContent>
-                  <div className="collection-heading board-collection-heading">
-                    <div>
-                      <p className="eyebrow">交付板块</p>
-                      <h2>五个板块的当前状态</h2>
+          ) : surface === "items" ? (
+            <>
+              {!r2Available ? legacy : null}
+              {expanded ? (
+                <ViewItem {...commonDetail} />
+              ) : (
+                <div className={split ? "list-peek" : "items-full"}>
+                  <section className="list-main">
+                    <div className="list-toolbar">
+                      <label className="search-box">
+                        <Search className="icon" />
+                        <Input
+                          aria-label="搜索交付事项"
+                          placeholder="搜索标题、设备、PR 或测试证据"
+                          value={taskFilter.query}
+                          onChange={(e) =>
+                            setTaskFilter((f) => ({
+                              ...f,
+                              query: e.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+                      <Action
+                        icon={Filter}
+                        onClick={() => setFiltersOpen((v) => !v)}
+                        disabled={!r2Available}
+                      >
+                        筛选
+                      </Action>
+                      <Action
+                        icon={PanelRight}
+                        onClick={() => setSplit((v) => !v)}
+                        aria-pressed={split}
+                      >
+                        {split ? "列表" : "分栏"}
+                      </Action>
                     </div>
-                    <span className="collection-description">点击任一板块进入交付事项。</span>
-                  </div>
-                  <LegacyBoardGrid activeBoard={activeBoard} boards={dashboard.boards} onSelectBoard={selectBoard} />
-                </CardContent>
-              </Card>
-              <section className="release-strip" aria-label="交付关卡总览">
-                <div>
-                  <p className="eyebrow">发布路径</p>
-                  <h2>从规划到复盘，每一关都有可核验的证据</h2>
+                    {filtersOpen && r2Available ? (
+                      <div className="filter-drawer">{tools}</div>
+                    ) : null}
+                    {focusFilter !== "all" ? (
+                      <div className="active-filter">
+                        <Chip>
+                          {focusFilter === "blocked"
+                            ? "受阻"
+                            : focusFilter === "overdue"
+                              ? "逾期"
+                              : focusFilter === "verification"
+                                ? "验证中"
+                                : "需要关注"}
+                        </Chip>
+                        <Action
+                          variant="ghost"
+                          className="ghost"
+                          onClick={() => setFocusFilter("all")}
+                        >
+                          清除关注筛选
+                        </Action>
+                      </div>
+                    ) : null}
+                    {loading && !dashboard.items.length ? (
+                      <div
+                        className="loading-list"
+                        aria-label="正在同步交付数据"
+                      >
+                        {[0, 1, 2, 3].map((i) => (
+                          <Skeleton key={i} className="h-12 w-full" />
+                        ))}
+                      </div>
+                    ) : (
+                      <ViewTable
+                        items={visibleItems}
+                        selectedId={selectedItem?.id}
+                        compact={split}
+                        onSelectItem={selectItem}
+                        onOpenItem={openItem}
+                      />
+                    )}
+                  </section>
+                  {split ? <ViewItem {...commonDetail} compact /> : null}
                 </div>
-                <div className="release-gates">
-                  {deliveryGates.map((gate, index) => (
-                    <div key={gate}>
-                      <span>{index + 1}</span>
-                      <small>{gateLabel(gate)}</small>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </section>
-          ) : null}
-
-          {activeSurface === "items" ? (
-            <section className="delivery-items-surface" aria-label="交付事项工作区">
-              {r2Available ? (
-                <details className="workspace-tools">
-                  <summary>筛选与协作工具 <span>搜索、保存视图、成员周任务与通知</span></summary>
-                  {taskOperations}
-                </details>
-              ) : r2Fallback}
-              {detailWorkspace}
-            </section>
-          ) : null}
-
-          {activeSurface === "projects" ? (
-            <section className="workspace-stack" aria-label="项目与排期工作区">
-              {r2Available ? (
-                <>
-                  <LegacyProjectWorkspace
-                    activeProjectId={taskFilter.projectId}
-                    onCreateMilestone={handleCreateMilestone}
-                    onCreateProject={handleCreateProject}
-                    onCreateRelease={handleCreateRelease}
-                    onCreateSprint={handleCreateSprint}
-                    onSelectProject={selectProject}
-                    planning={planning}
-                    progress={projectProgress}
-                    projects={projects}
-                    schedule={projectSchedule}
-                  />
-                  <ProjectScheduleHealth schedule={projectSchedule} />
-                </>
-              ) : r2Fallback}
-            </section>
-          ) : null}
-
-          {activeSurface === "weekly" ? (
-            <section className="workspace-stack weekly-workspace" aria-label="成员周视图工作区">
-              {r2Available ? taskOperations : r2Fallback}
-            </section>
-          ) : null}
-
-          {activeSurface === "notifications" ? (
-            <section className="notification-workspace" aria-label="通知收件箱工作区">
-              {r2Available ? (
-                <>
-                  <div className="collection-heading">
-                    <div>
-                      <p className="eyebrow">可靠事件投递</p>
-                      <h2>{notifications.length} 条最近投递</h2>
-                    </div>
-                    <span className="collection-description">本地优先，可扩展企业微信、邮件或 Webhook。</span>
-                  </div>
-                  {notifications.length ? (
-                    <ul className="notification-list">
-                      {notifications.slice(0, 12).map((notification: any) => (
-                        <li key={String(notification.deliveryId) + "-" + String(notification.channel)}>
-                          <strong>{notification.title || notification.eventType}</strong>
-                          <span>{notification.subject || "未关联事项"}</span>
-                          <small>{notification.channel || "local"}</small>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : <p className="notification-empty">尚无投递记录。任务状态、截止提醒与发布事件会先写入本地收件箱。</p>}
-                </>
-              ) : r2Fallback}
-            </section>
-          ) : null}
+              )}
+            </>
+          ) : !r2Available ? (
+            <div className="page">{legacy}</div>
+          ) : surface === "projects" ? (
+            <ViewProject
+              activeProjectId={taskFilter.projectId}
+              projects={projects}
+              planning={planning}
+              progress={projectProgress}
+              schedule={projectSchedule}
+              items={dashboard.items}
+              onSelectProject={(projectId: string) =>
+                setTaskFilter((f) => ({ ...f, projectId }))
+              }
+              onOpenItem={openItem}
+              onCreateProject={(input: Record<string, unknown>) =>
+                mutate(() => createProject(input))
+              }
+              onCreateRelease={(input: Record<string, unknown>) =>
+                mutate(() => createRelease(input))
+              }
+              onCreateSprint={(input: Record<string, unknown>) =>
+                mutate(() => createSprint(input))
+              }
+              onCreateMilestone={(input: Record<string, unknown>) =>
+                mutate(() => createMilestone(input))
+              }
+            />
+          ) : surface === "weekly" ? (
+            tools
+          ) : (
+            <NotificationsView
+              notifications={notifications}
+              onOpenItem={openItem}
+            />
+          )}
         </div>
-      </SidebarInset>
+        <footer className="workbench-status">
+          <span>
+            {loading
+              ? "正在读取…"
+              : dataUnavailable
+                ? "读取失败 · 保留上次结果"
+                : dashboard.generatedAt
+                  ? `数据快照 ${dashboard.generatedAt}`
+                  : "交付状态以服务端为准"}
+          </span>
+          <span>
+            {sampleVisible ? "含本地示例数据 · " : ""}SQLite 主数据 · Obsidian
+            单向投影
+          </span>
+        </footer>
+      </main>
       {isCreateOpen ? (
-        <LegacyCreateItemDialog
-          milestones={planning.milestones}
-          onCheckSimilar={handleCheckSimilar}
-          onClose={() => setCreateOpen(false)}
-          onCreate={handleCreate}
+        <ViewCreate
           projects={projects}
-          releases={planning.releases}
-          sprints={planning.sprints}
+          {...planning}
+          onCreate={handleCreate}
+          onClose={() => setCreateOpen(false)}
+          onCheckSimilar={(input: any) =>
+            findSimilar({
+              title: input.title,
+              board: input.board,
+              projectId: input.projectId,
+              kind: input.kind || "task",
+            })
+          }
         />
       ) : null}
     </SidebarProvider>

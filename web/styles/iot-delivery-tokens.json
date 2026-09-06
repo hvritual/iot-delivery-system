@@ -1,0 +1,218 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "name": "IOT-delivery Design Tokens",
+  "version": "0.1.0",
+  "meta": {
+    "canonicalSource": "iot-delivery-tokens.css",
+    "visualBasis": "settings reference image",
+    "note": "ext groups are proposed extensions, not directly extracted from the screenshot."
+  },
+  "color": {
+    "background": {
+      "app": {
+        "$value": "#FAFAFB",
+        "$type": "color"
+      },
+      "sidebar": {
+        "$value": "#F8F8F9",
+        "$type": "color"
+      },
+      "panel": {
+        "$value": "#FFFFFF",
+        "$type": "color"
+      },
+      "subtle": {
+        "$value": "#F6F6F7",
+        "$type": "color"
+      },
+      "hover": {
+        "$value": "#F2F2F4",
+        "$type": "color"
+      },
+      "active": {
+        "$value": "#ECECEF",
+        "$type": "color"
+      },
+      "disabled": {
+        "$value": "#F3F3F5",
+        "$type": "color"
+      }
+    },
+    "text": {
+      "primary": {
+        "$value": "#222226",
+        "$type": "color"
+      },
+      "secondary": {
+        "$value": "#666A73",
+        "$type": "color"
+      },
+      "tertiary": {
+        "$value": "#9297A1",
+        "$type": "color"
+      },
+      "disabled": {
+        "$value": "#B6BAC2",
+        "$type": "color"
+      },
+      "onDark": {
+        "$value": "#FFFFFF",
+        "$type": "color"
+      }
+    },
+    "border": {
+      "subtle": {
+        "$value": "#ECECEF",
+        "$type": "color"
+      },
+      "default": {
+        "$value": "#E1E3E7",
+        "$type": "color"
+      },
+      "strong": {
+        "$value": "#D4D7DD",
+        "$type": "color"
+      }
+    },
+    "primary": {
+      "default": {
+        "$value": "#242428",
+        "$type": "color"
+      },
+      "hover": {
+        "$value": "#18181B",
+        "$type": "color"
+      },
+      "active": {
+        "$value": "#111113",
+        "$type": "color"
+      },
+      "foreground": {
+        "$value": "#FFFFFF",
+        "$type": "color"
+      }
+    }
+  },
+  "space": {
+    "0": {
+      "$value": "0px",
+      "$type": "dimension"
+    },
+    "1": {
+      "$value": "4px",
+      "$type": "dimension"
+    },
+    "2": {
+      "$value": "8px",
+      "$type": "dimension"
+    },
+    "3": {
+      "$value": "12px",
+      "$type": "dimension"
+    },
+    "4": {
+      "$value": "16px",
+      "$type": "dimension"
+    },
+    "5": {
+      "$value": "20px",
+      "$type": "dimension"
+    },
+    "6": {
+      "$value": "24px",
+      "$type": "dimension"
+    },
+    "7": {
+      "$value": "32px",
+      "$type": "dimension"
+    },
+    "8": {
+      "$value": "40px",
+      "$type": "dimension"
+    },
+    "9": {
+      "$value": "48px",
+      "$type": "dimension"
+    }
+  },
+  "radius": {
+    "xs": {
+      "$value": "4px",
+      "$type": "dimension"
+    },
+    "sm": {
+      "$value": "6px",
+      "$type": "dimension"
+    },
+    "md": {
+      "$value": "8px",
+      "$type": "dimension"
+    },
+    "lg": {
+      "$value": "10px",
+      "$type": "dimension"
+    },
+    "xl": {
+      "$value": "12px",
+      "$type": "dimension"
+    },
+    "pill": {
+      "$value": "999px",
+      "$type": "dimension"
+    }
+  },
+  "layout": {
+    "sidebarPrimaryWidth": {
+      "$value": "236px",
+      "$type": "dimension"
+    },
+    "sidebarSecondaryWidth": {
+      "$value": "220px",
+      "$type": "dimension"
+    },
+    "headerHeight": {
+      "$value": "48px",
+      "$type": "dimension"
+    },
+    "pagePaddingX": {
+      "$value": "24px",
+      "$type": "dimension"
+    },
+    "pagePaddingY": {
+      "$value": "24px",
+      "$type": "dimension"
+    },
+    "contentMaxWidth": {
+      "$value": "1040px",
+      "$type": "dimension"
+    },
+    "contentWideMaxWidth": {
+      "$value": "1152px",
+      "$type": "dimension"
+    }
+  },
+  "ext": {
+    "semantic": {
+      "success": {
+        "$value": "#2F7D56",
+        "$type": "color"
+      },
+      "warning": {
+        "$value": "#A66A16",
+        "$type": "color"
+      },
+      "danger": {
+        "$value": "#C44536",
+        "$type": "color"
+      },
+      "info": {
+        "$value": "#4E6FAE",
+        "$type": "color"
+      },
+      "focus": {
+        "$value": "#5C79B8",
+        "$type": "color"
+      }
+    }
+  }
+}
