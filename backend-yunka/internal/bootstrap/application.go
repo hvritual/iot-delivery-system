@@ -264,7 +264,10 @@ func New(ctx context.Context, configuration Config) (*Application, error) {
 		return nil, err
 	}
 	var authenticator *localauth.Authenticator
-	if configuration.RuntimeEnvironment == RuntimeEnvironmentDevelopment {
+	// The development transport mode does not require a legacy identity.
+	// Construct compatibility credentials only when explicitly configured.
+	if configuration.RuntimeEnvironment == RuntimeEnvironmentDevelopment &&
+		(configuration.LegacyLocalAPIKeyEnabled || legacyLocalAPIKeyConfigured(os.Getenv)) {
 		authenticator, err = localauth.FromEnvironment()
 		if err != nil {
 			_ = repository.Close()
@@ -541,7 +544,7 @@ func configuredHTTPMiddleware(authenticator *localauth.Authenticator, resolver *
 		Verifier:            verifier,
 		Resolver:            resolver,
 		OrganizationID:      organizationID,
-		AllowLegacyFallback: configuration.RuntimeEnvironment == RuntimeEnvironmentDevelopment,
+		AllowLegacyFallback: configuration.RuntimeEnvironment == RuntimeEnvironmentDevelopment && authenticator != nil,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("configure BFF HTTP middleware: %w", err)
