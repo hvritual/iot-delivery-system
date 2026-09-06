@@ -1,0 +1,44 @@
+name: UI replica isolated runtime
+on:
+  push:
+    branches: [transfer/ui-replica-workspace-20260906]
+    paths: [.github/workflows/ui-replica-runtime.yml]
+permissions:
+  contents: read
+jobs:
+  runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GOWORK: 'off'
+      GOTOOLCHAIN: local
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 0cce352a58d72a6b60d847e4009f1a9c0fe56ba7
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: '1.25.13'
+          cache: true
+          cache-dependency-path: backend-yunka/go.sum
+      - name: Build real runtime and isolated fixture generator, without running either
+        working-directory: backend-yunka
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/ui-runtime"
+          mkdir -p "$out"
+          go build -mod=readonly -o "$out/yunka-bootstrap" ./cmd/yunka-bootstrap
+          go build -mod=readonly -o "$out/yu29-fixture" ./cmd/yu29-fixture
+          git rev-parse HEAD > "$out/source-head.txt"
+          cd "$out"
+          sha256sum yunka-bootstrap yu29-fixture > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ui-replica-isolated-runtime
+          path: ${{ runner.temp }}/ui-runtime/
+          retention-days: 1
+          if-no-files-found: error
