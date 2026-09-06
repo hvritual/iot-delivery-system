@@ -13,16 +13,24 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
-      - name: Import only exact locally committed CAS repair
+      - name: Import exact locally committed evidence closeout
         shell: bash
         run: |
           set -euo pipefail
-          sed -e 's/tVKVuYYHx/tVKVuYHx/' -e 's/demMLjTWk/demMLjwk/' -e 's/JBaBv+wKLE/JBaBv+wKJE/' .transfer/yu32h-cas-fix.b64 | base64 --decode > "$RUNNER_TEMP/repair.bundle"
-          echo '7f8144263eb1a3c47031a0381975a2e7e3039d679ab78a0c30ffb14e425c8bc2  '"$RUNNER_TEMP/repair.bundle" | sha256sum --check --strict
+          cat .transfer/yu32h-closeout.part1 .transfer/yu32h-closeout.part2 > "$RUNNER_TEMP/closeout.b64"
+          base64 --decode "$RUNNER_TEMP/closeout.b64" > "$RUNNER_TEMP/repair.bundle"
+          echo '1cbb77de004a3e90776ca1ea84009dcc4015db810c9491ef2c9709f0372cbec8  '"$RUNNER_TEMP/repair.bundle" | sha256sum --check --strict
           git bundle verify "$RUNNER_TEMP/repair.bundle"
           git fetch "$RUNNER_TEMP/repair.bundle" HEAD
-          head=0a83eabea5766a0c4fc64fc84c914140036fd3df
+          head=1da771dac46c1b10c2ea54a0fb4559316c20179b
           test "$(git rev-parse FETCH_HEAD)" = "$head"
-          test "$(git rev-parse "$head^1")" = 1797390722b02c31e2fdad7aaf4b5d962dfc0096
-          test -z "$(git diff --name-only "$head^1" "$head" -- .github/workflows/ third_party/yunka backend/)"
+          test "$(git rev-parse "$head^1")" = 0a83eabea5766a0c4fc64fc84c914140036fd3df
+          test -z "$(git diff --name-only "$head^1" "$head" -- .github/workflows/ third_party/yunka backend/ backend-yunka/ web/)"
           git push origin "$head":refs/heads/transfer/yu32h-objects
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: failure()
+        with:
+          name: yu32h-closeout-transfer-debug
+          path: ${{ runner.temp }}/closeout.b64
+          retention-days: 1
+          if-no-files-found: error
