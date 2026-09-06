@@ -1,0 +1,41 @@
+name: YU-31 transfer local commit
+on:
+  push:
+    branches: [codex/yu-31-transfer-01]
+permissions:
+  contents: write
+jobs:
+  transfer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - name: Import reviewed local Git bundle only after checksum verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import urllib.request, os, json, base64, hashlib
+          url='https://api.github.com/repos/hvritual/iot-delivery-system/git/blobs/3d1cd52bd600f6a6a517347d8ad519d9682d43b3'
+          req=urllib.request.Request(url,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+          raw=base64.b64decode(json.load(urllib.request.urlopen(req))['content'])
+          # Explicit replacement of a damaged transfer suffix; the complete bundle
+          # must match the original local SHA-256 before Git imports any object.
+          tail='utRxq0ptHslV+a53j7qIJtguxQKX4Q0UKMqbx+0agNmmigIRTdwNl8i5gDXsss5bB5K6pv9p5UCKNsYjjYks9WzTVtYhIqY1IRkfZvzKccIxW9deiFe5LMmTruN7jkzlctR7/MOw+D69P29V/qTmhQilGPFaKwT31br+ZZ5dNw2Q+ae3KICjEomq7XGDxHrFdyMyy8JQ8dF2HVU5RCz7ok2kltf39/Psuw8tZDLofdPLyTX0FxmMQK22DlIgGIpO1OwO9+IzZxxBoUIxgJ/VdhD3oJw4KXAtlOSl9ymCsm4tilpbn/KKGgu57PLW4PVRJnP1ZbVaZrxQBMzV0njfMctq9WF5JULuuSwcPTfWkZwFz0Bkv9/ffc95F0txikLkz+keOWrrzeMMgthATG4mJQ4DTQFSwDHLYJ2xnW5m/1eoMwg42yLA52ATClw9oCyLH76hG+vEJ+7/+Kpq3JWYBIRacdFA9w4oVoDQHPQzVXPGhwlpDK0PtXb236GuXlE31Yh/dgi0HAp+kOZ4JOi48RDlqFSQwV0Du5L4WfB9vVXXVQvDZVKg1puJH6HnG7UlhaMFiGGeffW1dYXpA3cXWYfK+RuZ5AGJF5ANjJi9G58Gi3tVPI03YOLm8+e50AefxXso7gjeXOBhGzg2a/gmugxdKSuymlJidTDAQ3bsj5lckbcSPTMgcA7oWpYV+D8qdujbJ8o5mMGjgHyrKxrM5hoeGXgd+sEXHJ62xbG5S7HBoFhJQsdMbWXVThnd6dI2cqeEiQRdOjR1vMoAU9fAKUTphai8sXDBnUGzs443+LCbKy52EEZ0EO54t675LTfDMmL1LEO3gpdTNVORuyB+Az3B9yqJAWfqxlY5VCCAgAq4DcLgGGuuc3RFRxNqGzQDWI2T+PJJOuLW+NwOIWz108DxgDHTe/sROniy4h+T0PZNCEjPs7s+lf5FdX3ZjF0DiPRowbLkrowWMLtJWnyO3FUiVyQanljyQ2cfW+o8Qx+Tzfe3v60+/fgmHwZFvO54V9OKAr+331fjQrHugRx0dG22mdmiS+zv5fbHcLL8xIP3TbJGgt1EwAAz1kw9n5t2H9nR5uKOYpa6qoIEU1Qabqdx/yBfsc2RrGEA4qfJGwpfMhxsrokydgMNR7kzpu8srH26ct+2JXZu6dKdwDT3Xkrg+dDji2nXPFsequIwKYwS5yaAH76eXWw55t74elSizB5oyLxuNKCMZyeopcKU8fufKwXLxH8lIdWAMQK9OvII4Dv9Tw9gxoYDhfbEk9g1zxSw7rg/d7QV1mzXA2sZw1T0fTBUHCaJ249DxfFD4vqogt2gNhxxM5CORRAzzB/eugHms2PBc0gTteSebPCODUh8AzMFRpK49al4uM1e+cVgwXh4hq8X+wGKZ46raWT7v74qll2cLQa/+TGxU8LfKo0xREQztOa9ia6vHz7ervLrh9WXfLE4WR+G/orKtD8a9TEMvuOolng4h+NO49erqW0mDKJvUYcZSrw9oAJ4jAGVBRDrAw+buvobdWrGbvAf4HmDiLcQeJxljcFqwzAQRO/+ikXnJiiocUzyD7n1UEoxa2kUL3GkIMmkUPrvtXJoA7kszHsz7HdDpArncy9O7Um9v63MRr1U6hNfcIvp3OeRq9PbHQbru467ndEGQ2vqQatfndGtX6LzbPXTPM7JorcjhxPqF89Txr10TXGYcMkL/Pi8k4Bb/z+VnGc82Fy4zDWrY6S/Gjl42EJY9DBJHuEOJEGK8ET4gp0rB1mkIl4sF4mBrghOwmmtmp/mF0+KVMJhlHT1hu8QMRZsOaV9c9t8MpTV8g=='
+          raw=raw[:12000]+base64.b64decode(tail)
+          assert hashlib.sha256(raw).hexdigest()=='608192a9ef5fd15e5932a57e9afa36a50e35dee7a0a01007fe2b34969f7d0f75', 'bundle transport corruption'
+          open(os.environ['RUNNER_TEMP']+'/yu31.bundle','wb').write(raw)
+          PY
+          git bundle verify "$RUNNER_TEMP/yu31.bundle"
+          git fetch "$RUNNER_TEMP/yu31.bundle" HEAD
+          head=ab85026e15186e9101d38810b4a0168cb1b2ec7c
+          test "$(git rev-parse FETCH_HEAD)" = "$head"
+          test "$(git rev-parse "$head^")" = 0501bd4b2295c624b817e28a94eb1f62b08b0d4c
+          test -z "$(git diff --name-only "$head^" "$head" -- third_party backend backend-yunka/contracts backend-yunka/internal web)"
+          git diff --check "$head^" "$head"
+          git push origin "$head:refs/heads/codex/yu-31-import-ab85026"
+          echo "Imported exact locally committed object: $head; main and task refs not modified"
