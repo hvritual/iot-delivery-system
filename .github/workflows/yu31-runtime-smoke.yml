@@ -1,0 +1,47 @@
+name: YU-31 runtime smoke
+on:
+  push:
+    branches: [main, codex/yu-31-runtime-smoke-closure]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: yu31-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  runtime-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GOWORK: 'off'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: '1.25.13'
+          cache: true
+          cache-dependency-path: backend-yunka/go.sum
+      - name: Real production runtime, local-member stdio MCP, and process closure
+        run: bash backend-yunka/scripts/run-yu31-smoke.sh
+      - name: Preserve exact source and final drift even on failure
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/yu31-evidence"
+          git rev-parse HEAD > "$RUNNER_TEMP/yu31-evidence/head.txt"
+          git status --porcelain --untracked-files=all > "$RUNNER_TEMP/yu31-evidence/worktree.txt"
+          git diff --binary > "$RUNNER_TEMP/yu31-evidence/worktree.patch"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: yu31-runtime-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/yu31-evidence/
+          if-no-files-found: error
+          retention-days: 14

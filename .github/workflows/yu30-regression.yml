@@ -2,7 +2,7 @@ name: YU-30 regression
 
 on:
   push:
-    branches: [main, codex/yu-30-full-regression]
+    branches: [main, codex/yu-30-full-regression, codex/yu-31-runtime-smoke-closure]
   pull_request:
     branches: [main]
   workflow_dispatch:
