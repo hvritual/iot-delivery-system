@@ -1,0 +1,130 @@
+name: YU-32 independent security architecture review
+
+on:
+  push:
+    branches: [codex/yu-32-independent-security-architecture-review]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yu32-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-regression:
+    name: YU-32 / full-regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GOWORK: 'off'
+      GOTOOLCHAIN: local
+      CI: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: '1.25.13'
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend-yunka/go.sum
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.16.0'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install pinned protobuf compiler and plugins
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools="$RUNNER_TEMP/yu32-tools"
+          mkdir -p "$tools/protoc-21.12" "$tools/bin"
+          curl --fail --location --retry 3 --output "$tools/protoc.zip" https://github.com/protocolbuffers/protobuf/releases/download/v21.12/protoc-21.12-linux-x86_64.zip
+          unzip -q "$tools/protoc.zip" -d "$tools/protoc-21.12"
+          GOBIN="$tools/bin" go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+          GOBIN="$tools/bin" go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
+          echo "TOOLS_DIR=$tools" >> "$GITHUB_ENV"
+      - name: Resolve real browser
+        shell: bash
+        run: |
+          browser="$(command -v google-chrome || command -v chromium || true)"
+          test -n "$browser"
+          echo "IOT_DELIVERY_E2E_BROWSER=$browser" >> "$GITHUB_ENV"
+      - name: Run YU-32 application-boundary regressions
+        working-directory: backend-yunka
+        run: |
+          go test -mod=readonly -count=1 . ./internal/deliveryauthz ./internal/delivery/application
+      - name: Run canonical YU-30 full gate with zero-current-debt audit
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/yu32-evidence"
+          export YU30_EVIDENCE_DIR="$RUNNER_TEMP/yu32-evidence"
+          bash backend-yunka/scripts/run-yu30-regression.sh 2>&1 | tee "$RUNNER_TEMP/yu32-evidence/full-regression.log"
+      - name: Preserve exact source and drift
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/yu32-evidence"
+          git rev-parse HEAD > "$RUNNER_TEMP/yu32-evidence/head.txt"
+          git submodule status > "$RUNNER_TEMP/yu32-evidence/submodules.txt"
+          git status --porcelain --untracked-files=all > "$RUNNER_TEMP/yu32-evidence/worktree.txt"
+          git diff --binary > "$RUNNER_TEMP/yu32-evidence/worktree.patch"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: yu32-full-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/yu32-evidence/
+          if-no-files-found: error
+          retention-days: 14
+
+  runtime-smoke:
+    name: YU-32 / runtime-smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GOWORK: 'off'
+      GOTOOLCHAIN: local
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: '1.25.13'
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend-yunka/go.sum
+      - name: Re-run YU-31 real runtime and process closure
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p "$RUNNER_TEMP/yu32-runtime"
+          bash backend-yunka/scripts/run-yu31-smoke.sh 2>&1 | tee "$RUNNER_TEMP/yu32-runtime/runtime-smoke.log"
+      - name: Preserve exact source and drift
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/yu32-runtime"
+          git rev-parse HEAD > "$RUNNER_TEMP/yu32-runtime/head.txt"
+          git status --porcelain --untracked-files=all > "$RUNNER_TEMP/yu32-runtime/worktree.txt"
+          git diff --binary > "$RUNNER_TEMP/yu32-runtime/worktree.patch"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: yu32-runtime-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/yu32-runtime/
+          if-no-files-found: error
+          retention-days: 14
