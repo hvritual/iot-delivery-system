@@ -1,4 +1,4 @@
-package main
+package backendyunka
 
 import (
 	"go/parser"
