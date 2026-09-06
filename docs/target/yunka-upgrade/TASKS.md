@@ -51,7 +51,6 @@
 | **YU-32** | 12 | 45–75m | 独立安全/架构审查与问题闭环 | YU-30/31 + YU-00F | 候选→复现/反证→证实；consumer debt 不归因框架；绕过不称修复 |
 | **YU-33** | 12 | 45–75m | 更新运行说明、最终 manifest、提交与遗留问题清单 | YU-32 | 文档与 executable truth 一致；提交 parent/evidence 完整；同步任务分支并合并 `main`；不部署 |
 
-
 ## YU-30 执行认证与收口
 
 已核验源码 `2f533dc233584c3318b9788f7016dcfb131b99b7` 的 GitHub Actions run `33971774693`：canonical-full / go-diagnostics / web-diagnostics / browser-e2e 四项均成功。完整回执见 `YU-30-CI-RECEIPT.json`，边界见 `YU-30-EVIDENCE.md`。本收口提交必须再取得精确 SHA 的 CI 全绿并 non-force 合并到 main，才能完成派发切换。
@@ -64,17 +63,27 @@
 
 本收口还收紧退出原因、shutdown error log 和 SQLite checkpoint busy 结果检查；最终提交必须再通过精确 SHA 的 YU-31 runtime-smoke 与全部四项 YU-30 回归，再 non-force 合并 main 才完成本轮。测试源码、文档状态或旧 SHA 的 PASS 均不能代替这一步。`AUDIT-AUTH-001` 既有消费者债务仍留给 YU-32。
 
+## YU-32 独立安全/架构审查与收口
+
+固定 parent：`20520f69d7eaf3c27c0fb3e9d79f03b4ecb059bd`。独立审查按“候选 → 反证/复现 → 归属 → 修复/保留风险”执行；YU-00F 私有框架分析文档未出现在公开消费者仓库或当前 verified checkout，因此明确记为输入限制，没有从记忆重建。
+
+确认并修复一项既有消费者架构债务 `AUDIT-AUTH-001`：`internal/delivery/application/adapter.go` 直接依赖 Yunka `gateway/authz`。SOD 领域 sentinel 保持不变，授权错误归一化迁移到 `internal/deliveryauthz` 边界，并新增 Application import 禁止回归。候选源码 `113a83f50f856b77a38a8db008e6fef7cffe2bcb` 已通过 YU-32 Actions run `34004666384` 的 `full-regression` 与 `runtime-smoke`；audit 回读为 `existing=[]`、`new=[]`，原 `AUDIT-AUTH-001` 精确进入 `fixed`。完整回执见 `YU-32-CI-RECEIPT.json` / `YU-32-EVIDENCE.md`。
+
+审查反证了当前 JWT role snapshot 授权、邮箱/显示名并号、transport 直接持久化、跨租户 RoleBinding、撤权缓存、跨 context CSRF 和已覆盖 Linux runtime 关闭泄漏等候选问题。保留一项消费者安全加固风险：local password 登录尚无明确在线猜测限速/锁定和最小密码长度产品合同；YU-32 不自行发明代理/IP/多实例策略，YU-33 必须在最终运行说明与遗留风险中准确记录。
+
+本收口提交是文档/回执派发变更，必须在其自身精确 SHA 上再次通过 `.github/workflows/yu32-independent-review.yml` 的 `full-regression` 与 `runtime-smoke`、且 artifact 证明零漂移后，才能 non-force 合并 `main`。旧 SHA 的绿色结果不能替代最终提交门禁。
+
 ## 下一原子任务派发说明
 
-**下一独立任务：YU-32「独立安全/架构审查与问题闭环」；须在 YU-31 精确 HEAD CI 全绿并合并后开始。**
+**下一独立任务：YU-33「更新运行说明、最终 manifest、提交与遗留问题清单」；须在 YU-32 最终精确 SHA CI 全绿并合并后开始。**
 
-- 固定 parent：YU-31 收口合并到 main 后的精确 SHA，开始时回读并冻结，不跟随移动 HEAD。
-- 输入：YU-30/31 canonical consumer tree、精确提交 CI 与运行时回执、目标 Yunka `057ebcf88a87303eb633eb6e604d306f633dfac0`、YU-00F 框架要求/问题/证据（实际读取；不可用时明确列出审查限制）、既有 `AUDIT-AUTH-001`。
-- 允许：独立身份/授权/事务/审计/架构边界审查；候选→复现或反证→归属裁定；对已证实消费者缺陷做最小修复、回归及证据闭环。
-- 禁止：修改 Yunka 源码或 gitlink、手改 generated、用 mock/development 身份代替真实授权、将 consumer debt 归因框架、以绕过冒充根因修复、未经证据降低门禁、提前执行 YU-33 或部署。
-- RED：可定位到精确提交/源码/调用链及真实执行的缺陷；不能为了证明问题而强行构造结论，历史证据必须区分当前状态。
-- GREEN：所有候选有复现/反证/未确定的明确状态；证实问题有修复验证或明确保留风险；独立审查结论与真实行为一致；同一最终 SHA 的既有完整回归与 YU-31 runtime smoke 均通过，零非预期漂移。
-- 框架问题：仅创建/更新 `hvritual/yunka.io` Issue，按项目问题格式保存精确版本、最小复现、证据和影响；不改框架源码。
-- 结束条件：独立提交、精确 SHA CI 回读、同步分支并 non-force 合并 main 后停止；不部署、不自动开始 YU-33。
+- 固定 parent：使用 YU-32 收口 non-force 合并到 `main` 后的精确 SHA；开始时回读并冻结，不跟随移动 HEAD。
+- 输入：YU-00…YU-32 canonical consumer tree，YU-30/31/32 exact-SHA CI 与 runtime/browser artifacts，目标 Yunka `057ebcf88a87303eb633eb6e604d306f633dfac0`，现有运行说明、manifest、TASKS 与所有 evidence/framework-problem disposition。
+- 允许：仅更新最终运行/开发说明、canonical manifest、版本/提交/验证矩阵、已关闭问题和明确遗留风险；修正文档事实漂移；对文档引用执行存在性/提交一致性检查。
+- 禁止：新增产品功能、改变 auth/session/RoleBinding/permission/transaction 语义、修改 Yunka 源码或 gitlink、手改 generated、无证据宣称“零风险/完全安全”、隐藏 YU-32 保留的密码在线猜测/密码策略风险、部署。
+- RED：文档、manifest、命令、提交 SHA、CI/run/artifact、framework disposition 与 canonical executable truth 不一致；引用缺失；把历史/候选状态误写为当前状态。
+- GREEN：运行说明可由新开发者按 canonical 入口复现；最终 manifest 精确记录 consumer/framework SHA、生成与测试工具链、CI/runtime/browser 证据；所有已证实问题和残余风险有明确状态/owner/后续动作；文档引用存在；最终精确 SHA 完整回归保持 GREEN、零非预期漂移。
+- 框架问题：只汇总已证实框架 Issue 与状态，不新改 Yunka；消费者遗留项不得重新归因框架。
+- 结束条件：独立提交、精确 SHA 回归/文档检查、同步任务分支并 non-force 合并 `main` 后停止；不部署。
 
-**YU-32 尚未启动。**
+**YU-33 尚未启动。**
