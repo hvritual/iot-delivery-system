@@ -77,6 +77,7 @@ export function DeliverySidebar({
         className={cn("nav-item", active && "active")}
         data-active={active ? "" : undefined}
         aria-current={active ? "page" : undefined}
+        aria-label={label}
         onClick={click}
       >
         <Icon className="icon" aria-hidden="true" />

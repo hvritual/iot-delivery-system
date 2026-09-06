@@ -62,9 +62,9 @@ export async function runUIReplicaScenario({ fixture, webBase, stopBackend }) {
       fixture.organizationId,
       fixture.adminUserId,
       fixture.adminPassword,
-      "YU-29 Admin",
+      "YU-29 System Administrator",
     );
-    await ui.text("每日交付总览");
+    await ui.text("每日交付概况");
     await ui.click("通知收件箱", ".sidebar");
     await ui.text("尚无投递记录");
     await ui.shot("57-state-inbox-empty");
@@ -232,7 +232,7 @@ export async function runUIReplicaScenario({ fixture, webBase, stopBackend }) {
       fixture.organizationId,
       fixture.memberUserId,
       fixture.memberPassword,
-      "YU-29 Member",
+      "YU-29 Ordinary Member",
     );
     await ui.click("交付驾驶舱", ".sidebar");
     await ui.click("刷新数据", ".topbar");

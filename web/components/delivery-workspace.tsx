@@ -574,7 +574,7 @@ export function DeliveryWorkspace({
           ) : surface === "cockpit" ? (
             <div className="page cockpit-page">
               <Heading
-                title="每日交付总览"
+                title="每日交付概况"
                 description="从五个板块查看风险，把关注项推进到可验证的交付。"
               />
               {!r2Available ? legacy : null}
@@ -644,7 +644,7 @@ export function DeliveryWorkspace({
                 </section>
                 <section>
                   <h3>交付关卡</h3>
-                  <GateTrack vertical />
+                  <GateTrack />
                   <p className="caption">
                     关卡推进必须附证据，生产验证后填写复盘才能关闭。
                   </p>

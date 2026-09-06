@@ -113,7 +113,7 @@ export async function verifyUIAccountFlows({
     fixture.organizationId,
     fixture.memberUserId,
     password,
-    "YU-29 Member",
+    "YU-29 Ordinary Member",
   );
   ok(
     "non-admin action denied and password update invalidates old session, new password logs in",

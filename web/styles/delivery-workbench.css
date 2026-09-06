@@ -489,3 +489,6 @@ button svg[data-icon]{height:14px;width:14px;flex:none}
 @media(max-width:1179px){.app{min-width:1180px}body{overflow:auto}.auth-page{width:100%;padding:24px}.auth-brand{left:24px}.login-panel{max-width:100%}[data-slot="dialog-content"].modal{left:50%;max-width:calc(100vw - 32px)}}
 @media(prefers-reduced-motion:reduce){.spin{animation:none}*{scroll-behavior:auto!important}}
 .field label[data-required="true"]::after{content:" *";color:var(--ext-color-danger)}
+
+/* Metrics are scan-aligned with the accepted cockpit artboard. */
+.metric { text-align: left; }
