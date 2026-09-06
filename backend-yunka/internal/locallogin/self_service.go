@@ -203,7 +203,23 @@ func (manager *Manager) ChangePassword(ctx context.Context, input ChangePassword
 	if _, active := execution.Current(ctx); active {
 		return ChangePasswordResult{}, ErrThrottleUnavailable
 	}
-	session, err := manager.VerifySessionToken(ctx, input.SessionToken)
+	if input.ExpectedSessionRevision < 1 || input.ExpectedUserRevision < 1 || input.ExpectedCredentialRevision < 1 || len(input.CurrentPassword) == 0 || len(input.NewPassword) == 0 {
+		return ChangePasswordResult{}, ErrCurrentPasswordInvalid
+	}
+	digest, err := sessionDigest(input.SessionToken)
+	if err != nil {
+		return ChangePasswordResult{}, ErrSessionInvalid
+	}
+	now, err := manager.sessionControlNow()
+	if err != nil {
+		return ChangePasswordResult{}, err
+	}
+	// This lookup selects only a throttle bucket. It does not authenticate the
+	// caller or produce a Principal. The root operation rereads the session and
+	// validates its revisions, the user CAS and current credential below. In
+	// particular, an administrator reset must retain its precise CAS conflict
+	// rather than being reclassified by the identity-producing session verifier.
+	session, err := readActiveSessionForControl(ctx, manager.database, digest, now)
 	if err != nil {
 		return ChangePasswordResult{}, err
 	}
@@ -216,13 +232,6 @@ func (manager *Manager) ChangePassword(ctx context.Context, input ChangePassword
 	defer zeroBytes(newPassword)
 	input.CurrentPassword = currentPassword
 	input.NewPassword = newPassword
-	if input.ExpectedSessionRevision < 1 || input.ExpectedUserRevision < 1 || input.ExpectedCredentialRevision < 1 || len(currentPassword) == 0 || len(newPassword) == 0 {
-		return ChangePasswordResult{}, ErrCurrentPasswordInvalid
-	}
-	digest, err := sessionDigest(input.SessionToken)
-	if err != nil {
-		return ChangePasswordResult{}, ErrSessionInvalid
-	}
 	value, err := manager.executor.Execute(ctx, changePasswordPlan, &input, func(callContext context.Context) (any, error) {
 		return manager.changePassword(callContext, digest, input)
 	})
@@ -306,9 +315,18 @@ WHERE organization_id = ? AND user_id = ? AND status = 'active'`,
 }
 
 func (manager *Manager) activeSessionInTransaction(ctx context.Context, transaction *sql.Tx, digest [sha256.Size]byte, now time.Time) (SessionIdentity, error) {
+	return readActiveSessionForControl(ctx, transaction, digest, now)
+}
+
+// readActiveSessionForControl returns a durable session record for control CAS
+// and attempt budgeting, not authentication. Identity-producing callers must
+// continue to use readValidSessionByDigest / readValidSessionByClaims, including
+// their current-credential revision join. Password change repeats this lookup
+// inside its root transaction before the existing CAS and password checks.
+func readActiveSessionForControl(ctx context.Context, queryer sessionQueryer, digest [sha256.Size]byte, now time.Time) (SessionIdentity, error) {
 	var session SessionIdentity
 	var expiresAt string
-	err := transaction.QueryRowContext(ctx, `SELECT sessions.id, sessions.organization_id, sessions.user_id,
+	err := queryer.QueryRowContext(ctx, `SELECT sessions.id, sessions.organization_id, sessions.user_id,
        sessions.revision, sessions.credential_revision, sessions.expires_at
 FROM iotd_local_sessions sessions
 JOIN organizations ON organizations.id = sessions.organization_id AND organizations.status = 'active'
