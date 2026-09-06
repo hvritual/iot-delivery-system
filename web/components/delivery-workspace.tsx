@@ -375,7 +375,10 @@ export function DeliveryWorkspace({
       throw new Error("当前事项缺少有效版本，请刷新后重试。");
     return revision;
   }
-  async function mutate(operation: () => Promise<any>) {
+  async function mutate(
+    operation: () => Promise<any>,
+    options: { propagateError?: boolean } = {},
+  ) {
     if (mutationLock.current) {
       setError("另一项提交尚未返回，请等待回执后重试。");
       return null;
@@ -387,6 +390,13 @@ export function DeliveryWorkspace({
       await refreshAll();
       return result;
     } catch (cause) {
+      if (options.propagateError) {
+        // Creation errors belong inside the modal, but session expiry must still
+        // clear the protected workspace rather than leaving stale business data.
+        if (cause instanceof Error && (cause as RequestFailure).status === 401)
+          onError(cause);
+        throw cause;
+      }
       onError(cause);
       return null;
     } finally {
@@ -415,7 +425,7 @@ export function DeliveryWorkspace({
   const handleClose = (id: string, retrospective: string, rev?: number) =>
     mutate(() => closeItem(id, expectedRevisionFor(id, rev), retrospective));
   async function handleCreate(input: Record<string, unknown>) {
-    const result = await mutate(() => createItem(input));
+    const result = await mutate(() => createItem(input), { propagateError: true });
     if (result?.id) {
       setTaskFilter({ ...EMPTY_FILTER });
       setActiveBoard(null);

@@ -181,7 +181,11 @@ export function Failure({
 }) {
   if (!error) return null;
   const code = typeof error === "string" ? undefined : error.status;
-  const title =
+  // The compatibility API has no structured domain-error code yet. Match only
+  // its known duplicate error; unrelated 409s keep their existing conflict UI.
+  const duplicate = code === 409 && typeof error !== "string" &&
+    /^duplicate delivery work item(?:\s*:|$)/i.test(error.message);
+  const title = duplicate ? "事项重复，未创建" :
     code === 409
       ? "数据版本冲突"
       : code === 403
@@ -192,6 +196,9 @@ export function Failure({
   return (
     <Notice title={title} tone="danger" icon={TriangleAlert}>
       <span>{code ? `HTTP ${code} · ` : ""}{typeof error === "string" ? error : error.message}</span>
+      {duplicate ? (
+        <p>服务端拒绝同一范围内同类型、同名的事项。请返回修改名称或复用已有事项；相似确认不能绕过去重规则。</p>
+      ) : null}
       {typeof error !== "string" && error.traceId ? (
         <code>Trace ID: {error.traceId}</code>
       ) : null}

@@ -466,14 +466,46 @@ export async function runUIReplicaScenario({ fixture, webBase, stopBackend }) {
     await ui.text("相似事项确认");
     await ui.shot("15-similarity-review");
     await ui.click("已核对，仍然创建", ".modal");
-    await ui.gone(".create-item-modal");
-    const all = await ui.request("/api/dashboard");
+    // Exact duplicates are forbidden by the existing domain service. Similarity
+    // confirmation is a review step, not permission to bypass that invariant.
+    await ui.text("事项重复，未创建");
     assert(
-      all.items.filter((i) => i.title === "独立的界面创建回归").length === 2,
-      "explicit duplicate confirmation creates exactly once",
+      await admin.evaluate(`document.querySelector('.create-item-modal')?.textContent.includes('HTTP 409')`),
+      "exact duplicate 409 must be visible inside the still-open creation modal",
+    );
+    await ui.shot("61-state-exact-duplicate");
+    const rejected = await ui.request("/api/dashboard");
+    assert(
+      rejected.items.filter((i) => i.title === "独立的界面创建回归").length === 1,
+      "exact duplicate rejection must not insert another item",
+    );
+    await ui.click("基本信息", ".step-tabs");
+    assert(
+      await admin.evaluate(`Array.from(document.querySelectorAll('.create-item-modal input')).some(el => el.value === '独立的界面创建回归')`),
+      "duplicate rejection retains the original draft",
+    );
+    await ui.field("事项名称", "独立的界面创建回归补充");
+    await ui.click("规划与排期", ".modal-foot");
+    await ui.click("检查相似事项并创建", ".modal");
+    await ui.text("相似事项确认");
+    const unconfirmed = await ui.request("/api/dashboard");
+    assert(
+      !unconfirmed.items.some((i) => i.title === "独立的界面创建回归补充"),
+      "editing the draft invalidates the prior confirmation; new payload waits for review",
+    );
+    await ui.shot("15-similarity-review");
+    await ui.click("已核对，仍然创建", ".modal");
+    await ui.gone(".create-item-modal");
+    await ui.text("独立的界面创建回归补充");
+    const all = await ui.request("/api/dashboard");
+    const original = all.items.filter((i) => i.title === "独立的界面创建回归");
+    const created = all.items.filter((i) => i.title === "独立的界面创建回归补充");
+    assert(
+      original.length === 1 && created.length === 1 && original[0].id !== created[0].id,
+      "confirmed similar but nonidentical title creates exactly one distinct item",
     );
     ok(
-      "two-step create and explicit similarity confirmation persist exactly two distinct items",
+      "exact duplicate rejected with draft retained; edited similar title rechecked, confirmed and persisted exactly once",
     );
     await ui.click("我的本周", ".sidebar");
     await ui.field("成员名称", fixture.adminUserId);

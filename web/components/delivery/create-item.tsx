@@ -15,6 +15,7 @@ import {
   type Planning,
   type Project,
   type CreateCommand,
+  type RequestFailure,
 } from "./model";
 
 type Candidate = { id: string; title: string; score: number };
@@ -79,7 +80,7 @@ export function CreateItemDialog({
   );
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<RequestFailure | string | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [checkedInput, setCheckedInput] = useState<Record<
     string,
@@ -89,6 +90,7 @@ export function CreateItemDialog({
     (k) => form[k as keyof Form] !== initial[k as keyof Form],
   );
   function change(patch: Partial<Form>) {
+    setError(null);
     setForm((f) => ({ ...f, ...patch }));
     setCandidates([]);
     setCheckedInput(null);
@@ -166,7 +168,7 @@ export function CreateItemDialog({
       if (result) onClose();
       else setError("事项尚未创建，已保留输入，请检查服务端返回的信息。");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "检查或创建未完成。");
+      setError(cause instanceof Error ? cause : "检查或创建未完成。");
     } finally {
       lock.current = false;
       setBusy(false);
@@ -397,7 +399,7 @@ export function CreateItemDialog({
                   ))}
                 </div>
                 <p className="caption">
-                  确认操作只适用于刚才检查的表单内容。返回修改后需重新检查。
+                  确认仅适用于刚才检查的内容，不豁免服务端完全重复校验。返回修改后需重新检查。
                 </p>
               </div>
             ) : null}
