@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0",
+  "task_id": "YU-32H",
+  "fixed_consumer_parent": "5e57424b034ae8da0ac27d6fb920b457005ea253",
+  "framework_version": "057ebcf88a87303eb633eb6e604d306f633dfac0",
+  "certified_source_sha": "0a83eabea5766a0c4fc64fc84c914140036fd3df",
+  "initial_candidate_sha": "1797390722b02c31e2fdad7aaf4b5d962dfc0096",
+  "initial_candidate_run": 34008329939,
+  "initial_candidate_result": "New hardening RED/GREEN and runtime passed; existing reset/self-change CAS regression failed. Fixed without weakening the original test.",
+  "workflow": {
+    "name": "YU-32 independent security architecture review",
+    "run_id": 34008694043,
+    "attempt": 1,
+    "status": "completed",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "id": 101420513874,
+        "name": "YU-32 / full-regression",
+        "conclusion": "success",
+        "artifact": {
+          "id": 9981850829,
+          "name": "yu32-full-34008694043-1",
+          "sha256": "f244a2fe15d04d566370c45d9b0a7f0ab666f325e29953dea8ef72e812c59c9b"
+        }
+      },
+      {
+        "id": 101420514019,
+        "name": "YU-32 / runtime-smoke",
+        "conclusion": "success",
+        "artifact": {
+          "id": 9981787620,
+          "name": "yu32-runtime-34008694043-1",
+          "sha256": "573afbb66f53ca6cefa1d380fc419902bd04c2aeadb361566a498b0c3ade803c"
+        }
+      }
+    ]
+  },
+  "artifact_readback": {
+    "full_head": "0a83eabea5766a0c4fc64fc84c914140036fd3df",
+    "runtime_head": "0a83eabea5766a0c4fc64fc84c914140036fd3df",
+    "archive_bytes_independently_verified": true,
+    "worktree_files_empty": true,
+    "audit_existing": [],
+    "audit_new": [],
+    "audit_fixed": [
+      "AUDIT-AUTH-001:backend-yunka/internal/delivery/application/adapter.go:github.com/hvritual/yunka.io/gateway/authz"
+    ],
+    "frontend_files_passed": 23,
+    "frontend_tests_passed": 75,
+    "browser_e2e": "PASS",
+    "runtime_process_closure": "PASS",
+    "dependency_audit": "zero vulnerabilities reported for this execution only"
+  },
+  "qualification_scope": [
+    "real historical baseline RED",
+    "current policy/throttle/HTTP/CAS targeted race regressions",
+    "double canonical generate/full check",
+    "ownership/audit/ChangeSet",
+    "Go test/vet/race",
+    "frontend test/typecheck/build/security audit",
+    "real YU-29 browser E2E",
+    "real YU-31 HTTP/gRPC/stdio MCP/process closure"
+  ],
+  "closeout_rule": "Documentation/receipt/TASKS closeout is a new commit and must independently pass both YU-32 jobs on its own exact SHA before non-force merge.",
+  "framework_problem": "none-new",
+  "deployment": "not performed",
+  "yu33": "not started"
+}

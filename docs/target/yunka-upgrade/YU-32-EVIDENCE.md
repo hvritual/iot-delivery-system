@@ -1,5 +1,7 @@
 # YU-32 independent security / architecture review evidence
 
+> The original review below is historical as of `5e57424b034ae8da0ac27d6fb920b457005ea253`. The local-password retained risk was subsequently remediated under the user-authorized YU-32H follow-up; see the dated follow-up section below for current status and its exact-source evidence.
+
 - Fixed consumer parent: `20520f69d7eaf3c27c0fb3e9d79f03b4ecb059bd`.
 - Fixed framework: `057ebcf88a87303eb633eb6e604d306f633dfac0`.
 - Task branch: `codex/yu-32-independent-security-architecture-review`.
@@ -87,3 +89,33 @@ No new Yunka framework defect has been reproduced. The confirmed violation was c
 The local password subsystem still lacks an explicit product contract for online-guessing throttling/account lockout and minimum password length. This remains a **consumer security hardening risk**, not a proven framework defect. YU-33 must surface it in the final operating documentation instead of claiming complete hardening.
 
 The YU-31 runtime proof remains scoped to the exercised Linux/loopback/process scenarios; it is not a Windows/macOS, TLS-production, sustained-load, power-loss or universal leak proof. YU-33 is documentation/manifest closeout only and is not started until YU-32 is merged.
+
+## YU-32H follow-up: local-password risk remediation (2026-09-06)
+
+Fixed follow-up parent: `5e57424b034ae8da0ac27d6fb920b457005ea253`. The user explicitly requested repair of the YU-32 findings. This follow-up therefore establishes and implements the previously absent local-password product contract rather than only carrying that risk into YU-33. The earlier review and its unavailable private YU-00F input remain historical facts, not newly verified inputs.
+
+| Former gap | Implemented control and closure |
+| --- | --- |
+| No minimum password policy | One `ValidateNewPassword` gate for bootstrap, member creation, administrator reset and self change: at least 15 Unicode code points, valid UTF-8, maximum 4096 bytes; no trimming/truncation or mandatory character classes. Existing secrets remain verifiable; legacy hash upgrades require the verified unchanged secret and exact credential CAS. |
+| Unbounded online password guessing | Durable account budget: 10 attempts per 5 minutes, then 15-minute cooldown. Login and current-password verification share the same account budget. Success does not erase concurrent reservations. |
+| Process-local or rollback-prone counters | SQLite reservation commits before Argon2 and the business root transaction. Independent database connections share one serialized budget; failed business operations cannot refund it. Restarted Manager instances retain counters. Missing/corrupt storage and capacity exhaustion fail closed. |
+| Undefined proxy/client identity | Only actual HTTP `RemoteAddr`; forwarded identity headers are ignored. IPv4-mapped addresses normalize; IPv6 uses /64. BFF users share the BFF source budget (120 attempts/minute, one-minute cooldown) while account budgets stay distinct. No claim of arbitrary trusted-proxy client-IP support. |
+| Missing user-visible throttle behavior | HTTP 429, Retry-After and no-store; no credential/session issuance. Next forwards the bounded error response and Retry-After. New-password forms enforce and explain the policy; enrollment failures return 400. |
+
+Counters are bounded to 4096 active account/source buckets and expire automatically. Locked traffic does not extend cooldown. Audit records only sanitized lock transitions; no supplied username, IP or password is copied into throttle audit metadata. Valid established sessions and administrator recovery operations are not automatically invalidated by throttling. Operational details and deployment limitations are in `backend-yunka/README.md` under YU-32H.
+
+### Executed proof and regression repair
+
+`run-yu32h-red-green.sh` copies two tests using existing APIs into the fixed historical parent and requires BOTH exact behavioral failures: short password enrollment accepted, and 11 unbounded password guesses. Compilation/environment failures cannot satisfy these markers. The same tests plus policy, cooldown, independent-connection concurrency, retention, corrupt-store, HTTP and shared password-change budget tests pass on the repaired source with the race detector.
+
+Initial implementation `1797390722b02c31e2fdad7aaf4b5d962dfc0096` in run `34008329939` passed those new tests and real runtime smoke but failed the existing administrator-reset/self-change CAS test: eager centralized session verification returned `ErrSessionInvalid` instead of the required `ErrUserRevisionConflict`. The test was NOT weakened. The repair uses the existing active session-control record only to select a throttle bucket; root-transaction session/CAS/password checks remain authoritative. Identity-producing verification still requires the exact current credential revision. A new regression proves that the stale session cannot authenticate or issue a JWT, the administrator's replacement credential remains intact, and the failed CAS still consumes a durable reservation.
+
+Repaired source `0a83eabea5766a0c4fc64fc84c914140036fd3df` passed BOTH full-regression and runtime-smoke in Actions run `34008694043`. `YU-32H-CI-RECEIPT.json` records exact source, job and artifact identities, independently verified archive digests, artifact head values, zero worktree drift, and the actual audit debt delta. The full job ran authentic RED/GREEN, double generation/full check, ownership/audit/ChangeSet, Go tests/vet/race, frontend tests/typecheck/production build/security audit and real YU-29 browser E2E. The runtime job reran the complete YU-31 HTTP/gRPC/stdio MCP and process-closure test. Local restricted-shell checks are not represented as execution of that pinned CI toolchain.
+
+### Residual boundaries and final gate
+
+The specifically retained absence of a minimum-password/online-guessing/shared-storage/proxy-trust contract is closed for this implementation. This is NOT complete production security certification: legacy password lengths cannot be recovered from hashes; controlled rotation, TLS, edge DDoS controls, compromised-password blocklists and deployments using separate database replicas require their own controls. The shared-budget proof applies to one authoritative SQLite, not an arbitrary distributed deployment. Cooldown is bounded temporary denial, not permanent account disablement.
+
+The checks now make the new security contract executable; the existing lifecycle/CAS matrix also caught a real integration regression before merge. Future credential-boundary changes must preserve BOTH anti-guessing and reset/revocation/CAS tests.
+
+No Yunka source/gitlink, generated/protobuf files or legacy `backend/` were changed. No new framework defect was reproduced. This documentation/receipt closeout is a new commit and MUST independently pass both YU-32 workflow jobs on its own exact SHA before non-force merge. YU-33 and deployment remain unstarted.

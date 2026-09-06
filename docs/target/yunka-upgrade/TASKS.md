@@ -73,14 +73,24 @@
 
 本收口提交是文档/回执派发变更，必须在其自身精确 SHA 上再次通过 `.github/workflows/yu32-independent-review.yml` 的 `full-regression` 与 `runtime-smoke`、且 artifact 证明零漂移后，才能 non-force 合并 `main`。旧 SHA 的绿色结果不能替代最终提交门禁。
 
+## YU-32H 密码安全遗留项修复
+
+用户在 YU-32 合并后明确要求修复审查发现的问题。固定 parent 为 `5e57424b034ae8da0ac27d6fb920b457005ea253`；本补充任务不执行 YU-33、不部署、不改框架。
+
+此前保留的本地密码安全合同缺口已落实：统一 15 字符新密码策略；账号/来源双预算与临时冷却；同一 SQLite 持久化原子计数；登录与本人改密共用预算；拒绝信任代理来源头；429/Retry-After/BFF/UI 对齐。管理员重置与本人改密的原有 CAS 错误及旧会话失效语义保持不变。
+
+修复源码 `0a83eabea5766a0c4fc64fc84c914140036fd3df` 的 Actions run `34008694043` 已通过完整 YU-30 回归和 YU-31 runtime smoke，并具有真实旧版本 RED→当前 GREEN。回执见 `YU-32H-CI-RECEIPT.json`，修复过程及边界见 `YU-32-EVIDENCE.md` 的 YU-32H 节；具体运行策略见 `backend-yunka/README.md`。
+
+本次文档收口仍须其自身精确 SHA 的两项 YU-32 CI 全绿且 artifact 零漂移后才能合并。YU-33 后续输入须采用合并了 YU-32H 的 main，不得沿用“尚无限流/最小长度”的历史描述，也不得删去存量密码轮换、单 SQLite/代理预算及生产边界限制。
+
 ## 下一原子任务派发说明
 
 **下一独立任务：YU-33「更新运行说明、最终 manifest、提交与遗留问题清单」；须在 YU-32 最终精确 SHA CI 全绿并合并后开始。**
 
-- 固定 parent：使用 YU-32 收口 non-force 合并到 `main` 后的精确 SHA；开始时回读并冻结，不跟随移动 HEAD。
-- 输入：YU-00…YU-32 canonical consumer tree，YU-30/31/32 exact-SHA CI 与 runtime/browser artifacts，目标 Yunka `057ebcf88a87303eb633eb6e604d306f633dfac0`，现有运行说明、manifest、TASKS 与所有 evidence/framework-problem disposition。
+- 固定 parent：使用 YU-32H 修复收口 non-force 合并到 `main` 后的精确 SHA；开始时回读并冻结，不跟随移动 HEAD。
+- 输入：YU-00…YU-32 canonical consumer tree，YU-30/31/32/32H exact-SHA CI 与 runtime/browser artifacts，目标 Yunka `057ebcf88a87303eb633eb6e604d306f633dfac0`，现有运行说明、manifest、TASKS 与所有 evidence/framework-problem disposition。
 - 允许：仅更新最终运行/开发说明、canonical manifest、版本/提交/验证矩阵、已关闭问题和明确遗留风险；修正文档事实漂移；对文档引用执行存在性/提交一致性检查。
-- 禁止：新增产品功能、改变 auth/session/RoleBinding/permission/transaction 语义、修改 Yunka 源码或 gitlink、手改 generated、无证据宣称“零风险/完全安全”、隐藏 YU-32 保留的密码在线猜测/密码策略风险、部署。
+- 禁止：新增产品功能、改变 auth/session/RoleBinding/permission/transaction 语义、修改 Yunka 源码或 gitlink、手改 generated、无证据宣称“零风险/完全安全”、隐藏 YU-32H 的存量密码轮换、单 SQLite/代理预算及生产边界限制、部署。
 - RED：文档、manifest、命令、提交 SHA、CI/run/artifact、framework disposition 与 canonical executable truth 不一致；引用缺失；把历史/候选状态误写为当前状态。
 - GREEN：运行说明可由新开发者按 canonical 入口复现；最终 manifest 精确记录 consumer/framework SHA、生成与测试工具链、CI/runtime/browser 证据；所有已证实问题和残余风险有明确状态/owner/后续动作；文档引用存在；最终精确 SHA 完整回归保持 GREEN、零非预期漂移。
 - 框架问题：只汇总已证实框架 Issue 与状态，不新改 Yunka；消费者遗留项不得重新归因框架。
