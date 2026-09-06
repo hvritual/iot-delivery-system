@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+package iot.delivery.v1;
+
+import "yunka/dsl/v1/options.proto";
+import "google/protobuf/timestamp.proto";
+
+
+option go_package = "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1";
+
+message ReleaseResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  Release release = 1;
+}
+
+message SprintResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  Sprint sprint = 1;
+}
+
+message MilestoneResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  Milestone milestone = 1;
+}
+
+message Release {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string id = 1;
+  string project_id = 2;
+  string name = 3;
+  string version = 4;
+  string target_date = 5;
+  string status = 6;
+  string description = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message Sprint {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string id = 1;
+  string project_id = 2;
+  string name = 3;
+  string goal = 4;
+  string start_date = 5;
+  string end_date = 6;
+  string status = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message Milestone {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string id = 1;
+  string project_id = 2;
+  string name = 3;
+  string target_date = 4;
+  string status = 5;
+  string description = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message CreateReleaseRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string project_id = 1;
+  string name = 2;
+  string version = 3;
+  string target_date = 4;
+  string status = 5;
+  string description = 6;
+}
+
+message CreateSprintRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string project_id = 1;
+  string name = 2;
+  string goal = 3;
+  string start_date = 4;
+  string end_date = 5;
+  string status = 6;
+}
+
+message CreateMilestoneRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string project_id = 1;
+  string name = 2;
+  string target_date = 3;
+  string status = 4;
+  string description = 5;
+}
+
+message ListReleasesRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string project_id = 1;
+}
+
+message ListReleasesResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  repeated Release releases = 1;
+}
+
+message ListSprintsRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string project_id = 1;
+}
+
+message ListSprintsResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  repeated Sprint sprints = 1;
+}
+
+message ListMilestonesRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string project_id = 1;
+}
+
+message ListMilestonesResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  repeated Milestone milestones = 1;
+}

@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package iot.delivery.v1;
+
+import "yunka/dsl/v1/options.proto";
+import "google/protobuf/timestamp.proto";
+import "delivery/v1/work_item.proto";
+
+
+option go_package = "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1";
+
+message GetDashboardRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+}
+
+message GetDashboardResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  Dashboard dashboard = 1;
+}
+
+message Dashboard {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  repeated BoardSummary boards = 1;
+  repeated WorkItem items = 2;
+  google.protobuf.Timestamp generated_at = 3;
+}
+
+message BoardSummary {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string board = 1;
+  int32 total = 2;
+  int32 active = 3;
+  int32 blocked = 4;
+  int32 verifying = 5;
+  int32 released = 6;
+  int32 closed = 7;
+}
