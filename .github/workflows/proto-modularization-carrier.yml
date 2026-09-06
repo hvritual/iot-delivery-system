@@ -73,39 +73,47 @@ jobs:
           test -e target/backend-yunka/contracts/proto/delivery/v1/delivery_service.proto
           test "$(find target/backend-yunka/contracts/proto/delivery/v1 -maxdepth 1 -name '*.proto' | wc -l)" -eq 8
 
-      - name: Generate with pinned Yunka and prove semantic operation identity
+      - name: Generate with pinned Yunka and prove semantic identity
         shell: bash
         run: |
           set -euo pipefail
           make -C target/backend-yunka GO="$(command -v go)" TOOLS_DIR="$TOOLS_DIR" yunka-generate
           make -C target/backend-yunka GO="$(command -v go)" TOOLS_DIR="$TOOLS_DIR" yunka-check
           python3 - <<'PY'
-          import json
+          import json, subprocess
           from pathlib import Path
           root = Path('target')
-          old = json.loads((root / '.proto-mod-baseline-manifest.json').read_text())
-          new = json.loads((root / 'backend-yunka/contracts/generated/manifest.json').read_text())
-          def op_map(doc):
-              ops = doc.get('operations', [])
-              return {op['id']: {k:v for k,v in op.items() if k not in {'file','path','source','sourceFile','source_file'}} for op in ops}
-          before = op_map(old)
-          after = op_map(new)
-          if len(before) != 25 or len(after) != 25:
-              raise SystemExit(f'operation count changed: {len(before)} -> {len(after)}')
-          if before != after:
-              missing = sorted(set(before) - set(after))
-              added = sorted(set(after) - set(before))
+          old_manifest = json.loads((root / '.proto-mod-baseline-manifest.json').read_text())
+          new_manifest = json.loads((root / 'backend-yunka/contracts/generated/manifest.json').read_text())
+          old_plans = json.loads(subprocess.check_output([
+              'git', '-C', str(root), 'show',
+              'HEAD:backend-yunka/contracts/generated/operation-plans.json'
+          ], text=True))
+          new_plans = json.loads((root / 'backend-yunka/contracts/generated/operation-plans.json').read_text())
+          old_ops = old_plans.get('operations', [])
+          new_ops = new_plans.get('operations', [])
+          if len(old_ops) != 25 or len(new_ops) != 25:
+              raise SystemExit(f'operation count changed: {len(old_ops)} -> {len(new_ops)}')
+          if old_plans != new_plans:
+              before = {op['operationId']: op for op in old_ops}
+              after = {op['operationId']: op for op in new_ops}
               changed = sorted(k for k in before.keys() & after.keys() if before[k] != after[k])
-              raise SystemExit(f'operation semantics changed missing={missing} added={added} changed={changed}')
+              raise SystemExit(
+                  f'operation plan semantics changed missing={sorted(set(before)-set(after))} '
+                  f'added={sorted(set(after)-set(before))} changed={changed}'
+              )
           def msg_map(doc):
-              return {m['fullName']: {k:v for k,v in m.items() if k not in {'file','path','source','sourceFile','source_file'}} for m in doc.get('messages', [])}
-          bm, am = msg_map(old), msg_map(new)
+              return {
+                  m['fullName']: {k:v for k,v in m.items() if k not in {'file','path','source','sourceFile','source_file'}}
+                  for m in doc.get('messages', [])
+              }
+          bm, am = msg_map(old_manifest), msg_map(new_manifest)
           if bm != am:
               missing = sorted(set(bm) - set(am))
               added = sorted(set(am) - set(bm))
               changed = sorted(k for k in bm.keys() & am.keys() if bm[k] != am[k])
               raise SystemExit(f'message semantics changed missing={missing} added={added} changed={changed}')
-          print(f'PROTO SEMANTICS PRESERVED: {len(before)} operations, {len(bm)} messages')
+          print(f'PROTO SEMANTICS PRESERVED: {len(new_ops)} operations, {len(am)} messages')
           PY
 
       - name: Commit generated modularized contract without carrier files
