@@ -2,7 +2,7 @@ name: YU-32 independent security architecture review
 
 on:
   push:
-    branches: [codex/yu-32-independent-security-architecture-review]
+    branches: [codex/yu-32-independent-security-architecture-review, codex/yu-32-password-hardening]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -59,6 +59,9 @@ jobs:
           browser="$(command -v google-chrome || command -v chromium || true)"
           test -n "$browser"
           echo "IOT_DELIVERY_E2E_BROWSER=$browser" >> "$GITHUB_ENV"
+      - name: Prove YU-32 hardening RED and GREEN on exact source
+        shell: bash
+        run: bash backend-yunka/scripts/run-yu32h-red-green.sh
       - name: Run YU-32 application-boundary regressions
         working-directory: backend-yunka
         run: |
