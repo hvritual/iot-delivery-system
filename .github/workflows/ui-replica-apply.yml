@@ -1,0 +1,168 @@
+name: UI replica apply and verification
+on:
+  push:
+    branches: [transfer/ui-replica-workspace-20260906]
+    paths: [.github/workflows/ui-replica-apply.yml]
+permissions:
+  contents: read
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    outputs:
+      head: ${{ steps.apply.outputs.head }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: payload
+          persist-credentials: false
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: source
+          ref: 0cce352a58d72a6b60d847e4009f1a9c0fe56ba7
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.16.0'
+      - name: Validate and apply frontend source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, hashlib, json, lzma, pathlib, subprocess
+          base = '0cce352a58d72a6b60d847e4009f1a9c0fe56ba7'
+          source = pathlib.Path('source').resolve()
+          assert subprocess.check_output(['git','rev-parse','HEAD'], cwd=source, text=True).strip() == base
+          parts = [pathlib.Path(f'payload/transfer/ui-source-part-{i}.b64').read_text().strip() for i in range(1,7)]
+          raw = base64.b64decode(''.join(parts), validate=True)
+          assert hashlib.sha256(raw).hexdigest() == '8b12aa6a5a54adcc45a66e79519506a181c4c23d6c1c13d6f6bc92f42e79f115', 'transport checksum mismatch'
+          doc = json.loads(lzma.decompress(raw))
+          assert doc['base'] == base and len(doc['files']) == 33
+          paths = []
+          for entry in doc['files']:
+              rel = pathlib.PurePosixPath(entry['path'])
+              assert rel.parts[0] == 'web' and '..' not in rel.parts and not rel.is_absolute()
+              assert rel.suffix in {'.css','.tsx','.ts','.mjs','.jsx','.json'}
+              assert not any(part in {'node_modules','.next','.env','data','runtime-vault'} for part in rel.parts)
+              target = source.joinpath(rel)
+              assert target.resolve().is_relative_to(source) and not target.is_symlink()
+              if 'content' in entry:
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_text(entry['content'], encoding='utf-8')
+              else:
+                  subprocess.run(['git','apply','--check','-'], input=entry['patch'], text=True, cwd=source, check=True)
+                  subprocess.run(['git','apply','-'], input=entry['patch'], text=True, cwd=source, check=True)
+              assert hashlib.sha256(target.read_bytes()).hexdigest() == entry['sha256'], str(rel)
+              paths.append(str(rel))
+          pathlib.Path('source-files.json').write_text(json.dumps(paths))
+          print(f'Validated {len(paths)} frontend files against pinned base and content SHA256')
+          PY
+      - name: Format application source without changing canonical tokens
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/ui-formatter" --no-save --ignore-scripts prettier@3.6.2
+          FORMATTER="$RUNNER_TEMP/ui-formatter/node_modules/prettier/bin/prettier.cjs" python3 - <<'PY'
+          import json, os, subprocess
+          paths = json.load(open('source-files.json'))
+          paths = [p for p in paths if not p.startswith('web/styles/') and not p.endswith('.css')]
+          subprocess.run(['node', os.environ['FORMATTER'], '--write', *paths], cwd='source', check=True)
+          PY
+      - name: Commit and push only the verified frontend changes
+        id: apply
+        working-directory: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch='codex/iot-delivery-ui-replica'
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo 'Refusing to overwrite an existing implementation branch'; exit 1
+          fi
+          git switch -c "$branch"
+          python3 - <<'PY'
+          import json, subprocess
+          paths = json.load(open('../source-files.json'))
+          subprocess.run(['git','add','--',*paths],check=True)
+          staged = subprocess.check_output(['git','diff','--cached','--name-only'],text=True).splitlines()
+          assert set(staged) == set(paths), 'unexpected staged paths'
+          PY
+          git diff --cached --check
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'feat(web): implement token-based IoT delivery design across real workflows'
+          git push origin "HEAD:refs/heads/$branch"
+          echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          mkdir -p "$RUNNER_TEMP/ui-source"
+          git bundle create "$RUNNER_TEMP/ui-source/implementation.bundle" HEAD
+          git archive HEAD web > "$RUNNER_TEMP/ui-source/frontend-source.tar"
+          git rev-parse HEAD > "$RUNNER_TEMP/ui-source/head.txt"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ui-replica-source
+          path: ${{ runner.temp }}/ui-source/
+          if-no-files-found: error
+          retention-days: 3
+  verify:
+    needs: apply
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      GOWORK: 'off'
+      GOTOOLCHAIN: local
+      CI: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
+      IOT_DELIVERY_E2E_NO_SANDBOX: '1'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.apply.outputs.head }}
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.16.0'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: '1.25.13'
+          cache: true
+          cache-dependency-path: backend-yunka/go.sum
+      - name: Prepare browser and evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ui-evidence"
+          git rev-parse HEAD > "$RUNNER_TEMP/ui-evidence/head.txt"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+          browser="$(command -v google-chrome || command -v chromium)"
+          "$browser" --version
+          echo "IOT_DELIVERY_E2E_BROWSER=$browser" >> "$GITHUB_ENV"
+          echo "IOT_DELIVERY_UI_EVIDENCE=$RUNNER_TEMP/ui-evidence" >> "$GITHUB_ENV"
+      - name: Install locked dependencies
+        working-directory: web
+        run: npm ci
+      - name: Frontend tests
+        working-directory: web
+        run: npm test
+      - name: Typecheck
+        working-directory: web
+        run: npm run typecheck
+      - name: Production build with actual font provider
+        working-directory: web
+        run: npm run build
+      - name: Native-size visual and interaction E2E against real Yunka
+        working-directory: web
+        run: npm run e2e:ui
+      - name: Existing authorization and session regression
+        working-directory: web
+        run: npm run e2e:yu29
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ui-replica-visual-evidence
+          path: ${{ runner.temp }}/ui-evidence/
+          if-no-files-found: error
+          retention-days: 3
