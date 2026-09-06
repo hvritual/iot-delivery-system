@@ -1,0 +1,38 @@
+name: YU-33 pinned source export
+on:
+  push:
+    branches: [transfer/yu33-source-20260906]
+    paths: [.github/workflows/yu33-source-transfer.yml]
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 1da771dac46c1b10c2ea54a0fb4559316c20179b
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - name: Export only committed Git objects
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/yu33-source"
+          mkdir -p "$out"
+          test "$(git rev-parse HEAD)" = 1da771dac46c1b10c2ea54a0fb4559316c20179b
+          test "$(git -C third_party/yunka rev-parse HEAD)" = 057ebcf88a87303eb633eb6e604d306f633dfac0
+          git rev-parse HEAD > "$out/consumer-head.txt"
+          git -C third_party/yunka rev-parse HEAD > "$out/framework-head.txt"
+          git bundle create "$out/consumer.bundle" HEAD
+          git -C third_party/yunka bundle create "$out/framework.bundle" HEAD
+          cd "$out"
+          sha256sum *.bundle > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: yu33-pinned-source
+          path: ${{ runner.temp }}/yu33-source/
+          retention-days: 1
+          if-no-files-found: error
