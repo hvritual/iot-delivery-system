@@ -9,7 +9,6 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/deliveryauthz"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/notification"
-	"github.com/hvritual/yunka.io/gateway/authz"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -314,7 +313,7 @@ func (adapter *Adapter) AdvanceGate(ctx context.Context, request *deliveryv1.Adv
 	}
 	item, err := service.AdvanceGate(ctx, request.GetId(), request.GetExpectedRevision(), delivery.Gate(request.GetGate()), evidence)
 	if err != nil {
-		return nil, normalizeAuthorizationError(err)
+		return nil, deliveryauthz.NormalizeDomainDenial(err)
 	}
 	return &deliveryv1.WorkItemResponse{Item: workItem(item)}, nil
 }
@@ -329,7 +328,7 @@ func (adapter *Adapter) CloseItem(ctx context.Context, request *deliveryv1.Close
 	}
 	item, err := service.Close(ctx, request.GetId(), request.GetExpectedRevision(), request.GetRetrospective())
 	if err != nil {
-		return nil, normalizeAuthorizationError(err)
+		return nil, deliveryauthz.NormalizeDomainDenial(err)
 	}
 	return &deliveryv1.WorkItemResponse{Item: workItem(item)}, nil
 }
@@ -460,17 +459,6 @@ func (adapter *Adapter) notificationAuthorized(ctx context.Context, value notifi
 	}
 	item, err := service.Get(ctx, value.Subject)
 	return err == nil && projects[item.ProjectID]
-}
-
-// normalizeAuthorizationError retains domain sentinel matching while marking
-// high-risk separation-of-duties denials for the shared transport adapters.
-func normalizeAuthorizationError(err error) error {
-	if !errors.Is(err, delivery.ErrProductionPrincipalRequired) &&
-		!errors.Is(err, delivery.ErrImplementationSourceRequired) &&
-		!errors.Is(err, delivery.ErrImplementerCannotVerifyOwnChange) {
-		return err
-	}
-	return errors.Join(authz.Denied(authz.Decision{Reason: authz.ReasonPermissionDenied}), err)
 }
 
 func (adapter *Adapter) deliveryService() (*delivery.Service, error) {

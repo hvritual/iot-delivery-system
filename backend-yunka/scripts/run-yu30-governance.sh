@@ -59,6 +59,7 @@ assert.equal(report.debt?.baseSha, process.argv[3]);
 assert(Array.isArray(report.source?.files) && report.source.files.length > 0, 'audit must inspect real source');
 assert(Array.isArray(report.debt.new), 'audit must include a classified debt delta');
 console.log(JSON.stringify({ existing: report.debt.existing.map(x => x.id), new: report.debt.new.map(x => x.id), fixed: report.debt.fixed.map(x => x.id) }));
+assert.equal(report.debt.existing.length, 0, 'current proven architecture debt is forbidden after YU-32 closure');
 assert.equal(report.debt.new.length, 0, 'new proven architecture debt is forbidden');
 JS
 
@@ -100,4 +101,4 @@ JS
 rm "$WORK/checkout/yu30-out-of-scope-probe.txt"
 "$WORK/yunka" change set check --root "$WORK/checkout" --set "$OUT/change-set.json" --format json > "$OUT/change-set-restored.json"
 cp "$WORK/operations.txt" "$OUT/change-set-operations.txt"
-printf 'YU-30 GOVERNANCE PASS (audit: no NEW proven debt; existing debt retained in report)\n'
+printf 'YU-30 GOVERNANCE PASS (audit: zero current proven debt; fixed debt retained in report)\n'
