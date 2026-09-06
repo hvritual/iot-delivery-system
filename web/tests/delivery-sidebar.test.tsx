@@ -53,11 +53,15 @@ describe("DeliverySidebar", () => {
     expect(screen.getByText("我的工作")).toBeInTheDocument();
     expect(screen.getByText("工作空间")).toBeInTheDocument();
     expect(screen.getByText("五个交付板块")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /研发交付效能/ })).toHaveAttribute("data-active");
+    expect(
+      screen.getByRole("button", { name: /研发交付效能/ }),
+    ).toHaveAttribute("data-active");
     await user.click(screen.getByRole("button", { name: /项目与排期/ }));
     expect(onNavigate).toHaveBeenCalledWith("projects");
     await user.click(screen.getByRole("button", { name: /设备质量与连接/ }));
     expect(onSelectBoard).toHaveBeenCalledWith("设备质量与连接");
-    expect(onNavigate).toHaveBeenCalledWith("items");
+    // Board selection owns the atomic navigation; do not prompt/discard twice.
+    expect(onSelectBoard).toHaveBeenCalledTimes(1);
+    expect(onNavigate).not.toHaveBeenCalledWith("items");
   });
 });

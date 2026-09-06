@@ -1,55 +1,53 @@
 "use client";
-
 import {
-  ActivityIcon,
-  BoxesIcon,
-  CircuitBoardIcon,
-  LayoutDashboardIcon,
-  ShieldCheckIcon,
-  UsersRoundIcon,
+  Activity,
+  Box,
+  CalendarDays,
+  CircuitBoard,
+  Folder,
+  Inbox,
+  LayoutDashboard,
+  ListChecks,
+  LogOut,
+  Plus,
+  Settings,
+  ShieldCheck,
+  Users,
   type LucideIcon,
 } from "lucide-react";
-
-import { Badge } from "@/components/ui/badge";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuBadge,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarRail,
-} from "@/components/ui/sidebar";
-
-export type DeliveryBoard = {
-  board: string;
-  total?: number;
+import { Sidebar } from "@/components/ui/sidebar";
+import { Action, Chip } from "./delivery/ui";
+import { cn } from "@/lib/utils";
+export type DeliveryBoard = { board: string; total?: number };
+export type DeliverySurface =
+  | "cockpit"
+  | "items"
+  | "projects"
+  | "weekly"
+  | "notifications"
+  | "account";
+const icons: Record<string, LucideIcon> = {
+  设备质量与连接: CircuitBoard,
+  产品与平台能力: Box,
+  研发交付效能: Activity,
+  运营保障与安全: ShieldCheck,
+  客户与业务价值: Users,
 };
-
-export type DeliverySurface = "cockpit" | "items" | "projects" | "weekly" | "notifications";
-
-type DeliverySidebarProps = {
+type Props = {
   activeBoard: string | null;
   activeSurface: DeliverySurface;
   boards: readonly DeliveryBoard[];
-  onNavigate: (surface: DeliverySurface) => void;
-  onSelectBoard: (board: string | null) => void;
+  onNavigate: (s: DeliverySurface) => void;
+  onSelectBoard: (b: string | null) => void;
   sampleVisible: boolean;
+  onCreate?: () => void;
+  canCreate?: boolean;
+  sessionName?: string;
+  sessionDescription?: string;
+  onAccount?: () => void;
+  onLogout?: () => void;
+  busy?: boolean;
 };
-
-const boardIcons: Record<string, LucideIcon> = {
-  "设备质量与连接": CircuitBoardIcon,
-  "产品与平台能力": BoxesIcon,
-  "研发交付效能": ActivityIcon,
-  "运营保障与安全": ShieldCheckIcon,
-  "客户与业务价值": UsersRoundIcon,
-};
-
 export function DeliverySidebar({
   activeBoard,
   activeSurface,
@@ -57,112 +55,126 @@ export function DeliverySidebar({
   onNavigate,
   onSelectBoard,
   sampleVisible,
-}: DeliverySidebarProps) {
-  function selectBoard(board: string) {
-    onSelectBoard(board);
-    onNavigate("items");
+  onCreate,
+  canCreate = true,
+  sessionName,
+  sessionDescription,
+  onAccount,
+  onLogout,
+  busy,
+}: Props) {
+  function row(
+    label: string,
+    Icon: LucideIcon,
+    active: boolean,
+    click: () => void,
+    count?: number,
+  ) {
+    return (
+      <button
+        key={label}
+        type="button"
+        className={cn("nav-item", active && "active")}
+        data-active={active ? "" : undefined}
+        aria-current={active ? "page" : undefined}
+        onClick={click}
+      >
+        <Icon className="icon" aria-hidden="true" />
+        <span>{label}</span>
+        {count !== undefined ? (
+          <span className="nav-count">{count}</span>
+        ) : null}
+      </button>
+    );
   }
-
   return (
-    <Sidebar collapsible="icon" variant="inset">
-      <SidebarHeader className="px-2 pt-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton isActive={activeSurface === "cockpit"} onClick={() => onNavigate("cockpit")} size="lg" tooltip="IoT 交付" type="button">
-              <span className="flex size-7 items-center justify-center rounded-md bg-primary font-semibold text-primary-foreground">I</span>
-              <span className="flex min-w-0 flex-1 flex-col text-left leading-tight">
-                <span className="truncate font-semibold">IoT Delivery</span>
-                <span className="truncate text-xs font-normal text-muted-foreground">研发交付系统</span>
-              </span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
-
-      <SidebarContent className="px-2">
-        <SidebarGroup>
-          <SidebarGroupLabel>我的工作</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton isActive={activeSurface === "weekly"} onClick={() => onNavigate("weekly")} tooltip="我的本周" type="button">
-                  <UsersRoundIcon />
-                  <span>我的本周</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton isActive={activeSurface === "notifications"} onClick={() => onNavigate("notifications")} tooltip="通知收件箱" type="button">
-                  <ShieldCheckIcon />
-                  <span>通知收件箱</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>工作空间</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton isActive={activeSurface === "cockpit"} onClick={() => onNavigate("cockpit")} tooltip="交付驾驶舱" type="button">
-                  <LayoutDashboardIcon />
-                  <span>交付驾驶舱</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton isActive={activeSurface === "items" && activeBoard === null} onClick={() => onNavigate("items")} tooltip="交付事项" type="button">
-                  <BoxesIcon />
-                  <span>交付事项</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton isActive={activeSurface === "projects"} onClick={() => onNavigate("projects")} tooltip="项目与排期" type="button">
-                  <ActivityIcon />
-                  <span>项目与排期</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>五个交付板块</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {boards.map((board) => {
-                const Icon = boardIcons[board.board] ?? ActivityIcon;
-                return (
-                  <SidebarMenuItem key={board.board}>
-                    <SidebarMenuButton
-                      isActive={activeSurface === "items" && activeBoard === board.board}
-                      onClick={() => selectBoard(board.board)}
-                      tooltip={board.board}
-                      type="button"
-                    >
-                      <Icon />
-                      <span>{board.board}</span>
-                    </SidebarMenuButton>
-                    <SidebarMenuBadge>{board.total ?? 0}</SidebarMenuBadge>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-
-      <SidebarFooter className="px-2 pb-2">
-        <div className="delivery-sidebar-projection">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <span className="size-2 rounded-full bg-emerald-500" />
-            <span>Obsidian 投影就绪</span>
-          </div>
-          <p>规划、决策和复盘由 Yunka 单向沉淀。</p>
-          {sampleVisible ? <Badge className="mt-3" variant="secondary">本地示例数据</Badge> : null}
+    <Sidebar collapsible="none" className="sidebar" aria-label="主导航">
+      <div className="brand">
+        <span className="brand-mark">I</span>
+        <strong>IoT Delivery</strong>
+      </div>
+      <div className="sidebar-create">
+        <Action
+          variant="ghost"
+          className="ghost"
+          icon={Plus}
+          disabled={!canCreate}
+          onClick={onCreate}
+        >
+          新建交付事项
+        </Action>
+      </div>
+      <nav className="sidebar-nav">
+        <div className="nav-group">
+          <p className="nav-group-label">我的工作</p>
+          {row("我的本周", CalendarDays, activeSurface === "weekly", () =>
+            onNavigate("weekly"),
+          )}
+          {row("通知收件箱", Inbox, activeSurface === "notifications", () =>
+            onNavigate("notifications"),
+          )}
         </div>
-      </SidebarFooter>
-      <SidebarRail />
+        <div className="nav-group">
+          <p className="nav-group-label">工作空间</p>
+          {row("交付驾驶舱", LayoutDashboard, activeSurface === "cockpit", () =>
+            onNavigate("cockpit"),
+          )}
+          {row(
+            "交付事项",
+            ListChecks,
+            activeSurface === "items" && !activeBoard,
+            () => onNavigate("items"),
+          )}
+          {row("项目与排期", Folder, activeSurface === "projects", () =>
+            onNavigate("projects"),
+          )}
+        </div>
+        <div className="nav-group">
+          <p className="nav-group-label">五个交付板块</p>
+          {boards.map((board) =>
+            row(
+              board.board,
+              icons[board.board] ?? Activity,
+              activeSurface === "items" && activeBoard === board.board,
+              () => onSelectBoard(board.board),
+              board.total,
+            ),
+          )}
+        </div>
+        {onAccount ? (
+          <div className="nav-group">
+            <p className="nav-group-label">账号</p>
+            {row(
+              "账号与管理",
+              Settings,
+              activeSurface === "account",
+              onAccount,
+            )}
+          </div>
+        ) : null}
+      </nav>
+      <footer className="sidebar-footer">
+        <span className="avatar" aria-hidden="true">
+          {Array.from(sessionName || "I")[0]}
+        </span>
+        <div className="session-identity">
+          <strong>{sessionName || "IoT 研发交付"}</strong>
+          <small>{sessionDescription || "交付工作空间"}</small>
+          {sampleVisible ? <Chip>本地示例</Chip> : null}
+        </div>
+        {onLogout ? (
+          <button
+            type="button"
+            className="icon-button"
+            title="退出"
+            aria-label="退出"
+            disabled={busy}
+            onClick={onLogout}
+          >
+            <LogOut className="icon" />
+          </button>
+        ) : null}
+      </footer>
     </Sidebar>
   );
 }
