@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "task_id": "YU-32",
+  "framework_version": "057ebcf88a87303eb633eb6e604d306f633dfac0",
+  "status": "no-new-framework-problem-framework-unmodified",
+  "review_limitation": "YU-00F private framework analysis documents are not present in the public consumer tree or current verified checkout.",
+  "problems": [],
+  "new_framework_issues": []
+}
