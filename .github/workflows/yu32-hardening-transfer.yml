@@ -13,25 +13,27 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
-      - name: Restore exact checksum-bound Git bundle and push isolated carrier only
+      - name: Restore exact code tree on separately authorized workflow parent
         shell: bash
+        env:
+          GIT_AUTHOR_NAME: hvritual
+          GIT_AUTHOR_EMAIL: 460657446@qq.com
+          GIT_AUTHOR_DATE: '2026-09-06T02:57:03Z'
+          GIT_COMMITTER_NAME: hvritual
+          GIT_COMMITTER_EMAIL: 460657446@qq.com
+          GIT_COMMITTER_DATE: '2026-09-06T03:09:00Z'
         run: |
           set -euo pipefail
           cat .transfer/yu32h.part1 .transfer/yu32h.part2 .transfer/yu32h.part3 > "$RUNNER_TEMP/transferred.b64"
-          # Repair two transcription errors in the transport encoding, never source.
           sed -i -e 's/L1aNLuc5U2/L1aNLucxU2/' -e 's/4bfwKbfwK\/gTZ/4bfwK\/gTZ/' "$RUNNER_TEMP/transferred.b64"
           base64 --decode "$RUNNER_TEMP/transferred.b64" > "$RUNNER_TEMP/repair.bundle"
           echo 'f1391da0349960c0d4f0aa1ad42a4206d4975132fa69a7896a5892118b2607ad  '"$RUNNER_TEMP/repair.bundle" | sha256sum --check --strict
           git bundle verify "$RUNNER_TEMP/repair.bundle"
           git fetch "$RUNNER_TEMP/repair.bundle" HEAD
           test "$(git rev-parse FETCH_HEAD)" = 6839a9bdec10380623c37b8cc019c9a59ca03e44
-          git merge-base --is-ancestor 5e57424b034ae8da0ac27d6fb920b457005ea253 FETCH_HEAD
-          test "$(git ls-tree FETCH_HEAD third_party/yunka | awk '{print $3}')" = 057ebcf88a87303eb633eb6e604d306f633dfac0
-          git push origin 6839a9bdec10380623c37b8cc019c9a59ca03e44:refs/heads/transfer/yu32h-objects
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always()
-        with:
-          name: yu32h-transfer-payload
-          path: ${{ runner.temp }}/transferred.b64
-          retention-days: 1
-          if-no-files-found: error
+          parent=dd22fe985105c82debb41963ae0c48217313d68e
+          test "$(git rev-parse "$parent:.github/workflows/yu32-independent-review.yml")" = "$(git rev-parse FETCH_HEAD:.github/workflows/yu32-independent-review.yml)"
+          head=$(git commit-tree "$(git rev-parse FETCH_HEAD^{tree})" -p "$parent" -m 'fix(yu32h): enforce password policy and durable anti-guessing budgets')
+          test "$head" = 1797390722b02c31e2fdad7aaf4b5d962dfc0096
+          test -z "$(git diff --name-only "$parent" "$head" -- .github/workflows/)"
+          git push origin "$head":refs/heads/transfer/yu32h-objects
