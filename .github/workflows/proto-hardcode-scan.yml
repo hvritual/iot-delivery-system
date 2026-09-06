@@ -1,0 +1,29 @@
+name: Proto monolith hardcode scan
+
+on:
+  push:
+    branches: [transfer/proto-mod-source-20260906]
+    paths: [.github/workflows/proto-hardcode-scan.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 69518dec46bdfaf45cb84a0ee25d64c132b26fc9
+          fetch-depth: 0
+          submodules: false
+          persist-credentials: false
+      - name: Scan tracked source for obsolete single-file identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== obsolete monolith references ==='
+          git grep -n -E 'iot_delivery\.proto|yunka_bootstrap\.proto|File_iot_delivery_proto|iot_delivery\.pb\.go|iot_delivery_grpc\.pb\.go' -- ':!docs/target/yunka-upgrade/PROTO-MODULARIZATION-EVIDENCE.md' || true
+          echo '=== end scan ==='
