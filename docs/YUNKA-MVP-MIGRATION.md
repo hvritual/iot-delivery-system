@@ -1,76 +1,27 @@
-# IoT Delivery System · Yunka 并行 MVP 改造
+# Yunka Upgrade 收口与正式切换门槛
 
-## 结果状态
+本页为 YU-33 当前状态，输入固定于 `1da771dac46c1b10c2ea54a0fb4559316c20179b`。旧的 13/19 个 operation plan 和“成员登录尚未实现”描述已被当前源码与验证替代。历史逐任务证据保持不变。
 
-| 范围 | 状态 | 证据 |
+| 范围 | 当前状态 | 证据入口 |
 | --- | --- | --- |
-| 独立 Yunka 项目脚手架 | 已验证 | `backend-yunka/.yunka/project.json`、`yunka init` 生成的开发/Provider/Protobuf 清单 |
-| 交付领域与 SQLite | 已验证 | 创建、关卡、证据、复盘、ADR、重启持久化测试 |
-| R2 项目与研发交付管理 | 已验证 | 项目/版本/Sprint/里程碑、Epic/任务/子任务/缺陷、依赖、相似度、评论审计、搜索/保存视图、成员周视图和项目进度测试 |
-| Obsidian 单向投影 | 已验证 | 临时 Vault 中总览、规划、方案、决策、发布验证、复盘笔记测试；含排期/依赖、IoT 范围、研发关联、评论和活动审计 |
-| 通知与截止日提醒 | 已验证 | SQLite 本地收件箱、事件级每通道幂等、Webhook HMAC、企业微信机器人、SMTP 注入式通道测试；外部目的地仅在完整环境配置后启用，本次未向真实外部网络投递；截止日 worker 的 Outbox 幂等与运行时测试 |
-| MCP 任务生命周期 | 已验证 | stdio server 的内存传输测试与命令构建，覆盖项目、事项、相似度、计划、成员周视图、项目进度和项目交付健康；尚未注册到外部 MCP 客户端 |
-| HTTP 前端兼容 | 已验证 | Next App Router 的服务端 `/api/*`、`/health` 代理，R2 HTTP handler/runtime 测试、前端单元测试与生产构建；旧后端对照时会降级为五板块只读驾驶舱而非 R2 404 整页失败 |
-| Yunka HTTP/gRPC 运行时 | 已验证 | `runtimehost → kernel → core.App`、`/health`、`/__yunka/diagnostics`、生成 gRPC 服务集成测试 |
-| Yunka 合同生成 | 已验证 | `yunka generate/check --full`：DeliveryService 的 13 个 operation plan、生成 application/RPC executor 与受管派生产物 |
-| 旧数据/Vault 正式切换 | 未执行 | 本次不读取、迁移或覆盖 `backend/data` 与正式 Vault |
+| 云端源码/框架固定、25 个生成 Delivery plans | 已实现并有回归 | FINAL-MANIFEST、YU-30 |
+| root UoW、Outbox、审计、typed runtime lifecycle | 已实现并有回归 | YU-15/16/17、YU-30/31 |
+| 成员密码/session/JWT、项目角色、CSRF、双浏览器 | 已实现并有回归 | YU-18…29、YU-30 |
+| AUDIT-AUTH-001 | 已修复；规则内 existing/new proven debt 为零 | YU-32 |
+| 密码最低长度、猜测限流、持久计数与来源边界 | 已修复并有真实 RED/GREEN | YU-32H |
+| 外部通知适配器 | 已实现；未验收真实外部投递 | YU-14 及运行说明 |
+| stdio MCP | development-only；有真实进程测试 | YU-31 |
+| 旧 SQLite / 正式 Vault 切换 | 未执行、不得自动执行 | 下述门槛 |
+| 完整生产运行/安全认证 | 未完成，另行审批与验收 | RESIDUAL-RISKS |
 
-## 当前实现边界
+## 正式切换门槛（本轮不执行）
 
-```text
-Next App Router 桌面工作台
-  └─ server proxy (/api/*, /health; injects local API key)
-       └─ Yunka runtimehost
-            ├─ HTTP compatibility adapter (/api/*)
-            ├─ Yunka health + diagnostics
-            ├─ generated DeliveryService gRPC adapter
-            ├─ environment-specific authentication and execution security
-            └─ kernel/core.App lifecycle
-                 └─ SQLite runtime component
-                      └─ Delivery application operations
-                           ├─ one-way Obsidian projection
-                           └─ local notification router → local inbox / injected channel adapters
+1. 明确旧库迁移、正式 Vault 写入、切换窗口、回退条件和责任人的授权。
+2. 只在副本上迁移并对账：ID、时间、状态、关卡证据、ADR、复盘、身份/项目归属与新增安全 schema；差异必须可解释。
+3. 在隔离 Vault 对比投影；旧 backend 与新 backend-yunka 不同时写同一事实源。是否双写必须另行设计，不能擅自打开。
+4. 完成备份恢复/回退演练，确认凭据、审计、告警、运行资源和 SLO 的责任分工。
+5. 经过只读对账窗口及审批后才切换前端目标/正式地址；保留回滚材料，最后再决定旧系统退役。
 
-stdio MCP Server
-  └─ authenticated Delivery application operations
-```
+本轮没有执行上述迁移、投递、上线或授权动作。SQLite 是消费者实现，不冒称框架原生 MySQL Provider 能力；本地 broker 也不冒称可靠外部消息系统。
 
-SQLite 是该 MVP 的主数据源和 Yunka 运行时组件，而不是 Yunka 平台 Provider 管理的 MySQL 数据源。这是为保持现有本地交付管理模型和可运行性作出的明确适配，不应误读为框架已原生解决 SQLite 平台化。
-
-同一 Yunka 进程将 SQLite 限制为单连接池，并启用 WAL 与 5 秒 busy timeout，以串行化命令事务、Outbox dispatcher 和本地通知收件箱的写入；通知读模型也加入当前 Yunka 读事务。该实现解决本地单进程争用，不解决两个独立进程同时打开同一 DB 文件的问题。
-
-## 已采用与未采用
-
-已采用：
-
-- Yunka 的项目档案、Protobuf 生成清单和完整检查。
-- 标准 `runtimehost` 对 HTTP/gRPC transport 的所有权。
-- `kernel.Bootstrap` 与 `core.App` 生命周期，以及 SQLite 健康/关闭组件。
-- 13 个当前 operation plan 的生成 Protobuf/gRPC 类型、策略、RPC executor 和手工适配的 `DeliveryService` 实现；项目列表已进入 typed plan，并按持久项目授权集过滤。
-- Yunka `operation.Executor`、版本化权限字典、production SQLite human/service `GrantResolver + OperationGuard`、显式隔离的 development `localauth` 兼容层和 SQLite 本地执行事务；R2 HTTP/MCP 扩展也必须经过同一个执行器，而非直接访问仓储。
-- Gateway `authz` 的 OperationPlan/ExecutionSecurity，以及从真实 Principal 到 SQLite RoleBinding、项目范围和服务身份显式 grant 的持久授权解释；本轮不把认证后 Principal 注入测试冒充凭据验签。
-- SQLite 事务 Outbox、进程内 local broker、Obsidian 全量幂等投影，以及本地通知收件箱。通知通道以 `notification.Channel` 接口在 bootstrap 装配，默认没有外部通道；显式配置时可使用通用 Webhook、企业微信机器人和 SMTP，失败会进入已有 Outbox 的退避重试/死信路径。
-- 截止日提醒 worker：开放事项按可配置提前天数扫描，同一事项每天使用稳定事件 ID 写入 Outbox；完成项跳过，重启和重复扫描不会重复投递。
-- 本地 stdio MCP server：通过已鉴权的应用用例执行项目、事项、相似度确认、计划、成员周视图、进度、项目交付健康和保存视图。
-
-当前未采用：
-
-- 尚未生成合同的 R2 扩展操作（例如保存视图、相似度和排期读模型）。它们作为经 `Operations/Executor` 执行的显式本地扩展合同存在，不应误称为生成 gRPC 合同；项目列表已从该集合迁出，当前 `operation-plans.json` 覆盖 13 个操作。
-- 业务内成员密码、不透明会话、内部短期 JWT、管理员初始化与成员管理尚未实现；它们由 YU-18 至 YU-29 独立交付。
-- Provider 驱动的 MySQL 绑定、外送事务、Kafka/NATS 等可靠事件传输。
-- 生产级的外部通知凭据治理、按成员偏好/升级规则、Webhook 接收端 SLA、SMTP TLS/邮件供应商治理。当前通道适配器和本地 Outbox 退避/死信已实现，但没有真实渠道授权或外部投递验收。
-- 生产级可观测性采集、密钥治理、环境部署、备份/恢复与 SLO。
-- MCP Streamable HTTP/OAuth、多用户身份映射和与常驻 HTTP 运行时共享同一 SQLite 文件的 sidecar 通讯机制。
-- 旧 SQLite 的数据迁移、正式 Obsidian Vault 切换及清理旧投影。
-
-这些不是“已由框架解决”的能力；它们是后续架构和运行治理工作项。
-
-## 正式切换门槛
-
-1. 获得对旧 SQLite 数据迁移、回滚窗口和验收样本的明确授权。
-2. 在副本上验证 ID、时间、状态、关卡证据、ADR 和复盘的全量迁移对账。
-3. 获得正式 Obsidian Vault 写入授权，并先在隔离路径比对投影差异。
-4. 明确鉴权、审计、备份/恢复、运行告警与部署责任人。
-5. 通过双写或只读对账窗口验证后，再将前端目标或正式服务地址切换。
-
-在这些条件满足前，旧 `backend/` 与 `backend-yunka/` 必须并行保留。
+[当前运行说明](../backend-yunka/README.md) · [最终清单](target/yunka-upgrade/FINAL-MANIFEST.json) · [遗留项](target/yunka-upgrade/RESIDUAL-RISKS.md) · [YU-33 证据](target/yunka-upgrade/YU-33-EVIDENCE.md)

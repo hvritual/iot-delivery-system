@@ -1,0 +1,562 @@
+{
+  "schema_version": "1.0",
+  "task_id": "YU-33",
+  "as_of_date": "2026-09-06",
+  "repository": "hvritual/iot-delivery-system",
+  "fixed_parent": "1da771dac46c1b10c2ea54a0fb4559316c20179b",
+  "executable_source_sha": "1da771dac46c1b10c2ea54a0fb4559316c20179b",
+  "source_tree": "66215bee07656cf6dce124b893b0dd7af18eafac",
+  "framework_sha": "057ebcf88a87303eb633eb6e604d306f633dfac0",
+  "framework_mutated": false,
+  "deployment_performed": false,
+  "task_branch": "codex/yu-33-final-closeout",
+  "allowed_changed_paths": [
+    "README.md",
+    "backend-yunka/README.md",
+    "docs/ARCHITECTURE.md",
+    "docs/YUNKA-MVP-MIGRATION.md",
+    "docs/SOURCE-MANIFEST.md",
+    "docs/target/yunka-upgrade/TASKS.md",
+    "docs/target/yunka-upgrade/RESIDUAL-RISKS.md",
+    "docs/target/yunka-upgrade/YU-33-EVIDENCE.md",
+    "docs/target/yunka-upgrade/FINAL-MANIFEST.json"
+  ],
+  "unchanged_git_objects_sha256": "401a788ca428d21e64197327951c82a92ecf4e22acc48362f58235077520a041",
+  "fingerprint_rule": "SHA256 of git ls-tree -r fixed_parent lines, excluding allowed_changed_paths, joined by LF with terminal LF. All other paths, including historical docs and gitlink, must remain identical.",
+  "generated_delivery_operation_count": 25,
+  "generated_delivery_operation_ids": [
+    "delivery.dashboard.get",
+    "delivery.items.advance-gate",
+    "delivery.items.close",
+    "delivery.items.comment.create",
+    "delivery.items.create",
+    "delivery.items.get",
+    "delivery.items.list",
+    "delivery.items.search",
+    "delivery.items.similarity",
+    "delivery.items.update",
+    "delivery.items.update-context",
+    "delivery.members.week",
+    "delivery.milestones.create",
+    "delivery.milestones.list",
+    "delivery.notifications.list",
+    "delivery.projects.create",
+    "delivery.projects.list",
+    "delivery.projects.progress",
+    "delivery.projects.schedule",
+    "delivery.releases.create",
+    "delivery.releases.list",
+    "delivery.sprints.create",
+    "delivery.sprints.list",
+    "delivery.views.list",
+    "delivery.views.save"
+  ],
+  "internal_contracts_not_generated_rpc": [
+    "localbootstrap",
+    "localmemberadmin",
+    "locallogin",
+    "localprojectroleadmin",
+    "configapplication (three config revision operations)"
+  ],
+  "toolchain": {
+    "go": "1.25.13",
+    "node": "22.16.0",
+    "protoc": "3.21.12",
+    "protoc_gen_go": "1.36.11",
+    "protoc_gen_go_grpc": "1.6.2",
+    "ci_os": "ubuntu-24.04",
+    "browser": "real Chrome/Chromium; actual build is run-specific"
+  },
+  "evidence_scope": "Historical evidence hashes establish inventory/integrity, not independent re-execution of every historical claim.",
+  "milestones": [
+    {
+      "task": "YU-00",
+      "source_sha": "4cd1209f41575a67ab143b83e1df6501089085b8",
+      "kind": "historical baseline"
+    },
+    {
+      "task": "YU-30",
+      "source_sha": "2f533dc233584c3318b9788f7016dcfb131b99b7",
+      "run_id": 33971774693,
+      "kind": "historical named-source receipt"
+    },
+    {
+      "task": "YU-31",
+      "source_sha": "20520f69d7eaf3c27c0fb3e9d79f03b4ecb059bd",
+      "runtime_run_id": 34003340202,
+      "regression_run_id": 34003340165,
+      "kind": "historical final source"
+    },
+    {
+      "task": "YU-32",
+      "source_sha": "5e57424b034ae8da0ac27d6fb920b457005ea253",
+      "run_id": 34005096838,
+      "kind": "historical final source"
+    },
+    {
+      "task": "YU-32H",
+      "source_sha": "1da771dac46c1b10c2ea54a0fb4559316c20179b",
+      "run_id": 34009115037,
+      "kind": "input preflight; job metadata and archive bytes rechecked"
+    }
+  ],
+  "input_artifacts": [
+    {
+      "run_id": 34009115037,
+      "job_id": 101421676641,
+      "artifact_id": 9981974745,
+      "name": "yu32-full-34009115037-1",
+      "sha256": "b045f6d37383ca92b8c385516d15b0b526356fe58a6684102a5a315ddc6983e9",
+      "head": "1da771dac46c1b10c2ea54a0fb4559316c20179b",
+      "worktree_empty": true
+    },
+    {
+      "run_id": 34009115037,
+      "job_id": 101421676716,
+      "artifact_id": 9981918738,
+      "name": "yu32-runtime-34009115037-1",
+      "sha256": "b1fe09ff2a4e19618265fb6f882aa46659cfad0bb047868c97941d1ec664ccb1",
+      "head": "1da771dac46c1b10c2ea54a0fb4559316c20179b",
+      "worktree_empty": true
+    }
+  ],
+  "framework_issue_readback": [
+    {
+      "repository": "hvritual/yunka.io",
+      "number": 149,
+      "state": "closed",
+      "state_reason": "completed",
+      "closed_at": "2026-09-05T11:26:48Z",
+      "fix_adopted_by_yu33": false
+    },
+    {
+      "repository": "hvritual/yunka.io",
+      "number": 150,
+      "state": "closed",
+      "state_reason": "completed",
+      "closed_at": "2026-09-05T11:47:26Z",
+      "fix_adopted_by_yu33": false
+    },
+    {
+      "repository": "hvritual/yunka.io",
+      "number": 151,
+      "state": "closed",
+      "state_reason": "completed",
+      "closed_at": "2026-09-06T02:10:34Z",
+      "fix_adopted_by_yu33": false
+    }
+  ],
+  "unavailable_inputs": [
+    "YU-00F private FRAMEWORK-REQUIREMENTS.md",
+    "YU-00F private FRAMEWORK-PROBLEMS.md",
+    "YU-00F private evidence manifest"
+  ],
+  "source_file_inventory": [
+    {
+      "path": ".gitmodules",
+      "sha256": "38c4abf0d81974ac21615dab23f9419f0f79ce952a93a4b799c1d5097b86c5f4"
+    },
+    {
+      "path": ".yunka/project.json",
+      "sha256": "032c0a43027c8cee5298115655f0c63840a7512efed5deca490adfe1ebbfd4ce"
+    },
+    {
+      "path": "backend-yunka/Makefile",
+      "sha256": "8ca54500cf2db59cd6a3888cba09a1b57b27d20828aa52f69f968e526f5a8e7a"
+    },
+    {
+      "path": "backend-yunka/go.mod",
+      "sha256": "d72b30421657f1e78228a4751bbb070556415e6dd76172eb79f4f5e034ba2567"
+    },
+    {
+      "path": "backend-yunka/go.sum",
+      "sha256": "32172a1f8fffa03e3d54d160f5fae492ee0a8d09a6018f655a7796293e2fa426"
+    },
+    {
+      "path": "web/package.json",
+      "sha256": "6bf9b8647f3f31fd794bdb07b6bfabbb486179955b88e5aecf7ef1c4df9508b2"
+    },
+    {
+      "path": "web/package-lock.json",
+      "sha256": "bec1bb8f431dc8a1a762f22c5558376439352abd97e861771d9286d13e0d1048"
+    },
+    {
+      "path": "backend-yunka/contracts/proto/iot_delivery.proto",
+      "sha256": "96dd65458fb7e78876c7077a56fe563291c6910ebb075e24ea56b0f8a05dcef9"
+    },
+    {
+      "path": "backend-yunka/contracts/generated/operation-plans.json",
+      "sha256": "62f770c10c59cde255b4d3d1ccf0635406da829cff12a8f706bfa1381daabdbc"
+    },
+    {
+      "path": "backend-yunka/contracts/generated/manifest.json",
+      "sha256": "5ce46729033b0715438cff79b49a7d6ece9801be7d47391fb550f441a9012982"
+    },
+    {
+      "path": "backend-yunka/internal/bootstrap/application.go",
+      "sha256": "6bb2a9b3fa17c272310289bbf86e3f5d72d6f39f30710414e50dd8d75fc210e1"
+    },
+    {
+      "path": "backend-yunka/internal/bootstrap/local_auth_bff.go",
+      "sha256": "bdb5c6e7b5c65e056dd859d32c0b54b8a7c71398b13ebd9336f63ed5f2030d1c"
+    },
+    {
+      "path": "backend-yunka/internal/localtransportauth/http.go",
+      "sha256": "9119d6351b43ed300c05403e43f615e1aaa69c90a6ccd333def2a96623863e16"
+    },
+    {
+      "path": "backend-yunka/internal/localcredential/password.go",
+      "sha256": "4d6adf410bdae4020b99980c2965df85e2d01a969532d2cb5feeb1439567b42c"
+    },
+    {
+      "path": "backend-yunka/internal/locallogin/throttle.go",
+      "sha256": "2f8b94ee27b70d3e4835577bf0b55cfd4ccda2a743694eb14f1266b9ebde9583"
+    },
+    {
+      "path": "backend-yunka/cmd/yu29-fixture/main.go",
+      "sha256": "f11047f1835c7a47cb8cea4cdf8f3d2594ac796e352bd0d764c6fff11aa9c18d"
+    },
+    {
+      "path": "backend-yunka/cmd/yunka-bootstrap/main.go",
+      "sha256": "3c3c348c1f3ea5cdbb52cc5184fb675b8426c5db40a35338da9c999075a84131"
+    },
+    {
+      "path": "backend-yunka/cmd/iot-delivery-mcp/main.go",
+      "sha256": "41d9960b2f3b13839786da14f56644d4d5dcacc6cf94052736b16471544ded08"
+    },
+    {
+      "path": "web/scripts/yu29-e2e.mjs",
+      "sha256": "04ad680b0e3cf617e44569848f06a4f78f6741a988803a3145718f29703df06c"
+    },
+    {
+      "path": ".github/workflows/yu30-regression.yml",
+      "sha256": "d340ff9023a264fa65812d02c9b557f71a1a4c1b917be4aae47d64fd4df8c0cf"
+    },
+    {
+      "path": ".github/workflows/yu31-runtime-smoke.yml",
+      "sha256": "9af254a264ed3e76cff0ea6c023ec8af069bd3ae75d66758bbafa8eff97b7527"
+    },
+    {
+      "path": ".github/workflows/yu32-independent-review.yml",
+      "sha256": "72d6f708b6a00e41bda603b3a9da832417e0215a44680fd2905a017e22cecb1b"
+    }
+  ],
+  "historical_evidence_inventory": [
+    {
+      "path": "docs/target/yunka-upgrade/BASELINE.md",
+      "sha256": "f640ba9b147e6ad320cb943c617431f91c9887cf3b30aefba536c3119ccdd32b"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/CAPABILITY-MAP.md",
+      "sha256": "94e5bbd3a9d4f3de86d358a52691b23e6710635f6f2eaf43b5888baa2858bede"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/RUN-MANIFEST.json",
+      "sha256": "d35430031973988cf86916579499c89e4bc0ce6ca4446454a8c02cad6212851b"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/SOURCE-MANIFEST.json",
+      "sha256": "ea2dd1af869e625d42a33d424cbe47a7d2bbbea813a43af52978e1ac2370611d"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-02-EVIDENCE.md",
+      "sha256": "e529a04016e03fdf97e4c6e3e0129f2a293410c91ddf844770fde80d6a5caf81"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-03-EVIDENCE.md",
+      "sha256": "2dc27626d6f0933664d7d1f6c0836af4fb0458881065604e2daa832e2dd02620"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-04-EVIDENCE.md",
+      "sha256": "345bdc59dcf605126cab456ff7a4e58ef6bd8d4a6bfe4e256b1b5df93eedfd38"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-05-EVIDENCE.md",
+      "sha256": "760255b4155fcfb45dae686829169419928b5b5951af00d1d73a60df236a7784"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-06-EVIDENCE.md",
+      "sha256": "183130a1416986e32a3ffb014fa401e3600b258f877ba08d93568737a32d00ff"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-07-EVIDENCE.md",
+      "sha256": "2efe1c135f49ccb0acfdb067aa4795994516744626038ad2683d97b5b945cf05"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-07-FRAMEWORK-PROBLEMS.json",
+      "sha256": "23d6701726b34ed9f7562285f8aaea8f250e9980de668c6ae3ee21e1acc676b7"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-08-EVIDENCE.md",
+      "sha256": "04f501036497d4b660fa6912f2d48cd59607bc95b8052e0225e49c42edbe1224"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-08-FRAMEWORK-PROBLEMS.json",
+      "sha256": "9987727c9dad0d70eab225146857337aeef546d9ac146b537a0f7c06180c56e9"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-09-EVIDENCE.md",
+      "sha256": "69d61d9c404d488a3e45db40cba7c67450600865f1a47411730908e9e3efa09a"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-09-FRAMEWORK-PROBLEMS.json",
+      "sha256": "894096957478376b4b29208a55256677c3a56b5abdf9eb722f457663c5e9f1c3"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-10-EVIDENCE.md",
+      "sha256": "cb99b65e27ed2fb7a840a91cb90296f6f25a233b6a4cdb2e2e1a1ae1ab0e20e7"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-10-FRAMEWORK-PROBLEMS.json",
+      "sha256": "38844d643e43f1a6f7331260723945246938cab01ad793ec602007c272ae070e"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-11-EVIDENCE.md",
+      "sha256": "fdbe4a07d2166cfbce0881bf215843e07e397da487fa47929c71eb1926f70785"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-11-FRAMEWORK-PROBLEMS.json",
+      "sha256": "c7e41481b8f674c09ec83b15a88c70075170d4f6c7909061738ffa19f4db6641"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-12-EVIDENCE.md",
+      "sha256": "3395b392ece5d0a1af178abe28084c10a3dcef38ea118d3cabc89d350c4e4fd8"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-12-FRAMEWORK-PROBLEMS.json",
+      "sha256": "20a7f0f5be5ff9fc5ef2bc96ea199630c6c7537aed166a0af58f371efcafafba"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-13-EVIDENCE.md",
+      "sha256": "50026e389dcdd6215d67c20e1460201fbd97fc1381643f588197d4ec60582e4f"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-13-FRAMEWORK-PROBLEMS.json",
+      "sha256": "387feccb08781556d02393ea690dee2c643f91fc0f3825e844e66ac5fcac6621"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-14-EVIDENCE.md",
+      "sha256": "6993d2d3c72c8c97cd3257cc05d8654250a369ade294e4754b4b6216f74baab9"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-14-FRAMEWORK-PROBLEMS.json",
+      "sha256": "858ff6b08e66bf17810c9ebeebeaddba5a30f25fa148d77942f17d204fb232de"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-15-EVIDENCE.md",
+      "sha256": "f8a371ff578cbbcb16d5de52634a419d5f49c2241b29e23edba5d67ada72ced3"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-15-FRAMEWORK-PROBLEMS.json",
+      "sha256": "221ffeade0f932e8b303b812cdd52bce6aac365193f8f0e556731e34fc3bea2f"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-16-EVIDENCE.md",
+      "sha256": "9fefdd3559bda2ce5798e0fc38240d61e9d44ac0225c036fc5a429d1543256fa"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-16-FRAMEWORK-PROBLEMS.json",
+      "sha256": "b431cc394717f946739f649e43c57176d721b5d13940ccab3f80be2ef38e7b53"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-17-EVIDENCE.md",
+      "sha256": "0f32705b0e9143d24dcb35b5cce9ac8812ab2516eec6edb0b0334ddf27c64a68"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-17-FRAMEWORK-PROBLEMS.json",
+      "sha256": "c92679f45b22d6ba72a3392fcd9948732ad413f2e8a49644f319397b47de77bb"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-18-EVIDENCE.md",
+      "sha256": "1d6c9ab8e018b670250497917c384f1ea09faaf747fb0468183cac45dc20d171"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-18-FRAMEWORK-PROBLEMS.json",
+      "sha256": "27c04f51c3a161343c309224ee5afc4c9b00f75172cb95e68236e6c439bb8b16"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-19-EVIDENCE.md",
+      "sha256": "e601dab1c0abdcc6af8f9ccf86ccb2b4a1aa565dbada62948d34093f3a4affd8"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-19-FRAMEWORK-PROBLEMS.json",
+      "sha256": "31bed03e1d7c10fd5a3c7a0d335da0efc00b6579c5e89711e8c1b84933813dd5"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-20-EVIDENCE.md",
+      "sha256": "b72ec0c50e1d0d035eadc4123a7e2e6b180e116cfcb9707228c0f4df28f33b87"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-20-FRAMEWORK-PROBLEMS.json",
+      "sha256": "01f63c2abc4cacba8521f7b163b54729cbbc27c2b0067eafcb17a54736931b62"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-21-EVIDENCE.md",
+      "sha256": "9cbb4df2d906e32bd33775b772b84f4a7c6d2d00d6197034194ed6c3ad63975b"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-21-FRAMEWORK-PROBLEMS.json",
+      "sha256": "f29c5fa29f848afae177cd008591929e37391ca07920ded9a5623ef84c1d6840"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-22-EVIDENCE.md",
+      "sha256": "23993fb4414de18eea23abe5a6163f6e914421b5e8218a5e5a51316454a1f598"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-22-FRAMEWORK-PROBLEMS.json",
+      "sha256": "bdd632b0fddd171e2ae6b0c22b4cc1d27762c2deb9b7e663705d1c15b253b66e"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-23-EVIDENCE.md",
+      "sha256": "b4e733e09d5595c39e52acfac48aa8a800275ffd071a910abc1fcc19e0957b16"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-23-FRAMEWORK-PROBLEMS.json",
+      "sha256": "0361788ae8e4b6934bba0d5520f4785dcff9d92b685db005f80bc7abb155dfc4"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-24-EVIDENCE.md",
+      "sha256": "e0840a9d9442bf46b0c6690ec9d9ec02cbf991a3ba9ed6472678641dc0250cf7"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-24-FRAMEWORK-PROBLEMS.json",
+      "sha256": "0ee328cdf84723c384b71644d801c22fdd39e2a3ee6d5bbc0e5e582f66d9153f"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-25-EVIDENCE.md",
+      "sha256": "267e77bca7a3a6e1588d92aaed35b06a80bce2d6683f178aa874392b84c16ebf"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-25-FRAMEWORK-PROBLEMS.json",
+      "sha256": "38a0cc1198373e64989372e3d2257fa37bbc20ae29e5e813f53844daa7c6f065"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-26-EVIDENCE.md",
+      "sha256": "859dd58f705ed8f1fd7b81a1a41381ba4904ead6b79f5795b41bc961a77b5e9f"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-26-FRAMEWORK-PROBLEMS.json",
+      "sha256": "d449056293645a76c934c63408ec11934084805fd0cc7c44d03e9aa8d4d088e3"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-27-EVIDENCE.md",
+      "sha256": "859253d0d8acd44ef05df181d03232139eca863bf3aba49bacc9d15c8fea3431"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-27-FRAMEWORK-PROBLEMS.json",
+      "sha256": "9f31c61d108a01090edfc5ff672b8c080f992a73a70ec7eccd40170f444eb492"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-28-EVIDENCE.md",
+      "sha256": "3150d2cb9a31b73bd09c08a8b56f81da44b2190effe96f6deaa297b5b1d24f7b"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-28-FRAMEWORK-PROBLEMS.json",
+      "sha256": "0587c59f6a1eced458dc416b11a142a102b783a2632fa3202dbc0f7776f241a3"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-29-EVIDENCE.md",
+      "sha256": "c7f0afd6fb2b6eeac20c2637d4fef61c3636e359a49b66976caf566eefdbc8d4"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-29-FRAMEWORK-PROBLEMS.json",
+      "sha256": "d005f183e7c63affac1f38b7f4d497cf99daa0e719cbc3266fd56e7da1f6984d"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-30-CI-RECEIPT.json",
+      "sha256": "32ca7f597aea53899be6b109f11bac171d97fd15e39470955369e89e55af583d"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-30-ENVIRONMENT.md",
+      "sha256": "0eb05eca7d508fa5f776d680b84d9fdff1985f8f07275059a89957fab00c0fc1"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-30-EVIDENCE.md",
+      "sha256": "282fbdc790c5d1a0dbac26ae11d1e7d6403dc7cbdf5935667bff284a069b28f7"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-30-FRAMEWORK-PROBLEMS.json",
+      "sha256": "a599a0c9b80b3675aad28fa405a72e796824b4b9db4d0eaacb084b7422ddd879"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-31-CI-RECEIPT.json",
+      "sha256": "0f301d859714afab0525a46a46f05835d5d93a3795dfdd18a9491b740d34793b"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-31-EVIDENCE.md",
+      "sha256": "c1fdf730f9a520030fbae79d77dbb523f6b7fa877cb7358d5f48fc9733134e65"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-31-FRAMEWORK-PROBLEMS.json",
+      "sha256": "8f2c23179414c99ce051ed441c1e8000b5a7a1098ca0f2bf7cf858398c71c7ee"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-32-CI-RECEIPT.json",
+      "sha256": "0a30aeaaea31923541ca03878af2f2f4930d05525b2794ce639b538a9c0dbbdd"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-32-EVIDENCE.md",
+      "sha256": "d584f39b40099fcbb3f755bd4e9ff0ac7221004228968f1071a53656553869cd"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-32-FRAMEWORK-PROBLEMS.json",
+      "sha256": "2eb7e44c931e1a681d27aa9337704529fbc0b994fe287bc08b86d982a8e61d5d"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-32H-CI-RECEIPT.json",
+      "sha256": "563c2268d159d368d5dca1cfbe4d4a68bfa52cd47221af1d6a99e12135836171"
+    }
+  ],
+  "current_document_inventory": [
+    {
+      "path": "README.md",
+      "sha256": "218684b5c4be19e2668b2365b80de3dee83a36219319a38cabfb066811b85cad"
+    },
+    {
+      "path": "backend-yunka/README.md",
+      "sha256": "20d092b4827ebb42adda9c03a1aa8b8727e2941bde673e58899c650e914bdff6"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "sha256": "1432d64c100b07f87b664455e3a81fb2829a57624778595161926d00353850d8"
+    },
+    {
+      "path": "docs/YUNKA-MVP-MIGRATION.md",
+      "sha256": "4cc40bd093c356818a15526a9c470b51cea66b5b92de2c299fb803ffd3c63194"
+    },
+    {
+      "path": "docs/SOURCE-MANIFEST.md",
+      "sha256": "c722cf95c65ddbbaf0bb31d451355358681948c595814bf72bd19e470db0f5be"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/TASKS.md",
+      "sha256": "3d03b578872fecaa23b2e2a58fa1319755fa2a723a546432c9f149752e8fd55b"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/RESIDUAL-RISKS.md",
+      "sha256": "24c24695091d07638e22f7555a64764464312de2bf5e02b720e2eb54c1ebe613"
+    },
+    {
+      "path": "docs/target/yunka-upgrade/YU-33-EVIDENCE.md",
+      "sha256": "e9086a84a962328d13167b34f6dcb66636e03ac4b3f4fa95592c3c9bcffad3f7"
+    }
+  ],
+  "final_receipt_policy": {
+    "file": "YU-33-FINAL-RECEIPT.json",
+    "location": "detached task delivery / PR receipt, not this commit",
+    "required_fields": [
+      "qualified_and_landed_sha",
+      "tree",
+      "fixed_parent",
+      "framework_sha",
+      "ci_runs",
+      "artifact_sha256",
+      "artifact_heads",
+      "worktree_drift",
+      "documentation_checks",
+      "main_readback"
+    ],
+    "reason": "A commit cannot embed its own final SHA and later CI outcome. Input receipt does not certify final commit."
+  },
+  "completion_gate": "Final exact-SHA full regression + runtime + documentation/integrity checks, actual artifact readback, then non-force main fast-forward. No deployment or automatic next task."
+}

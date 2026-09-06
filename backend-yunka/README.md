@@ -1,158 +1,159 @@
-# IoT Delivery System · Yunka MVP
+# IoT Delivery System · 当前运行与开发说明
 
-这是旧 `backend/` 的并行改造实现，不迁移、不覆盖旧数据库，也不会默认写入正式 Obsidian Vault。
+本说明对应 YU-33 固定输入 `1da771dac46c1b10c2ea54a0fb4559316c20179b`，Yunka 固定为 `057ebcf88a87303eb633eb6e604d306f633dfac0`。YU-33 只改变文档；精确最终提交及回归回执见交付附带的 `YU-33-FINAL-RECEIPT.json`。
 
-## 已验证能力
+## 1. 入口与主数据
 
-- 五板块驾驶舱、项目、版本、Sprint、里程碑、Epic/任务/子任务/缺陷、跨事项依赖、相似事项提示和 SQLite 持久化；依赖写入会拒绝循环。
-- 事项编辑、评论/活动审计、搜索筛选、个人保存视图、成员周视图、基于估算点的项目进度汇总，以及项目排期健康（逾期、未排期、依赖阻塞、负责人剩余估算）。
-- IoT 交付范围绑定（设备、固件、客户、环境、灰度批次）和研发交付关联（PR、构建、测试、缺陷、发布）。外部记录仍是其原系统的主数据。
-- Obsidian 单向投影：总览、每日五板块驾驶舱、板块钻取页、规划、方案、决策、发布验证与复盘；R2 的层级/排期/依赖、IoT 范围、研发关联、评论和活动审计也会投影。由本地 Outbox 事件驱动，重复事件重投影不会重复追加内容。
-- Yunka 生成合同：`contracts/proto/iot_delivery.proto` 当前声明 19 个 operation plan、API Key/JWT/service-token 鉴权策略与读写事务策略；项目及规划对象列表、事项 get/search/similarity，以及 WorkItem 创建、更新、评论、上下文/决策更新、关卡推进和关闭复盘都只经生成合同执行。`internal/assembly/` 的生成装配负责应用端口、模块目录和 gRPC transport 注册；其余 R2 扩展仍按切片逐步合同化。
-- Yunka `runtimehost → generated assembly → capability-aware runtime binder → kernel → core.App` 管理 HTTP/gRPC、`/health`、`/__yunka/diagnostics`、SQLite、Outbox dispatcher 与本地 broker 生命周期。消费者 binder 只在模块 typed capability 快照就绪后构造唯一业务 Service、root Executor 与 Operations，并在 `App.Start` 前完成手写 HTTP compatibility routes；生成的 gRPC 注册随后在同一装配闭环内完成。
-- HTTP `/api/*` 保持现有 React 界面兼容；stdio MCP Server 覆盖项目、事项生命周期、相似度确认、计划、成员周视图、项目进度、项目交付健康和保存视图。
+`cmd/yunka-bootstrap` 为 HTTP/gRPC 常驻入口；`cmd/iot-delivery-mcp` 为 development-only stdio 入口；`cmd/yu29-fixture` **仅用于可销毁的测试环境**，会删除传入的数据库及 fixture manifest，绝不能对正式路径执行。
 
-## 运行
+| 项目 | 默认值（从 backend-yunka 目录启动） | 环境变量 |
+| --- | --- | --- |
+| HTTP | `127.0.0.1:8281` | `IOT_DELIVERY_YUNKA_HTTP_ADDR` |
+| gRPC | `127.0.0.1:8282` | `IOT_DELIVERY_YUNKA_GRPC_ADDR` |
+| SQLite | `data/iot-delivery-yunka.db` | `IOT_DELIVERY_YUNKA_DB` |
+| Vault | `runtime-vault/` | `IOT_DELIVERY_YUNKA_OBSIDIAN_VAULT` |
 
-```powershell
+默认 Vault 也会被投影写入；只有明确配置才能指向其他路径，禁止无授权指向正式 Vault。旧 `../backend/data` 不被新运行时自动读取或迁移。
+
+## 2. 运行模式与身份配置
+
+`IOT_DELIVERY_RUNTIME_ENVIRONMENT` 必须明确为 `development` 或 `production`；`IOT_DELIVERY_BOOTSTRAP_MODE` 默认 `disabled`。production 拒绝 example seed、legacy local API-key 配置及不安全 service credential development 开关。`production` 是运行时安全模式，不等于已完成生产部署认证。
+
+| 配置 | 实际用途与边界 |
+| --- | --- |
+| `IOT_DELIVERY_LOCAL_AUTH_JWT_KEY` | 启用本地成员登录/session/JWT 能力；canonical base64url、无填充、至少 32 字节；与 BFF assertion key 分离 |
+| `IOT_DELIVERY_BFF_ORGANIZATION_ID` + `IOT_DELIVERY_BFF_ASSERTION_KEY` | 必须成对；当前 production bootstrap 即使使用本地成员登录，也仍要求这对配置 |
+| `IOT_DELIVERY_API_TARGET`（Next） | 后端目标，默认 `http://127.0.0.1:8281` |
+| `IOT_DELIVERY_WEB_ORIGIN`（Next） | 浏览器精确 Origin，例如 `http://localhost:5173`；不能与 `127.0.0.1` 混用，也不附带尾部斜杠 |
+| `IOT_DELIVERY_LOCAL_API_KEY` | 可选 development legacy 兼容身份；本地成员模式不依赖它，production 禁止它 |
+
+当前 production 业务入口支持已验证的本地 JWT，并保留分离的 BFF assertion/service 身份链；`/auth/local/*` 自行执行 session、Origin、CSRF 与成员管理授权。不得再描述为“production HTTP 只接受 BFF assertion”。浏览器无需配置 OIDC 才能使用本地登录；OIDC 走独立路由，不伪造 issuer/subject。
+
+本地登录输入是 `organizationId`、`userId`、`password`，不是邮箱自动并号。默认不透明 session 为 12 小时、内部 JWT 为 5 分钟。有效 Principal 仍须经过持久 GrantResolver/OperationGuard；角色撤销下一请求生效，密码重置和停用使旧凭据/会话失效。UI 只表达权限，不构成授权依据。
+
+**真实首次安装的限制：** Organization 需先存在；一次性管理员初始化目前为进程内 `AdministratorBootstrap().Initialize` 端口，没有通用生产组织创建/管理员初始化 CLI 或公开 HTTP 初始化入口。不得用手工 SQL、example seed 或测试 fixture 冒充受支持的生产开通/恢复方案。正式初始化工具及责任人仍列为遗留项。
+
+## 3. 可复现的隔离演示（Linux / Bash）
+
+以下步骤仅创建临时测试数据，不连接正式库、Vault 或通知目标。先使用干净终端，清除已有 `IOT_DELIVERY_*` 测试外配置；禁止 `set -x` 或上传 fixture.json。
+
+准备依赖（仓库根目录）：
+
+```bash
+git submodule update --init --recursive
+export GOWORK=off GOTOOLCHAIN=local
+test "$(go version | awk '{print $3}')" = go1.25.13
+test "$(node --version)" = v22.16.0
+(cd web && npm ci)
+```
+
+自动演示与浏览器验收：
+
+```bash
+(cd web && npm run e2e:yu29)
+```
+
+要求真实 Chrome/Chromium 可用；可用 `IOT_DELIVERY_E2E_BROWSER` 指定路径。脚本占用 `5173/8281/8282`，生成独立临时库/Vault，并默认清理，不要让正式服务占用这些端口。
+
+手动演示：在后端终端执行，保存私有临时目录供第二终端读取；**fixture 会覆盖传入的 DB，因此只能使用本命令新建的目录**。
+
+```bash
+umask 077
+export DEMO_DIR="$(mktemp -d /tmp/iotd-demo.XXXXXX)"
+export GOWORK=off GOTOOLCHAIN=local
 cd backend-yunka
-$env:IOT_DELIVERY_RUNTIME_ENVIRONMENT = 'development'
-$env:IOT_DELIVERY_BOOTSTRAP_MODE = 'disabled'
-$env:IOT_DELIVERY_LOCAL_API_KEY = '<仅本地使用的管理员密钥>'
+go run ./cmd/yu29-fixture -db "$DEMO_DIR/demo.db" -vault "$DEMO_DIR/vault" -manifest "$DEMO_DIR/fixture.json"
+fixture_value() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])' "$DEMO_DIR/fixture.json" "$1"; }
+export IOT_DELIVERY_RUNTIME_ENVIRONMENT=production
+export IOT_DELIVERY_BOOTSTRAP_MODE=disabled
+export IOT_DELIVERY_YUNKA_DB="$DEMO_DIR/demo.db"
+export IOT_DELIVERY_YUNKA_OBSIDIAN_VAULT="$DEMO_DIR/vault"
+export IOT_DELIVERY_BFF_ORGANIZATION_ID="$(fixture_value organizationId)"
+export IOT_DELIVERY_BFF_ASSERTION_KEY="$(fixture_value bffAssertionKey)"
+export IOT_DELIVERY_LOCAL_AUTH_JWT_KEY="$(fixture_value localAuthJwtKey)"
 go run ./cmd/yunka-bootstrap
 ```
 
-运行环境必须显式为 `development` 或 `production`；未知或缺失值会在创建 SQLite、写 Vault 或监听端口前失败。样例初始化默认关闭，只有隔离开发场景显式设置 `IOT_DELIVERY_RUNTIME_ENVIRONMENT=development` 与 `IOT_DELIVERY_BOOTSTRAP_MODE=example` 才可运行。production 一律拒绝样例初始化、全部 legacy local API-key 环境变量以及 `IOT_DELIVERY_ALLOW_INSECURE_SERVICE_CREDENTIALS_FOR_DEVELOPMENT=true`，并要求成对、有效的 `IOT_DELIVERY_BFF_ORGANIZATION_ID` 与 `IOT_DELIVERY_BFF_ASSERTION_KEY`。production HTTP 只接受签名 BFF assertion；无 assertion 的 local API-key 路径和 gRPC local fallback 均关闭。灾备恢复不得借样例初始化执行，必须使用后续受审计的专用恢复程序。
+前端终端从仓库根目录执行：
 
-默认值：
-
-| 项目 | 默认值 |
-| --- | --- |
-| HTTP | `127.0.0.1:8281` |
-| gRPC | `127.0.0.1:8282` |
-| SQLite | `data/iot-delivery-yunka.db` |
-| Obsidian Vault | `runtime-vault/` |
-
-可分别使用 `IOT_DELIVERY_YUNKA_HTTP_ADDR`、`IOT_DELIVERY_YUNKA_GRPC_ADDR`、`IOT_DELIVERY_YUNKA_DB`、`IOT_DELIVERY_YUNKA_OBSIDIAN_VAULT` 覆盖。只有在明确设置最后一个变量时，才会写入对应 Vault；正式 Vault 的切换不属于本 MVP 的自动行为。
-
-每次启动或交付事项变更后，运行时会覆盖当天的本地快照，而不会改写历史日期：
-
-- `10-交付管理/00-每日驾驶舱/YYYY-MM-DD-交付驾驶舱.md`：五个板块与受阻/逾期关注项。
-- `10-交付管理/00-每日驾驶舱/YYYY-MM-DD-研发交付效能.md` 等板块页：点击后查看该板块的任务，再进入规划、方案、验证和复盘笔记。
-
-## 本地前端
-
-在另一个 PowerShell 中，使用与后端相同的本地管理员密钥启动 Next 桌面工作台：
-
-```powershell
-cd ../web
-$env:IOT_DELIVERY_LOCAL_API_KEY = '<与后端相同的仅本地管理员密钥>'
+```bash
+cd web
+export IOT_DELIVERY_API_TARGET=http://127.0.0.1:8281
+export IOT_DELIVERY_WEB_ORIGIN=http://localhost:5173
 npm run dev
 ```
 
-Next 只在服务端的本机 `/api/*` 与 `/health` 代理向 `127.0.0.1:8281` 转发 `X-API-Key`；密钥不会进入浏览器代码、构建产物、数据库、Vault 或日志。当前 UI 是桌面优先工作台，不提供移动端布局承诺。
+浏览器访问 `http://localhost:5173`，仅在本机私下读取 fixture.json 的 `organizationId`、`adminUserId`、`adminPassword` 或成员对应字段登录。普通成员在项目角色未分配前被拒绝是预期结果，不应开启管理员 fallback。演示停止后只清理自己新建的临时目录；不把本流程当生产恢复。
 
-## 本地通知与可插拔通道
+## 4. 健康、错误与恢复边界
 
-默认只注册耐久的 `local-inbox`：交付事项和项目的变更事件、截止日提醒会经 SQLite Outbox 投递到本地收件箱，前端可从 `/api/notifications` 查看。未设置下列环境变量时，不会向外部网络发送通知。
+`GET /health` 与 `GET /__yunka/diagnostics` 为 host-owned 免鉴权端点，production 外部暴露需入口控制。当前 HTTP 是手写 compatibility routes，生成诊断 inventory 的 `routeCount=0` 不代表运行路由不存在。
 
-已内置的通道由 `yunka-bootstrap` 在配置完整时装配：通用 Webhook（`IOT_DELIVERY_NOTIFICATION_WEBHOOK_URL`，可选 `IOT_DELIVERY_NOTIFICATION_WEBHOOK_SECRET`）、企业微信机器人（`IOT_DELIVERY_NOTIFICATION_WECOM_WEBHOOK_URL`）和 SMTP（`IOT_DELIVERY_NOTIFICATION_SMTP_ADDRESS`、`IOT_DELIVERY_NOTIFICATION_SMTP_FROM`、`IOT_DELIVERY_NOTIFICATION_SMTP_TO`；用户名和密码需成对提供）。可选 `*_NAME` 变量可更改通道名。任何部分配置都会使启动失败，避免悄悄遗漏投递。
+| 返回/现象 | 应对 |
+| --- | --- |
+| 401 | 核对凭据、会话到期/停用/重置；重新登录，不能绕过验签 |
+| 403 | 核对同源、CSRF 和当前项目 RoleBinding；不同浏览器 context 不能互用 token |
+| 409 / revision conflict | 回读对象/会话最新 revision，再由操作者重新决定；不盲目覆盖 |
+| 429 + Retry-After | 等待服务器要求的冷却；不能清空安全计数表逃避限流 |
+| 503 | 核查身份配置、限流存储和审计/数据库可用性；禁止内存 fallback 放行 |
+| unhealthy / Outbox 积压 | 先保存脱敏诊断和日志，在隔离副本上调查；不要删除业务表或事件来制造健康状态 |
 
-通用 Webhook 发送 JSON、`Idempotency-Key` 和事件头；设置 secret 时附加 HMAC-SHA256 签名。企业微信机器人使用 Markdown 载荷。SMTP 可通过标准 SMTP relay 投递。通道返回非 2xx 或投递错误时会回传给 SQLite Outbox，由既有的租约、退避重试和死信状态治理；接收端应按 `Idempotency-Key` 去重。
+SIGTERM/SIGINT 有序关闭及重启持久化已有 Linux 真实进程测试；这些证据不覆盖断电恢复、所有 goroutine 泄漏或 Windows/macOS 关闭行为。备份/恢复与正式数据回滚尚无生产认证；切换前必须由运行责任人演练，不能仅回退二进制便声称数据库已回滚。
 
-截止日 worker 默认提前 1 个自然日、每小时扫描一次，可用 `IOT_DELIVERY_DUE_REMINDER_LEAD_DAYS`（非负整数）和 `IOT_DELIVERY_DUE_REMINDER_INTERVAL`（Go duration，如 `30m`）调整。已完成事项不会提醒；同一开放事项每天只会写入一条稳定 ID 的 Outbox 提醒事件，因此重启和重复扫描不会重复投递。
+## 5. MCP、通知与事务
 
-要接入新渠道，只需实现 `internal/notification.Channel` 的 `Name()` 与 `Deliver()`，并在 `bootstrap.Config.NotificationChannels` 中注册，不需要改交付领域、Outbox 或 HTTP/MCP 代码。凭据只从运行环境读取；本地 MVP 尚未提供密钥托管、按成员偏好/升级规则、OAuth 邮件发送或生产级 SMTP TLS 策略。
+MCP 三种凭据只能显式选择一种：`IOT_DELIVERY_MCP_SESSION_TOKEN`、`IOT_DELIVERY_MCP_ACCESS_TOKEN`、`IOT_DELIVERY_MCP_API_KEY`。前两种是实际本地成员身份，需要匹配数据库及 `IOT_DELIVERY_LOCAL_AUTH_JWT_KEY`，每次请求重新验证身份与持久授权；API Key 仅属开发兼容模式。入口仍拒绝 production；未提供远程 MCP/OAuth 产品化。
 
-## MCP 生命周期接入
-
-本地 stdio MCP Server 仅支持 `development`，复用 Yunka 应用用例边界和本地 API Key 角色，不直接访问仓储；production 会在认证、SQLite 或监听器启动前明确拒绝该入口：
-
-```powershell
+```bash
+# 仅在已配置真实成员凭据的隔离 development 环境执行
 cd backend-yunka
-$env:IOT_DELIVERY_RUNTIME_ENVIRONMENT = 'development'
-$env:IOT_DELIVERY_BOOTSTRAP_MODE = 'disabled'
-$env:IOT_DELIVERY_LOCAL_API_KEY = '<仅本地使用的管理员密钥>'
-$env:IOT_DELIVERY_MCP_API_KEY = $env:IOT_DELIVERY_LOCAL_API_KEY
+export IOT_DELIVERY_RUNTIME_ENVIRONMENT=development
+export IOT_DELIVERY_BOOTSTRAP_MODE=disabled
 go run ./cmd/iot-delivery-mcp
 ```
 
-可使用 `IOT_DELIVERY_MCP_HTTP_ADDR`、`IOT_DELIVERY_MCP_GRPC_ADDR`、`IOT_DELIVERY_YUNKA_DB` 与 `IOT_DELIVERY_YUNKA_OBSIDIAN_VAULT` 指定本地运行路径。任务工具之外还提供 `delivery.get_project_progress` 与 `delivery.get_project_schedule`，后者返回逾期、未排期、依赖阻塞和负责人剩余估算。该命令会以进程内临时 HTTP/gRPC 端口启动 Yunka 运行时；不要同时让它和 `yunka-bootstrap` 打开同一个 SQLite 文件。要并行验证，请为 MCP 设置独立的数据库和 Vault 路径。
+MCP 临时监听默认 `127.0.0.1:0`，可用 `IOT_DELIVERY_MCP_HTTP_ADDR` / `IOT_DELIVERY_MCP_GRPC_ADDR` 覆盖。YU-31 已在真实受控场景让 HTTP/gRPC 与 MCP 共享同一 SQLite 并验证撤权与重启；**这只证明该测试组合，不是任意多进程或多节点数据库部署保证**。日常独立演示优先隔离数据库/Vault；共享时必须使用同一权威数据库与一致密钥，并自行承担待认证的拓扑边界。
 
-## 本地鉴权
+业务状态、审计与 Outbox 由根执行事务治理；事件经持久 SQLite Outbox → 进程内 broker → 幂等投影/通知收件箱。安全限流预留是独立先提交的安全控制事务，不应因业务拒绝回滚；因此“拒绝零业务事件”不等于“安全计数和拒绝审计零变更”。
 
-`IOT_DELIVERY_LOCAL_API_KEY` 是必填环境变量，不会写入数据库、Vault、日志或源码。它映射到 `local-admin`。可选的角色密钥也只能从环境变量读取：
+同进程 SQLite 为单连接、WAL 与 5 秒 busy timeout。该设置不应被解释为任何负载下永不 SQLITE_BUSY。broker 不是外部可靠消息系统；未采用 Provider-managed MySQL、Kafka/NATS 或分布式事务。
 
-| 变量 | 角色 | 可访问权限 |
-| --- | --- | --- |
-| `IOT_DELIVERY_LOCAL_VIEWER_API_KEY` | `viewer` | 驾驶舱、项目与事项读取 |
-| `IOT_DELIVERY_LOCAL_CONTRIBUTOR_API_KEY` | `contributor` | 项目/事项读取、创建和更新事项上下文 |
-| `IOT_DELIVERY_LOCAL_RELEASE_MANAGER_API_KEY` | `release-manager` | 项目/事项读取、创建/更新、关卡推进和关闭复盘 |
-| `IOT_DELIVERY_LOCAL_API_KEY` | `local-admin` | 全部本地 MVP 权限 |
+默认只有 local-inbox；外部通道须经授权且完整配置后启用：Webhook 的 `IOT_DELIVERY_NOTIFICATION_WEBHOOK_URL` / 可选 `_SECRET`；企业微信的 `IOT_DELIVERY_NOTIFICATION_WECOM_WEBHOOK_URL`；SMTP 的 `IOT_DELIVERY_NOTIFICATION_SMTP_ADDRESS`、`_FROM`、`_TO`，用户名/密码成对配置。失败进入现有 Outbox 重试/死信路径；不把适配器测试冒充真实投递验收。
 
-同一密钥不能分配给多个角色。业务 HTTP 请求需携带 `X-API-Key`；业务 gRPC 请求需携带 metadata `x-api-key`。`/health` 和 `/__yunka/diagnostics` 是 host-owned 运行状态端点，保持免鉴权。
+截止日提醒默认提前 1 天、每小时扫描；变量为 `IOT_DELIVERY_DUE_REMINDER_LEAD_DAYS` 与 `IOT_DELIVERY_DUE_REMINDER_INTERVAL`。同一开放事项每天稳定事件 ID 去重，完成项跳过。Obsidian `10-交付管理/` 为可重建的单向投影，不作为反向业务输入。
 
-## SQLite 事务 Outbox
+## 6. 合同、工具链与完整回归
 
-每次创建、更新、关卡推进和关闭都会在同一个 Yunka `local` 执行事务中写入交付状态与 `iotd_outbox`；截止日 worker 也将稳定提醒事件写入该表。事件信封包含稳定 ID、类型、schema version 和发生时间；进程内 dispatcher 以至少一次语义发布到本地 broker，Obsidian consumer 以“当前状态全量投影”方式处理重复事件，本地通知收件箱以事件 ID 与通道组合去重。失败投递会保留诊断错误并进入退避重试或死信状态。
+当前 DeliveryService 为 **25 个生成 operation plan**。项目/版本/Sprint/里程碑、事项读写、保存视图、成员周视图、项目进度/排期和通知读取均已合同化。配置修订三项及身份相关手写内部计划不计入这 25 个，不代表它们有生成 gRPC 服务。
 
-SQLite transaction factory、Outbox、通知 inbox store 和 Obsidian 投影通过生成的 typed Application capability 注入；`delivery-event-runtime` 模块统一拥有数据库、dispatcher、提醒 worker、两个 broker subscription 与 broker 的启动、健康检查和逆序关闭。运行时 binder 不会保存 capability resolver 或请求上下文，也不会在生成 Assembly 外预构造第二个 Executor。`/health` 与 `/__yunka/diagnostics` 适配同一个 `core.App`；由于当前 REST 是手写 compatibility routes，生成 inventory 会诚实报告 `routeCount=0`，并不表示这些 HTTP 路由未注册。
+固定工具链：Go 1.25.13、Node 22.16.0、protoc 3.21.12（release 21.12）、protoc-gen-go v1.36.11、protoc-gen-go-grpc 1.6.2。依赖以 go.sum / package-lock.json 为准，不把安装时的新版本替换为验收版本。
 
-同一运行进程内，SQLite 使用单连接池、WAL 和 5 秒 busy timeout，命令事务、Outbox dispatcher 与本地收件箱不会因写入争用向 API 返回 `SQLITE_BUSY`。这不是多进程数据库协调方案：`yunka-bootstrap` 与 `iot-delivery-mcp` 仍不得同时打开同一 SQLite 文件。
-
-这是本地最小化运行模型：Outbox 是 SQLite 持久化的，但 broker 不是外部持久化消息系统。没有 Kafka/NATS、云身份、租户模型、生产密钥治理或生产部署能力。
-
-## 验证
-
-```powershell
-go test -count=1 ./...
-```
-
-## Yunka 合同生成
-
-`contracts/proto/iot_delivery.proto` 是领域 API 合同；生成物和清单受 Yunka 管理。`.yunka/project.json`、`.yunka/providers.json`、`.yunka/protobuf-go.json` 与 `.yunka/dev.json` 是当前目标 CLI 所识别的项目档案；`yunka context --root . --json` 可只读核验其解析结果。
-
-当前开发机使用仓库内忽略的 `.tools/`。`Makefile` 将固定的 framework protobuf include、插件和 `--full` 流程封装为 POSIX/CI 的日常生成与检查入口，操作者不应再手写 `--proto-path`。Windows 的兼容性回归门仍由 `scripts/run-s0-04-09-hard-gate.ps1` 直接调用同一目标 CLI。固定版本为：
-
-- `Go 1.25.13`
-- `protoc 3.21.12`（官方 release asset 使用 `21.12` 命名）
-- `protoc-gen-go v1.36.11`
-- `protoc-gen-go-grpc v1.6.2`
-
-Makefile 只从固定的 `third_party/yunka` gitlink 源运行目标 CLI，并从 `backend-yunka/.tools/` 查找 compiler/plugins。工具放在其他目录时，只覆盖工具位置变量；不要额外传入 protobuf include 参数：
+GNU Make 从 `backend-yunka` 目录执行；默认工具位置 `.tools/protoc-21.12/bin/protoc`、`.tools/bin/protoc-gen-go`、`.tools/bin/protoc-gen-go-grpc`。`GO` / `TOOLS_DIR` 可指定已有工具位置。Yunka CLI 显式使用 `third_party/yunka/go.work`，消费者 Go 命令使用 `GOWORK=off`，不能把两者混为同一工作区。
 
 ```bash
 cd backend-yunka
+make yunka-context
 make yunka-toolchain-check
 make yunka-generate
 make yunka-check
+make yunka-verify
 ```
 
-`make yunka-verify` is read-only and aliases the full check. Regeneration is always the explicit `make yunka-generate` action; CI must not use a command that repairs derived-output drift.
+`yunka-verify` 是只读 full check 别名，不自动修复漂移。生成必须显式执行，生成后核对 diff；禁止手改 generated。Makefile 固定 repository-root profile 和 framework protobuf include，不能用临时复制 DSL 文件规避边界。
 
-CI or an isolated tool bundle may point the workflow at its already-provisioned locations:
+从仓库根目录执行全部门禁（需干净已提交工作树）：
 
 ```bash
-cd backend-yunka
-make yunka-verify \
-  GO=/path/to/go-1.25.13/bin/go \
-  TOOLS_DIR=/path/to/tool-bundle
+bash backend-yunka/scripts/run-yu32h-red-green.sh
+bash backend-yunka/scripts/run-yu30-regression.sh
+bash backend-yunka/scripts/run-yu31-smoke.sh
 ```
 
-The defaults use POSIX executable names. GNU Make on Windows must point the three protobuf executables at their `.exe` files explicitly; the pinned PowerShell hard gate already does this:
+YU-30 包含双次生成/检查、实际 ownership/audit/ChangeSet、Go test/vet/race、npm ci/test/typecheck/build/audit、真实 YU-29 E2E；治理 audit 要求零当前 existing/new proven debt，但仅覆盖其已实现规则。ChangeSet 正/反/恢复检查只认证当前 canonical operations，不追认所有历史变更。
 
-```powershell
-make yunka-verify `
-  GO=C:/tools/go1.25.13/bin/go.exe `
-  PROTOC=C:/tools/protoc-21.12/bin/protoc.exe `
-  PROTOC_GEN_GO=C:/tools/bin/protoc-gen-go.exe `
-  PROTOC_GEN_GO_GRPC=C:/tools/bin/protoc-gen-go-grpc.exe
-```
+PowerShell 的历史脚本 `scripts/run-s0-04-09-hard-gate.ps1` 保留，不以其替代本轮 Linux 的完整认证。Windows 工具需显式 `.exe` 路径；当前最终认证不扩展为 Windows/macOS 一致性保证。
 
-The workflow resolves `YUNKA_PROTO_PATH` internally to the repository's `third_party/yunka/contracts/proto`; command-line overrides are deliberately ignored because the gitlink is the reviewed framework dependency. It remains a deliberate target-CLI `--proto-path` seam because the target project's `workflow.contract` profile has no persistent external-include field, and source inventories intentionally reject paths escaping the consumer root. Do not vendor or hand-copy `yunka/dsl/v1/options.proto` into the consumer merely to avoid that explicit dependency boundary.
-
-生成后的 `operation-plans.json`、应用端口、策略、RPC executor 和 `internal/assembly/` 都是受 Yunka 管理的派生内容；手写实现仅放在 `internal/delivery/application/`、`internal/localauth/`、`internal/localoutbox/`、`internal/localtx/`、`internal/notification/`、`internal/mcpserver/` 与 bootstrap 装配处。Project 的创建/列表以及 Release、Sprint、Milestone 的创建 operation plan 已纳入生成合同；其余扩展 operation plan 仍由后续硬化项处理。
-
+上游 #149/#150/#151 已关闭，但固定 gitlink 不变，root profile、显式 ChangeSet 控制文件路径等消费者适配仍保留。采用新框架须单独升级和重新验收；不能因 Issue 关闭直接删除 workaround。
 
 ## YU-32H 本地密码安全合同
 
