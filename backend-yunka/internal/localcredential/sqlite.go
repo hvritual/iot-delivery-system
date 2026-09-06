@@ -111,6 +111,15 @@ func NewSQLiteRepository(database *sql.DB, options ...Option) (*SQLiteRepository
 // expectedRevision=0 means create-only. Plaintext is passed only to Argon2id;
 // SQL receives the random salt and derived hash, never the password bytes.
 func (repository *SQLiteRepository) SetPassword(ctx context.Context, organizationID, userID string, password []byte, expectedRevision int64) (Metadata, error) {
+	if err := ValidateNewPassword(password); err != nil {
+		return Metadata{}, err
+	}
+	return repository.setPassword(ctx, organizationID, userID, password, expectedRevision)
+}
+
+// setPassword is deliberately private: only enrollment with the current
+// strength policy or an authenticated same-secret rehash may call it.
+func (repository *SQLiteRepository) setPassword(ctx context.Context, organizationID, userID string, password []byte, expectedRevision int64) (Metadata, error) {
 	if err := repository.ready(); err != nil {
 		return Metadata{}, err
 	}
@@ -263,7 +272,7 @@ FROM iotd_local_user_credentials WHERE organization_id = ? AND user_id = ?`
 
 func readCredential(ctx context.Context, executor sqliteExecutor, policies PolicySet, organizationID, userID string) (credentialRow, error) {
 	var (
-		row                                   credentialRow
+		row                                  credentialRow
 		argonVersion, parallelism            int64
 		memoryKiB, iterations, policyVersion int64
 		createdAt, updatedAt                 string

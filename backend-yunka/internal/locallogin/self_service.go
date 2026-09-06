@@ -11,6 +11,7 @@ import (
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/audit"
 	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/localcredential"
 	"github.com/hvritual/yunka.io/framework/core/runtimecontext"
+	"github.com/hvritual/yunka.io/framework/execution"
 )
 
 var (
@@ -196,6 +197,19 @@ func (manager *Manager) ChangePassword(ctx context.Context, input ChangePassword
 	if err := manager.ready(); err != nil {
 		return ChangePasswordResult{}, err
 	}
+	if len(input.CurrentPassword) > localcredential.MaxPasswordBytes || len(input.NewPassword) > localcredential.MaxPasswordBytes {
+		return ChangePasswordResult{}, localcredential.ErrInvalidPassword
+	}
+	if _, active := execution.Current(ctx); active {
+		return ChangePasswordResult{}, ErrThrottleUnavailable
+	}
+	session, err := manager.VerifySessionToken(ctx, input.SessionToken)
+	if err != nil {
+		return ChangePasswordResult{}, err
+	}
+	if err := manager.reservePasswordAttempt(ctx, session.OrganizationID, session.UserID); err != nil {
+		return ChangePasswordResult{}, err
+	}
 	currentPassword := append([]byte(nil), input.CurrentPassword...)
 	newPassword := append([]byte(nil), input.NewPassword...)
 	defer zeroBytes(currentPassword)
@@ -278,12 +292,12 @@ WHERE organization_id = ? AND user_id = ? AND status = 'active'`,
 		return ChangePasswordResult{}, ErrSessionRevisionConflict
 	}
 	result := ChangePasswordResult{
-		OrganizationID: session.OrganizationID,
-		UserID: session.UserID,
-		UserRevision: input.ExpectedUserRevision + 1,
+		OrganizationID:     session.OrganizationID,
+		UserID:             session.UserID,
+		UserRevision:       input.ExpectedUserRevision + 1,
 		CredentialRevision: credential.Revision,
-		RevokedSessions: revokedSessions,
-		ChangedAt: now,
+		RevokedSessions:    revokedSessions,
+		ChangedAt:          now,
 	}
 	if err := manager.recordPasswordChangeAudit(ctx, transaction, session, result); err != nil {
 		return ChangePasswordResult{}, err
@@ -371,9 +385,9 @@ func (manager *Manager) recordPasswordChangeAudit(ctx context.Context, transacti
 		CredentialRevision int64 `json:"credential_revision"`
 		RevokedSessions    int64 `json:"revoked_sessions"`
 	}{
-		UserRevision: result.UserRevision,
+		UserRevision:       result.UserRevision,
 		CredentialRevision: result.CredentialRevision,
-		RevokedSessions: result.RevokedSessions,
+		RevokedSessions:    result.RevokedSessions,
 	})
 	if err != nil {
 		return errors.New("encode local password change audit metadata")

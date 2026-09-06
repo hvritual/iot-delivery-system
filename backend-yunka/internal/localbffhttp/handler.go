@@ -170,10 +170,13 @@ func (handler *Handler) handleLogin(writer http.ResponseWriter, request *http.Re
 	ctx := requestContext(request.Context(), request, traceID)
 	result, err := handler.login.Login(ctx, locallogin.LoginInput{
 		OrganizationID: body.OrganizationID,
-		UserID: body.UserID,
+		UserID:         body.UserID,
 		Password:       password,
 	})
 	if err != nil {
+		if writeThrottleError(writer, err, traceID) {
+			return
+		}
 		if errors.Is(err, locallogin.ErrAuthenticationFailed) {
 			writeError(writer, http.StatusUnauthorized, "unauthenticated", traceID)
 			return
@@ -299,8 +302,11 @@ func (handler *Handler) handleChangePassword(writer http.ResponseWriter, request
 		NewPassword:                newPassword,
 	})
 	if err != nil {
+		if writeThrottleError(writer, err, traceID) {
+			return
+		}
 		switch {
-		case errors.Is(err, locallogin.ErrCurrentPasswordInvalid):
+		case errors.Is(err, locallogin.ErrCurrentPasswordInvalid), errors.Is(err, localcredential.ErrInvalidPassword):
 			writeError(writer, http.StatusBadRequest, "invalid_request", traceID)
 		case errors.Is(err, locallogin.ErrSessionInvalid), errors.Is(err, locallogin.ErrSessionRevisionConflict):
 			handler.clearCookies(writer)
@@ -491,10 +497,13 @@ func (handler *Handler) requireUnsafeSession(writer http.ResponseWriter, request
 }
 
 func (handler *Handler) writeManagerError(writer http.ResponseWriter, err error, traceID string) {
+	if writeThrottleError(writer, err, traceID) {
+		return
+	}
 	switch {
 	case authz.IsDenied(err):
 		writeError(writer, http.StatusForbidden, "forbidden", traceID)
-	case errors.Is(err, localmemberadmin.ErrInvalidInput), errors.Is(err, localprojectroleadmin.ErrInvalidInput), errors.Is(err, localprojectroleadmin.ErrRoleNotAssignable):
+	case errors.Is(err, localcredential.ErrInvalidPassword), errors.Is(err, localmemberadmin.ErrInvalidInput), errors.Is(err, localprojectroleadmin.ErrInvalidInput), errors.Is(err, localprojectroleadmin.ErrRoleNotAssignable):
 		writeError(writer, http.StatusBadRequest, "invalid_request", traceID)
 	case errors.Is(err, localmemberadmin.ErrMemberNotFound), errors.Is(err, localprojectroleadmin.ErrMemberNotFound), errors.Is(err, localprojectroleadmin.ErrProjectNotFound), errors.Is(err, localprojectroleadmin.ErrBindingNotFound):
 		writeError(writer, http.StatusNotFound, "not_found", traceID)
@@ -657,6 +666,7 @@ func decodeJSON(request *http.Request, destination any) error {
 }
 
 func requestContext(ctx context.Context, request *http.Request, traceID string) context.Context {
+	ctx = locallogin.WithPeerAddress(ctx, request.RemoteAddr)
 	ctx = runtimecontext.WithTraceID(ctx, traceID)
 	return runtimecontext.WithMetadata(ctx, runtimecontext.Metadata{
 		Transport: "http", Protocol: "http", Method: request.Method,

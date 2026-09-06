@@ -5,7 +5,7 @@ import { buildRuntimeUrl, type RuntimeEnvironment } from "./runtime-proxy";
 import { readExactCookie } from "./session";
 
 const noStoreHeaders = { "cache-control": "no-store, max-age=0", vary: "Cookie, Origin" };
-const responseHeaderAllowlist = new Set(["cache-control", "content-type", "pragma", "vary", "x-trace-id"]);
+const responseHeaderAllowlist = new Set(["cache-control", "content-type", "pragma", "vary", "x-trace-id", "retry-after"]);
 
 type RouteSpec = Readonly<{
   method: "GET" | "POST";

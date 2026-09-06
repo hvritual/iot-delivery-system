@@ -183,7 +183,7 @@ export function LocalAuthShell() {
     try {
       await changeLocalPassword({
         currentPassword: String(data.get("currentPassword") ?? ""),
-        newPassword: String(data.get("newPassword") ?? ""),
+        newPassword: requireNewPassword(String(data.get("newPassword") ?? "")),
       });
       form.reset();
       setMember(null);
@@ -208,7 +208,7 @@ export function LocalAuthShell() {
       const result = await createLocalMember({
         displayName: String(data.get("displayName") ?? "").trim(),
         email: String(data.get("email") ?? "").trim(),
-        password: String(data.get("password") ?? ""),
+        password: requireNewPassword(String(data.get("password") ?? "")),
       }) as MemberResult;
       setLastMember(result);
       form.reset();
@@ -251,7 +251,7 @@ export function LocalAuthShell() {
       const result = await resetLocalMemberCredential(String(data.get("userId") ?? "").trim(), {
         expectedUserRevision: positiveRevision(data.get("expectedUserRevision")),
         expectedCredentialRevision: positiveRevision(data.get("expectedCredentialRevision")),
-        password: String(data.get("password") ?? ""),
+        password: requireNewPassword(String(data.get("password") ?? "")),
       }) as MemberResult;
       setLastMember(result);
       form.reset();
@@ -478,7 +478,8 @@ function PasswordForm({ busy, onSubmit }: { busy: boolean; onSubmit: (event: For
         <Input id="current-password" name="currentPassword" type="password" autoComplete="current-password" required />
       </Field>
       <Field id="new-password" label="新密码">
-        <Input id="new-password" name="newPassword" type="password" autoComplete="new-password" required />
+        <Input id="new-password" name="newPassword" type="password" autoComplete="new-password" aria-describedby="new-password-policy" required />
+        <p id="new-password-policy" className="text-sm text-muted-foreground">至少 15 个字符，支持空格、中文和密码管理器。</p>
       </Field>
       <Button type="submit" disabled={busy}>更新密码</Button>
     </form>
@@ -503,7 +504,7 @@ function MemberAdministration({ busy, lastResult, onCreate, onDisable, onReset }
           <h3 className="font-medium">创建成员</h3>
           <Field id="member-display-name" label="显示名称"><Input id="member-display-name" name="displayName" required /></Field>
           <Field id="member-email" label="邮箱（可选）"><Input id="member-email" name="email" type="email" autoComplete="off" /></Field>
-          <Field id="member-password" label="初始密码"><Input id="member-password" name="password" type="password" autoComplete="new-password" required /></Field>
+          <Field id="member-password" label="初始密码"><Input id="member-password" name="password" type="password" autoComplete="new-password" aria-describedby="member-password-policy" required /><p id="member-password-policy" className="text-sm text-muted-foreground">至少 15 个字符。</p></Field>
           <Button type="submit" disabled={busy}>创建</Button>
         </form>
 
@@ -519,7 +520,7 @@ function MemberAdministration({ busy, lastResult, onCreate, onDisable, onReset }
           <Field id="reset-user-id" label="UserID"><Input id="reset-user-id" name="userId" required /></Field>
           <Field id="reset-user-revision" label="Expected user revision"><Input id="reset-user-revision" name="expectedUserRevision" type="number" min="1" step="1" required /></Field>
           <Field id="reset-credential-revision" label="Expected credential revision"><Input id="reset-credential-revision" name="expectedCredentialRevision" type="number" min="1" step="1" required /></Field>
-          <Field id="reset-password" label="新密码"><Input id="reset-password" name="password" type="password" autoComplete="new-password" required /></Field>
+          <Field id="reset-password" label="新密码"><Input id="reset-password" name="password" type="password" autoComplete="new-password" aria-describedby="reset-password-policy" required /><p id="reset-password-policy" className="text-sm text-muted-foreground">至少 15 个字符。</p></Field>
           <Button type="submit" disabled={busy}>重置</Button>
         </form>
       </div>
@@ -612,6 +613,13 @@ function bindingResultValues(result: BindingResult): Array<[string, string]> {
   ];
 }
 
+function requireNewPassword(value: string): string {
+  if (Array.from(value).length < 15 || new TextEncoder().encode(value).length > 4096) {
+    throw new Error("新密码至少需要 15 个字符，最长 4096 字节；支持空格、中文和密码管理器。");
+  }
+  return value;
+}
+
 function positiveRevision(value: FormDataEntryValue | null): number {
   const revision = Number(value);
   if (!Number.isInteger(revision) || revision < 1) throw new Error("revision 必须是正整数");
@@ -629,6 +637,7 @@ function humanizeError(cause: unknown, fallback: string): string {
   if (status === 403) return "权限不足，或 Origin / CSRF 安全校验未通过。";
   if (status === 404) return "目标成员、项目或 RoleBinding 不存在。";
   if (status === 409) return "数据 revision 已变化或目标状态冲突，请使用最新 revision 后重试。";
+  if (status === 429) return "尝试次数过多，已临时限流。请等待后再试；已有会话不受影响。";
   if (status === 503) return "身份或权限服务暂不可用，请稍后重试。";
   if (cause instanceof Error && cause.message) return `${fallback} ${cause.message}`;
   return fallback;

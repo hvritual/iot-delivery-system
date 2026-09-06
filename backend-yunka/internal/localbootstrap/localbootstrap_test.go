@@ -76,7 +76,7 @@ func TestYU19BootstrapAtomicallyCreatesAdministratorCredentialLatchAndAudit(t *t
 
 func TestYU19BootstrapNeverReopensAfterDisableOrDelete(t *testing.T) {
 	fixture := newFixture(t)
-	result, err := fixture.manager.Initialize(t.Context(), InitializeInput{OrganizationID: "org-a", DisplayName: "Administrator", Password: []byte("first-password")})
+	result, err := fixture.manager.Initialize(t.Context(), InitializeInput{OrganizationID: "org-a", DisplayName: "Administrator", Password: []byte("first-password-fixture")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +98,7 @@ func TestYU19BootstrapNeverReopensAfterDisableOrDelete(t *testing.T) {
 	if _, err := fixture.database.Exec(`DELETE FROM users WHERE id = ?`, result.UserID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fixture.manager.Initialize(t.Context(), InitializeInput{OrganizationID: "org-a", DisplayName: "Third", Password: []byte("third-password")}); !errors.Is(err, ErrAlreadyInitialized) {
+	if _, err := fixture.manager.Initialize(t.Context(), InitializeInput{OrganizationID: "org-a", DisplayName: "Third", Password: []byte("third-password-fixture")}); !errors.Is(err, ErrAlreadyInitialized) {
 		t.Fatalf("deleted administrator reopened bootstrap: %v", err)
 	}
 	if _, err := fixture.database.Exec(`UPDATE iotd_local_admin_bootstrap_state SET state = 'closed' WHERE id = ?`, stateID); err == nil {

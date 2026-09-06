@@ -136,7 +136,7 @@ describe("YU-28 local auth shell", () => {
     await user.click(await screen.findByRole("button", { name: "账号与管理" }));
     await user.click(screen.getByRole("button", { name: "修改密码" }));
     await user.type(screen.getByLabelText("当前密码"), "old-password");
-    await user.type(screen.getByLabelText("新密码"), "new-password");
+    await user.type(screen.getByLabelText("新密码"), "new-password-passphrase");
     await user.click(screen.getByRole("button", { name: "更新密码" }));
 
     expect(await screen.findByRole("form", { name: "本地成员登录" })).toBeInTheDocument();

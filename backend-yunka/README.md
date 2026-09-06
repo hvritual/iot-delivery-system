@@ -152,3 +152,22 @@ make yunka-verify `
 The workflow resolves `YUNKA_PROTO_PATH` internally to the repository's `third_party/yunka/contracts/proto`; command-line overrides are deliberately ignored because the gitlink is the reviewed framework dependency. It remains a deliberate target-CLI `--proto-path` seam because the target project's `workflow.contract` profile has no persistent external-include field, and source inventories intentionally reject paths escaping the consumer root. Do not vendor or hand-copy `yunka/dsl/v1/options.proto` into the consumer merely to avoid that explicit dependency boundary.
 
 生成后的 `operation-plans.json`、应用端口、策略、RPC executor 和 `internal/assembly/` 都是受 Yunka 管理的派生内容；手写实现仅放在 `internal/delivery/application/`、`internal/localauth/`、`internal/localoutbox/`、`internal/localtx/`、`internal/notification/`、`internal/mcpserver/` 与 bootstrap 装配处。Project 的创建/列表以及 Release、Sprint、Milestone 的创建 operation plan 已纳入生成合同；其余扩展 operation plan 仍由后续硬化项处理。
+
+
+## YU-32H 本地密码安全合同
+
+新建管理员、创建成员、管理员重置及本人改密共用 `localcredential.ValidateNewPassword`：至少 **15 个 Unicode 码点**，最多 **4096 字节**，有效 UTF-8；允许空格、中文、长密码及密码管理器，不修剪、不截断、不强制字符组合。旧密码仍按原始字节验证；仅已验证的原密码可以迁移旧哈希工作因子，不能借 rehash 设置任意弱密码。已有哈希无法反推出密码长度，存量账号应在受控轮换时应用新策略；不静默重置或锁死已有账号。
+
+每个账号（OrganizationID + UserID）最多 **10 次 / 5 分钟**密码验证，下一次触发 **15 分钟**冷却；每个连接来源最多 **120 次 / 1 分钟**，下一次触发 **1 分钟**冷却。预算包括成功尝试，登录和本人改密共用账号预算；成功不清除并发请求已预留的次数。冷却期间的请求不延长锁定，届满自动恢复；既有有效会话、退出及管理员重置流程不因限流自动撤销。
+
+计数保存在同一 SQLite 的 `iotd_local_password_attempts`，使用短写事务在业务根事务和 Argon2 前预留次数。认证失败、业务回滚、重启以及共享该数据库的多个 Manager/进程不能清零或重复领取预算。数据库不可用、表损坏或容量耗尽时 fail closed，不使用内存 fallback。最多保留 4096 个活动来源/账号桶，并在每次预留时清理过期记录；桶只存 SHA-256 标识摘要和计数/时间，不保存密码、原始账号或 IP。摘要不构成匿名化承诺。
+
+网络来源只取 Go HTTP 连接的 `RemoteAddr`；忽略 `Forwarded`、`X-Forwarded-For` 和 `X-Real-IP`，IPv4-mapped IPv6 归一化为 IPv4，IPv6 按 /64 合并。Next BFF 不转发浏览器伪造的来源头；经过 BFF 的用户共享 BFF 的来源预算，但账号预算仍独立。无真实连接上下文的内部调用共享保守来源桶。这是明确的“不信任代理头”模式，不宣称已支持任意多级代理的真实客户端 IP 解析。网络层的独立客户端限流须由受控入口另行配置。
+
+HTTP 被限流返回 `429` + `Retry-After` + `no-store`，不签发 cookie/session/JWT、不泄露账号是否存在；Next 保留该响应及等待时间，界面提示临时限流。锁定转换产生脱敏安全审计，已锁定期间不逐次放大审计日志。密码不合格返回 `400`；限流存储故障返回 `503`。
+
+跨实例保证仅覆盖**同一权威 SQLite**，不包括使用彼此独立数据库副本的集群；这不是分布式 SQLite 生产拓扑认证。仍需 HTTPS、入口 DDoS/请求体限制、凭据泄露监控及组织级弱密码/泄露密码清单策略。本轮不声称完整 NIST 合规或生产上线认证。
+
+复验：`bash backend-yunka/scripts/run-yu32h-red-green.sh`、完整 YU-30 回归、YU-31 真实运行时验证。首条命令把只依赖旧 API 的两个回归复制到固定父提交，要求出现短密码被接受和重复猜测未限流的真实失败，再验证当前实现；缺工具、编译失败不能代替 RED。
+
+设计依据（2026-09-06 查阅）：NIST SP 800-63B-4 Password Verifiers / Rate Limiting（https://pages.nist.gov/800-63-4/sp800-63b/authenticators/）；OWASP Authentication Cheat Sheet / Login Throttling（https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html）。限流阈值是本产品本轮采用的明确合同，不是声称上述标准指定的默认值。

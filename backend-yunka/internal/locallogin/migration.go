@@ -71,6 +71,9 @@ func ApplyMigrations(ctx context.Context, database *sql.DB) error {
 	if err := applySessionControlMigration(ctx, tx); err != nil {
 		return err
 	}
+	if err := applyThrottleMigration(ctx, tx); err != nil {
+		return err
+	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit local login migration: %w", err)
 	}

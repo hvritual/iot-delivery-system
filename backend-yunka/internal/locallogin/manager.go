@@ -55,6 +55,7 @@ type Manager struct {
 	random      io.Reader
 	newID       func() (string, error)
 	clock       func() time.Time
+	throttle    ThrottlePolicy
 }
 
 type Option func(*Manager) error
@@ -100,6 +101,7 @@ func NewManager(database *sql.DB, credentials *localcredential.SQLiteRepository,
 	manager := &Manager{
 		database: database, credentials: credentials, audit: auditStore, executor: executor,
 		config: config, random: rand.Reader, newID: randomID, clock: time.Now,
+		throttle: DefaultThrottlePolicy(),
 	}
 	for _, option := range options {
 		if option == nil {
@@ -115,6 +117,12 @@ func NewManager(database *sql.DB, credentials *localcredential.SQLiteRepository,
 func (manager *Manager) Login(ctx context.Context, input LoginInput) (LoginResult, error) {
 	if err := manager.ready(); err != nil {
 		return LoginResult{}, err
+	}
+	if err := manager.reservePasswordAttempt(ctx, input.OrganizationID, input.UserID); err != nil {
+		return LoginResult{}, err
+	}
+	if len(input.Password) > localcredential.MaxPasswordBytes {
+		return LoginResult{}, ErrAuthenticationFailed
 	}
 	password := append([]byte(nil), input.Password...)
 	defer zeroBytes(password)
@@ -172,7 +180,7 @@ func (manager *Manager) login(ctx context.Context, input LoginInput) (LoginResul
 	credentialRevision := verification.Revision
 	rehashed := false
 	if verification.NeedsRehash {
-		metadata, err := manager.credentials.SetPassword(ctx, input.OrganizationID, input.UserID, input.Password, verification.Revision)
+		metadata, err := manager.credentials.RehashPassword(ctx, input.OrganizationID, input.UserID, input.Password, verification.Revision)
 		if err != nil {
 			if errors.Is(err, localcredential.ErrRevisionConflict) {
 				return LoginResult{}, ErrAuthenticationFailed
@@ -210,14 +218,14 @@ id, organization_id, user_id, secret_digest, status, credential_revision, create
 		return LoginResult{}, err
 	}
 	result := LoginResult{
-		OrganizationID: input.OrganizationID,
-		UserID: input.UserID,
-		SessionID: sessionID,
-		SessionRevision: sessionRevision,
-		SessionToken: sessionToken,
+		OrganizationID:   input.OrganizationID,
+		UserID:           input.UserID,
+		SessionID:        sessionID,
+		SessionRevision:  sessionRevision,
+		SessionToken:     sessionToken,
 		SessionExpiresAt: sessionExpiresAt,
-		AccessToken: accessToken,
-		AccessExpiresAt: accessExpiresAt,
+		AccessToken:      accessToken,
+		AccessExpiresAt:  accessExpiresAt,
 	}
 	if err := manager.recordSuccess(ctx, transaction, result, credentialRevision, rehashed, now); err != nil {
 		return LoginResult{}, err
@@ -275,21 +283,21 @@ func (manager *Manager) recordSuccess(ctx context.Context, transaction *sql.Tx, 
 		return errors.New("build local login success audit diff")
 	}
 	metadata, err := json.Marshal(struct {
-		CredentialRevision int64 `json:"credential_revision"`
-		CredentialRehashed bool  `json:"credential_rehashed"`
-		SessionRevision    int64 `json:"session_revision"`
-		JWTVersion         int   `json:"jwt_version"`
+		CredentialRevision int64  `json:"credential_revision"`
+		CredentialRehashed bool   `json:"credential_rehashed"`
+		SessionRevision    int64  `json:"session_revision"`
+		JWTVersion         int    `json:"jwt_version"`
 		KeyID              string `json:"key_id"`
-		AccessTTLSeconds    int64 `json:"access_ttl_seconds"`
-		SessionTTLSeconds   int64 `json:"session_ttl_seconds"`
+		AccessTTLSeconds   int64  `json:"access_ttl_seconds"`
+		SessionTTLSeconds  int64  `json:"session_ttl_seconds"`
 	}{
 		CredentialRevision: credentialRevision,
 		CredentialRehashed: rehashed,
-		SessionRevision: result.SessionRevision,
-		JWTVersion: JWTVersion,
-		KeyID: manager.config.KeyID,
-		AccessTTLSeconds: int64(manager.config.AccessTTL / time.Second),
-		SessionTTLSeconds: int64(manager.config.SessionTTL / time.Second),
+		SessionRevision:    result.SessionRevision,
+		JWTVersion:         JWTVersion,
+		KeyID:              manager.config.KeyID,
+		AccessTTLSeconds:   int64(manager.config.AccessTTL / time.Second),
+		SessionTTLSeconds:  int64(manager.config.SessionTTL / time.Second),
 	})
 	if err != nil {
 		return errors.New("encode local login success audit metadata")
@@ -312,6 +320,14 @@ func (manager *Manager) recordSuccess(ctx context.Context, transaction *sql.Tx, 
 }
 
 func (manager *Manager) recordFailure(ctx context.Context) error {
+	return manager.recordFailureReason(ctx, "authentication.local_login_failed")
+}
+
+func (manager *Manager) recordThrottle(ctx context.Context) error {
+	return manager.recordFailureReason(ctx, "authentication.local_login_throttled")
+}
+
+func (manager *Manager) recordFailureReason(ctx context.Context, reason string) error {
 	id, err := manager.nextID()
 	if err != nil {
 		return err
@@ -332,7 +348,7 @@ func (manager *Manager) recordFailure(ctx context.Context) error {
 		ID: id, SchemaVersion: audit.SchemaVersion, EventCategory: audit.EventCategoryAuthentication,
 		ActorType: audit.ActorAnonymous, Operation: OperationLogin,
 		AuthorizationDecision: audit.DecisionNotEvaluated, ScopeType: audit.ScopeSystem,
-		Result: audit.ResultFailure, ReasonCode: "authentication.local_login_failed",
+		Result: audit.ResultFailure, ReasonCode: reason,
 		TraceID: runtimecontext.TraceIDFrom(ctx), RequestID: runtimeMetadata.RequestID,
 		DiffSummary: diffSummary, Metadata: string(metadata), OccurredAt: now,
 	})

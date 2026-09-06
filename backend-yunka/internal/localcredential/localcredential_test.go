@@ -111,27 +111,27 @@ func TestYU18RepositoryRequiresExistingTenantUserAndUsesCAS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repository.SetPassword(t.Context(), "org-a", "missing", []byte("safe-password"), 0); !errors.Is(err, ErrUserNotFound) {
+	if _, err := repository.SetPassword(t.Context(), "org-a", "missing", []byte("safe-password-fixture"), 0); !errors.Is(err, ErrUserNotFound) {
 		t.Fatalf("missing user error=%v, want ErrUserNotFound", err)
 	}
-	if _, err := repository.SetPassword(t.Context(), "org-b", "user-a", []byte("safe-password"), 0); !errors.Is(err, ErrUserNotFound) {
+	if _, err := repository.SetPassword(t.Context(), "org-b", "user-a", []byte("safe-password-fixture"), 0); !errors.Is(err, ErrUserNotFound) {
 		t.Fatalf("cross-tenant user error=%v, want ErrUserNotFound", err)
 	}
-	first, err := repository.SetPassword(t.Context(), "org-a", "user-a", []byte("first-password"), 0)
+	first, err := repository.SetPassword(t.Context(), "org-a", "user-a", []byte("first-password-fixture"), 0)
 	if err != nil || first.Revision != 1 {
 		t.Fatalf("first password=%#v err=%v", first, err)
 	}
-	if _, err := repository.SetPassword(t.Context(), "org-a", "user-a", []byte("stale-password"), 0); !errors.Is(err, ErrRevisionConflict) {
+	if _, err := repository.SetPassword(t.Context(), "org-a", "user-a", []byte("stale-password-fixture"), 0); !errors.Is(err, ErrRevisionConflict) {
 		t.Fatalf("stale create error=%v, want ErrRevisionConflict", err)
 	}
-	if _, err := repository.SetPassword(t.Context(), "org-a", "user-a", []byte("stale-password"), 7); !errors.Is(err, ErrRevisionConflict) {
+	if _, err := repository.SetPassword(t.Context(), "org-a", "user-a", []byte("stale-password-fixture"), 7); !errors.Is(err, ErrRevisionConflict) {
 		t.Fatalf("stale update error=%v, want ErrRevisionConflict", err)
 	}
 	second, err := repository.SetPassword(t.Context(), "org-a", "user-a", []byte("second-password"), 1)
 	if err != nil || second.Revision != 2 {
 		t.Fatalf("second password=%#v err=%v", second, err)
 	}
-	oldPassword, err := repository.VerifyPassword(t.Context(), "org-a", "user-a", []byte("first-password"))
+	oldPassword, err := repository.VerifyPassword(t.Context(), "org-a", "user-a", []byte("first-password-fixture"))
 	if err != nil || oldPassword.Match {
 		t.Fatalf("old password still matched=%#v err=%v", oldPassword, err)
 	}
@@ -140,9 +140,9 @@ func TestYU18RepositoryRequiresExistingTenantUserAndUsesCAS(t *testing.T) {
 		t.Fatalf("new password verification=%#v err=%v", newPassword, err)
 	}
 	assertCredentialCount(t, database, 1)
-	assertPlaintextAbsent(t, database, "first-password")
+	assertPlaintextAbsent(t, database, "first-password-fixture")
 	assertPlaintextAbsent(t, database, "second-password")
-	assertPlaintextAbsent(t, database, "stale-password")
+	assertPlaintextAbsent(t, database, "stale-password-fixture")
 }
 
 func TestYU18RepositoryJoinsExistingRootTransactionAndRollsBack(t *testing.T) {

@@ -81,7 +81,7 @@ func TestYU22SessionRevocationRequiresCASAndCannotBeReactivated(t *testing.T) {
 
 func TestYU22SessionInsertRejectsStaleCredentialRevision(t *testing.T) {
 	fixture := newLoginFixture(t, false)
-	if _, err := fixture.credentials.SetPassword(t.Context(), "org-a", "user-a", []byte("credential-v2"), 1); err != nil {
+	if _, err := fixture.credentials.SetPassword(t.Context(), "org-a", "user-a", []byte("credential-v2-fixture"), 1); err != nil {
 		t.Fatal(err)
 	}
 	_, err := fixture.database.Exec(`INSERT INTO iotd_local_sessions (
