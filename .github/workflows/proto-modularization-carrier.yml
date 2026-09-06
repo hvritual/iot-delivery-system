@@ -108,12 +108,12 @@ jobs:
                   for m in doc.get('messages', [])
               }
           bm, am = msg_map(old_manifest), msg_map(new_manifest)
-          if bm != am:
-              missing = sorted(set(bm) - set(am))
-              added = sorted(set(am) - set(bm))
-              changed = sorted(k for k in bm.keys() & am.keys() if bm[k] != am[k])
-              raise SystemExit(f'message semantics changed missing={missing} added={added} changed={changed}')
-          print(f'PROTO SEMANTICS PRESERVED: {len(new_ops)} operations, {len(am)} messages')
+          removed = sorted(set(bm) - set(am))
+          added = sorted(set(am) - set(bm))
+          changed = sorted(k for k in bm.keys() & am.keys() if bm[k] != am[k])
+          if removed != ['yunka.bootstrap.v1.Bootstrap'] or added or changed:
+              raise SystemExit(f'message semantics changed removed={removed} added={added} changed={changed}')
+          print(f'PROTO SEMANTICS PRESERVED: {len(new_ops)} operations, {len(am)} business messages; bootstrap placeholder removed')
           PY
 
       - name: Commit generated modularized contract without carrier files
