@@ -2,7 +2,7 @@ name: UI replica follow-up verification
 on:
   push:
     branches: [transfer/ui-replica-workspace-20260906]
-    paths: [transfer/ui-fix.b64]
+    paths: [transfer/ui-fix.b64, .github/workflows/ui-replica-fix.yml]
 permissions:
   contents: read
 jobs:
@@ -36,11 +36,11 @@ jobs:
           paths=[]
           for entry in doc['files']:
               rel=pathlib.PurePosixPath(entry['path'])
-              assert rel.parts[0]=='web' and '..' not in rel.parts and not rel.is_absolute()
-              assert rel.suffix in {'.css','.tsx','.ts','.mjs','.jsx','.json'}
-              assert not any(x in rel.parts for x in ['node_modules','.next','.env','data','runtime-vault'])
+              assert rel.parts[0]=='web' and '..' not in rel.parts and not rel.is_absolute(), str(rel)
+              assert rel.suffix in {'.css','.tsx','.ts','.mjs','.jsx','.js','.json'}, str(rel)
+              assert not any(x in rel.parts for x in ['node_modules','.next','.env','data','runtime-vault']), str(rel)
               target=source.joinpath(rel)
-              assert target.resolve().is_relative_to(source) and not target.is_symlink()
+              assert target.resolve().is_relative_to(source) and not target.is_symlink(), str(rel)
               if 'content' in entry:
                   target.parent.mkdir(parents=True,exist_ok=True)
                   target.write_text(entry['content'],encoding='utf-8')
@@ -122,10 +122,10 @@ jobs:
           result=0
           capture() {
             name="$1"; shift
-            "$@" 2>&1 | tee "$RUNNER_TEMP/ui-evidence/$name.log"
-            code=$?
+            if "$@" 2>&1 | tee "$RUNNER_TEMP/ui-evidence/$name.log"; then code=0; else code=$?; fi
             printf '%s\t%s\n' "$name" "$code" >> "$RUNNER_TEMP/ui-evidence/exit-codes.tsv"
             if [ "$code" -ne 0 ]; then result=1; fi
+            return 0
           }
           capture test npm test
           capture typecheck npm run typecheck
