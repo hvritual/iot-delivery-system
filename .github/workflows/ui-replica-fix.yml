@@ -1,0 +1,142 @@
+name: UI replica follow-up verification
+on:
+  push:
+    branches: [transfer/ui-replica-workspace-20260906]
+    paths: [transfer/ui-fix.b64]
+permissions:
+  contents: read
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    outputs:
+      head: ${{ steps.commit.outputs.head }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: payload
+          persist-credentials: false
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: codex/iot-delivery-ui-replica
+          path: source
+          fetch-depth: 0
+      - name: Apply verified frontend-only patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64,hashlib,json,lzma,pathlib,subprocess
+          source=pathlib.Path('source').resolve()
+          raw=base64.b64decode(pathlib.Path('payload/transfer/ui-fix.b64').read_text().strip(),validate=True)
+          doc=json.loads(lzma.decompress(raw))
+          assert subprocess.check_output(['git','rev-parse','HEAD'],cwd=source,text=True).strip()==doc['base'], 'branch changed: regenerate patch on new HEAD'
+          paths=[]
+          for entry in doc['files']:
+              rel=pathlib.PurePosixPath(entry['path'])
+              assert rel.parts[0]=='web' and '..' not in rel.parts and not rel.is_absolute()
+              assert rel.suffix in {'.css','.tsx','.ts','.mjs','.jsx','.json'}
+              assert not any(x in rel.parts for x in ['node_modules','.next','.env','data','runtime-vault'])
+              target=source.joinpath(rel)
+              assert target.resolve().is_relative_to(source) and not target.is_symlink()
+              if 'content' in entry:
+                  target.parent.mkdir(parents=True,exist_ok=True)
+                  target.write_text(entry['content'],encoding='utf-8')
+              else:
+                  subprocess.run(['git','apply','--check','-'],input=entry['patch'],text=True,cwd=source,check=True)
+                  subprocess.run(['git','apply','-'],input=entry['patch'],text=True,cwd=source,check=True)
+              assert hashlib.sha256(target.read_bytes()).hexdigest()==entry['sha256'],str(rel)
+              paths.append(str(rel))
+          subprocess.run(['git','add','--',*paths],cwd=source,check=True)
+          staged=subprocess.check_output(['git','diff','--cached','--name-only'],cwd=source,text=True).splitlines()
+          assert set(staged)==set(paths)
+          print('Verified patch files:',len(paths))
+          PY
+      - name: Commit without force and export source
+        id: commit
+        working-directory: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --cached --check
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'fix(web): refine design fidelity and real-runtime verification'
+          git push origin HEAD:refs/heads/codex/iot-delivery-ui-replica
+          echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          mkdir -p "$RUNNER_TEMP/ui-source"
+          git bundle create "$RUNNER_TEMP/ui-source/implementation.bundle" HEAD
+          git archive HEAD web > "$RUNNER_TEMP/ui-source/frontend-source.tar"
+          git rev-parse HEAD > "$RUNNER_TEMP/ui-source/head.txt"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ui-replica-source
+          path: ${{ runner.temp }}/ui-source/
+          retention-days: 3
+  verify:
+    needs: apply
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      GOWORK: 'off'
+      GOTOOLCHAIN: local
+      CI: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
+      IOT_DELIVERY_E2E_NO_SANDBOX: '1'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.apply.outputs.head }}
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.16.0'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: '1.25.13'
+          cache: true
+          cache-dependency-path: backend-yunka/go.sum
+      - name: Prepare real browser and isolated evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ui-evidence"
+          git rev-parse HEAD > "$RUNNER_TEMP/ui-evidence/head.txt"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+          browser="$(command -v google-chrome || command -v chromium)"
+          "$browser" --version > "$RUNNER_TEMP/ui-evidence/browser-version.txt"
+          echo "IOT_DELIVERY_E2E_BROWSER=$browser" >> "$GITHUB_ENV"
+          echo "IOT_DELIVERY_UI_EVIDENCE=$RUNNER_TEMP/ui-evidence" >> "$GITHUB_ENV"
+      - name: Install locked frontend dependencies
+        working-directory: web
+        run: npm ci
+      - name: Tests, typecheck, normal build and real browser workflows
+        working-directory: web
+        shell: bash
+        run: |
+          set -uo pipefail
+          result=0
+          capture() {
+            name="$1"; shift
+            "$@" 2>&1 | tee "$RUNNER_TEMP/ui-evidence/$name.log"
+            code=$?
+            printf '%s\t%s\n' "$name" "$code" >> "$RUNNER_TEMP/ui-evidence/exit-codes.tsv"
+            if [ "$code" -ne 0 ]; then result=1; fi
+          }
+          capture test npm test
+          capture typecheck npm run typecheck
+          capture build npm run build
+          capture ui-e2e npm run e2e:ui
+          capture auth-e2e npm run e2e:yu29
+          exit "$result"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ui-replica-visual-evidence
+          path: ${{ runner.temp }}/ui-evidence/
+          if-no-files-found: error
+          retention-days: 3
