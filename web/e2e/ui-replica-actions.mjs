@@ -73,6 +73,7 @@ export function uiActions(context, output, report) {
         background:getComputedStyle(document.body).backgroundColor,
         button:document.querySelector('.btn.primary') ? getComputedStyle(document.querySelector('.btn.primary')).backgroundColor : null,
         app:!!app,
+        inspectorOverflow: Array.from(document.querySelectorAll('.inspector')).some(el => el.scrollWidth > el.clientWidth + 1),
       };
     })()`);
     assert(
@@ -97,6 +98,7 @@ export function uiActions(context, output, report) {
         `${name} toolbar height must remain 48px: ${checks.toolbar}`,
       );
     }
+    assert(!checks.inspectorOverflow, `${name} inspector must not horizontally overflow`);
     const image = await context.client.send(
       "Page.captureScreenshot",
       { format: "png", captureBeyondViewport: false },

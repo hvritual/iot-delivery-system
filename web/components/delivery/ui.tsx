@@ -104,11 +104,11 @@ export function Status({ value }: { value?: string }) {
 }
 export function Person({ name }: { name?: string }) {
   return (
-    <span className="person">
+    <span className="person" title={name || "未指定"}>
       <span className="avatar" aria-hidden="true">
         {Array.from(name || "未")[0]}
       </span>
-      {name || "未指定"}
+      <span className="person-name">{name || "未指定"}</span>
     </span>
   );
 }
@@ -191,7 +191,7 @@ export function Failure({
           : "操作未完成";
   return (
     <Notice title={title} tone="danger" icon={TriangleAlert}>
-      <span>{typeof error === "string" ? error : error.message}</span>
+      <span>{code ? `HTTP ${code} · ` : ""}{typeof error === "string" ? error : error.message}</span>
       {typeof error !== "string" && error.traceId ? (
         <code>Trace ID: {error.traceId}</code>
       ) : null}

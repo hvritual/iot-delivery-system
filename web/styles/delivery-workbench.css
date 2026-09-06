@@ -496,3 +496,18 @@ button svg[data-icon]{height:14px;width:14px;flex:none}
 /* Required state is visual while the native input retains its semantics. */
 .field:has(input:required,select:required,textarea:required)>label::after{content:" *";color:var(--ext-color-danger)}
 .field>.hint{font-size:var(--font-size-micro);line-height:16px;color:var(--color-text-secondary);margin-top:4px}
+
+/* Cockpit follows the compact reference; full task coverage remains one click away. */
+.cockpit-page .page-heading{margin-bottom:20px}
+.cockpit-page .metric{padding:12px 20px;min-height:102px}
+.cockpit-page .metric-band{margin-bottom:24px}
+.cockpit-bottom{grid-template-columns:1.1fr 1fr;gap:32px;margin-top:16px}
+.cockpit-bottom .section-title{min-height:24px;margin-bottom:0}
+.cockpit-bottom .section-title .btn{height:24px;padding:0 8px}
+.delivery-path-description{margin-top:12px}
+.delivery-path{list-style:none;display:flex;justify-content:space-between;gap:8px;margin:16px 0;padding:0;font-size:var(--font-size-micro);color:var(--color-text-secondary)}
+.delivery-path li{white-space:nowrap}
+
+.person{min-width:0;max-width:100%}
+.person-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inspector{min-width:0;overflow-x:hidden}

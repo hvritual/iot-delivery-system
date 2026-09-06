@@ -724,6 +724,11 @@ export function LocalAuthShell() {
             }
           : undefined
       }
+      onOpenRules={mode === "local" ? () => {
+        if (accountOpen && !leaveAccount()) return;
+        setTab("rules");
+        setAccountOpen(true);
+      } : undefined}
       onLogout={() => {
         if (leaveAccount()) void handleLogout();
       }}

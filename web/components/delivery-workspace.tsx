@@ -19,6 +19,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  ShieldCheck,
   TriangleAlert,
 } from "lucide-react";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -37,6 +38,8 @@ import {
 import { NotificationsView } from "./delivery/collection-surfaces";
 import {
   BOARD_NAMES,
+  GATES,
+  gateText,
   EMPTY_FILTER,
   EMPTY_PLANNING,
   type Board,
@@ -105,6 +108,7 @@ type WorkspaceProps = {
   sessionName?: string;
   sessionDescription?: string;
   onAccount?: () => void;
+  onOpenRules?: () => void;
   onLogout?: () => void;
   accountContent?: ReactNode;
   accountOpen?: boolean;
@@ -133,6 +137,7 @@ export function DeliveryWorkspace({
   sessionName,
   sessionDescription,
   onAccount,
+  onOpenRules,
   onLogout,
   accountContent,
   accountOpen,
@@ -525,7 +530,7 @@ export function DeliveryWorkspace({
       />
       <main className="workspace">
         <header className="topbar">
-          <ListChecks className="icon" />
+          {surface === "cockpit" ? <LayoutDashboard className="icon" /> : <ListChecks className="icon" />}
           <h1>
             {surface === "items" && activeBoard
               ? activeBoard
@@ -580,7 +585,8 @@ export function DeliveryWorkspace({
             <div className="page cockpit-page">
               <Heading
                 title="每日交付概况"
-                description="从五个板块查看风险，把关注项推进到可验证的交付。"
+                description={`${new Date().toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai", year: "numeric", month: "long", day: "numeric" })} · 按证据推进，把风险留在发布之前。`}
+                actions={<Action icon={ArrowRight} onClick={() => { setActiveBoard(null); setTaskFilter(EMPTY_FILTER); selectFocus("all"); }}>查看全部事项</Action>}
               />
               {!r2Available ? legacy : null}
               {dashboardScope === "project" ? <Notice title="当前仅显示已授权项目">没有全组织驾驶舱权限。下列事项由服务端按项目授权过滤，不代表组织全量数据。</Notice> : null}
@@ -604,7 +610,7 @@ export function DeliveryWorkspace({
               <div className="two-columns cockpit-bottom">
                 <section>
                   <div className="section-title with-action">
-                    <h3>需要关注的事项</h3>
+                    <h3>需要关注</h3>
                     <Action
                       className="ghost"
                       variant="ghost"
@@ -624,7 +630,7 @@ export function DeliveryWorkspace({
                             }) &&
                           i.status !== "closed"),
                     )
-                    .slice(0, 4)
+                    .slice(0, 2)
                     .map((i) => (
                       <div className="attention-item" key={i.id}>
                         <TriangleAlert className="icon" />
@@ -649,11 +655,14 @@ export function DeliveryWorkspace({
                   ) : null}
                 </section>
                 <section>
-                  <h3>交付关卡</h3>
-                  <GateTrack />
-                  <p className="caption">
-                    关卡推进必须附证据，生产验证后填写复盘才能关闭。
+                  <h3>交付路径</h3>
+                  <p className="caption delivery-path-description">
+                    规划、方案、研发、测试、生产验证；关闭前必须记录复盘。
                   </p>
+                  <ol className="delivery-path" aria-label="交付关卡">
+                    {GATES.map((gate, index) => <li key={gate}>{index + 1} {gateText(gate)}</li>)}
+                  </ol>
+                  {onOpenRules ? <Action icon={ShieldCheck} onClick={onOpenRules}>查看关卡规则</Action> : null}
                 </section>
               </div>
             </div>

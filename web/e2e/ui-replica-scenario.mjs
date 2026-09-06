@@ -357,6 +357,7 @@ export async function runUIReplicaScenario({ fixture, webBase, stopBackend }) {
     await ui.click("交付事项", ".sidebar");
     await ru.click("刷新数据", ".topbar");
     await ru.click("交付事项", ".sidebar");
+    await ru.click("列表", ".list-toolbar");
     await ru.text(titles[0][0]);
     await ru.click(titles[0][0], ".list-main");
     await ru.click("提交生产验证证据", ".inspector");
