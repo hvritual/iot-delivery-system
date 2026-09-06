@@ -1,0 +1,53 @@
+{
+  "task": "YU-31",
+  "fixed_parent": "0501bd4b2295c624b817e28a94eb1f62b08b0d4c",
+  "framework": "057ebcf88a87303eb633eb6e604d306f633dfac0",
+  "initial_runtime": {
+    "sha": "ab85026e15186e9101d38810b4a0168cb1b2ec7c",
+    "run": 34002054447,
+    "job": 101402555901,
+    "conclusion": "failure",
+    "artifact": 9979787064,
+    "sha256": "3f9e1c8acd6c9e34d8f4e579bb11277ce66157897ff75864ca03b5b94c07baeb",
+    "path": "yu31-first-runtime-34002054447.zip"
+  },
+  "root_cause_replay": {
+    "workflow_sha": "9e7a85eb86bf0e4da4e112128c5f5205aeabfaf3",
+    "run": 34002387655,
+    "tested_parent": "ab85026e15186e9101d38810b4a0168cb1b2ec7c",
+    "repair_sha": "9d552633e2b50110d3a74b4d1d3c0b02f4099bb4",
+    "red_error": "local API key environment is required",
+    "green": "PASS",
+    "artifact": 9979871129,
+    "sha256": "907efbc037036d714e5a0b330df3932d9a2e3b1e0ae0272460e43baf53f4fa47",
+    "path": "yu31-startup-repair-34002387655.zip"
+  },
+  "first_runtime_green": {
+    "sha": "9d552633e2b50110d3a74b4d1d3c0b02f4099bb4",
+    "run": 34002432487,
+    "job": 101403572616,
+    "conclusion": "success",
+    "artifact": 9979892319,
+    "sha256": "0a66807212b5b8deae0a715a74e468d07dd39b1aef4d1f8110e95bf6ff2b82a1",
+    "path": "yu31-green-runtime-34002432487.zip"
+  },
+  "artifact_bytes_hash_verified": true,
+  "document_class": "EVIDENCE_RECEIPT",
+  "certification_scope": "Named source commits only; this document cannot self-certify a later commit.",
+  "final_merge_requirement": {
+    "exact_sha": true,
+    "required_jobs": [
+      "runtime-smoke",
+      "YU-30 / canonical-full",
+      "YU-30 / go-diagnostics",
+      "YU-30 / web-diagnostics",
+      "YU-30 / browser-e2e"
+    ],
+    "successful_all_required": true,
+    "artifact_head_and_sha256_readback": true,
+    "no_unexpected_drift": true,
+    "non_force_merge": true,
+    "main_branch_identical_readback": true,
+    "external_final_receipt": "The final exact-SHA Actions run IDs, artifact digests and merge readback are delivered in YU-31-FINAL-EVIDENCE.zip; read current Actions state for the exact commit."
+  }
+}

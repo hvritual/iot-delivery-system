@@ -297,8 +297,11 @@ func TestYU31RealRuntimeTransportAndClosure(t *testing.T) {
 	}
 	restarted.wait(t, true)
 	assertReleased(t, httpAddr, grpcAddr)
-	if _, err := observer.ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
-		t.Fatal("SQLite checkpoint failed after all runtimes exited")
+	// SQLite can return a busy result row without a query error. Read the
+	// actual checkpoint outcome rather than counting Exec success as closure.
+	var checkpointBusy, logFrames, checkpointed int
+	if err := observer.QueryRowContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)").Scan(&checkpointBusy, &logFrames, &checkpointed); err != nil || checkpointBusy != 0 {
+		t.Fatal("SQLite checkpoint remained busy after all runtimes exited")
 	}
 	t.Log("YU31: MCP EOF/SIGTERM and runtime SIGTERM/SIGINT reaped; all six ports released; durable restart verified")
 
@@ -308,10 +311,16 @@ func TestYU31RealRuntimeTransportAndClosure(t *testing.T) {
 	}
 	failed := startChild(t, ctx, executable(t, "YU31_RUNTIME_BIN"), cleanEnvironment(base))
 	failed.wait(t, false)
+	if !strings.Contains(failed.output.String(), "address already in use") {
+		t.Fatal("startup did not fail for the deliberately occupied listener")
+	}
 	_ = occupied.Close()
 	assertReleased(t, httpAddr, grpcAddr)
 	forbiddenMCP := startChild(t, ctx, executable(t, "YU31_MCP_BIN"), mcpEnv(admin.session, mcpHTTP, mcpGRPC, "production"))
 	forbiddenMCP.wait(t, false)
+	if !strings.Contains(forbiddenMCP.output.String(), "iot-delivery-mcp is development-only") {
+		t.Fatal("MCP did not reject the explicit production transport policy")
+	}
 	assertReleased(t, mcpHTTP, mcpGRPC)
 	t.Log("YU31: occupied-listener startup fails without orphan; production stdio MCP remains rejected")
 

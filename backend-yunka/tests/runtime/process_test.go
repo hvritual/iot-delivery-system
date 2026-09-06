@@ -118,6 +118,9 @@ func (c *child) wait(t *testing.T, wantSuccess bool) {
 	if !wantSuccess && c.err == nil {
 		t.Fatal("invalid startup unexpectedly succeeded")
 	}
+	if wantSuccess && (strings.Contains(c.output.String(), "shutdown iot delivery") || strings.Contains(c.output.String(), "shutdown local delivery")) {
+		t.Fatal("executable logged a shutdown failure")
+	}
 	if err := syscall.Kill(-c.cmd.Process.Pid, 0); !errors.Is(err, syscall.ESRCH) {
 		t.Fatal("process has an unreaped descendant")
 	}
@@ -131,9 +134,6 @@ func (c *child) terminate(t *testing.T) {
 		t.Fatal("cannot send SIGTERM to running child")
 	}
 	c.wait(t, true)
-	if strings.Contains(c.output.String(), "shutdown iot delivery") || strings.Contains(c.output.String(), "shutdown local delivery") {
-		t.Fatal("executable logged a shutdown failure")
-	}
 }
 func freeAddress(t *testing.T) string {
 	t.Helper()

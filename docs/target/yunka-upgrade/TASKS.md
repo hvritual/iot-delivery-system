@@ -58,17 +58,23 @@
 
 注意：audit 为零新增 proven debt，仍保留 `AUDIT-AUTH-001` 的一项既有消费者债务；ChangeSet 为当前 canonical operations 的正/反/恢复验证，不是历史全量变更认证。YU-30 不等于 YU-32 安全/架构终审。
 
+## YU-31 运行时认证与收口
+
+固定 parent：`0501bd4b2295c624b817e28a94eb1f62b08b0d4c`。新增真实进程 HTTP/gRPC/stdio MCP、同一 SQLite 真实身份授权、EOF/SIGTERM/SIGINT、失败启动、重启持久化与进程回收认证。真实复现并最小修复开发模式无条件依赖旧 API key 的消费者组合问题；不是 Yunka 缺陷。源码 `9d552633e2b50110d3a74b4d1d3c0b02f4099bb4` 已通过运行时测试 `34002432487`，详细链路和回执见 `YU-31-EVIDENCE.md` / `YU-31-CI-RECEIPT.json`。
+
+本收口还收紧退出原因、shutdown error log 和 SQLite checkpoint busy 结果检查；最终提交必须再通过精确 SHA 的 YU-31 runtime-smoke 与全部四项 YU-30 回归，再 non-force 合并 main 才完成本轮。测试源码、文档状态或旧 SHA 的 PASS 均不能代替这一步。`AUDIT-AUTH-001` 既有消费者债务仍留给 YU-32。
+
 ## 下一原子任务派发说明
 
-**下一独立任务：YU-31「真实 runtime health/diagnostics/closure 与 REST/gRPC/MCP smoke」；须在 YU-30 精确 HEAD CI 全绿并合并后开始。**
+**下一独立任务：YU-32「独立安全/架构审查与问题闭环」；须在 YU-31 精确 HEAD CI 全绿并合并后开始。**
 
-- 固定 parent：YU-30 收口合并到 main 后的精确 SHA，开始时回读并冻结，不跟随后续移动 HEAD。
-- 输入：YU-30 canonical consumer tree、CI receipt、目标 Yunka `057ebcf88a87303eb633eb6e604d306f633dfac0`、真实 SQLite 身份授权链与 runtime lifecycle。
-- 允许：真实启动与 health/diagnostics/closure 验证；REST/gRPC/MCP smoke；对可复现失败做最小消费者修复和对应回归；更新本任务证据。
-- 禁止：修改 Yunka 源码或 gitlink、手改 generated、用 mock/development 身份代替真实授权、不经验证部署、提前执行 YU-32 独立审查。
-- RED：仅真实执行失败、错误身份/权限结果、资源未关闭或僵尸进程等可复现行为；缺环境不是产品 RED。
-- GREEN：同一 SQLite 身份授权链的 runtime health/diagnostics 与 transport smoke 通过，shutdown 完整且无遗留资源；相关回归通过且无生成漂移。
-- 框架问题：仅创建/更新框架 Issue，保留最小复现；消费者组合/fixture 问题不得归因框架。
-- 结束条件：独立提交、精确 SHA CI 回读、同步分支并 non-force 合并 main 后停止；不部署、不自动开始 YU-32。
+- 固定 parent：YU-31 收口合并到 main 后的精确 SHA，开始时回读并冻结，不跟随移动 HEAD。
+- 输入：YU-30/31 canonical consumer tree、精确提交 CI 与运行时回执、目标 Yunka `057ebcf88a87303eb633eb6e604d306f633dfac0`、YU-00F 框架要求/问题/证据（实际读取；不可用时明确列出审查限制）、既有 `AUDIT-AUTH-001`。
+- 允许：独立身份/授权/事务/审计/架构边界审查；候选→复现或反证→归属裁定；对已证实消费者缺陷做最小修复、回归及证据闭环。
+- 禁止：修改 Yunka 源码或 gitlink、手改 generated、用 mock/development 身份代替真实授权、将 consumer debt 归因框架、以绕过冒充根因修复、未经证据降低门禁、提前执行 YU-33 或部署。
+- RED：可定位到精确提交/源码/调用链及真实执行的缺陷；不能为了证明问题而强行构造结论，历史证据必须区分当前状态。
+- GREEN：所有候选有复现/反证/未确定的明确状态；证实问题有修复验证或明确保留风险；独立审查结论与真实行为一致；同一最终 SHA 的既有完整回归与 YU-31 runtime smoke 均通过，零非预期漂移。
+- 框架问题：仅创建/更新 `hvritual/yunka.io` Issue，按项目问题格式保存精确版本、最小复现、证据和影响；不改框架源码。
+- 结束条件：独立提交、精确 SHA CI 回读、同步分支并 non-force 合并 main 后停止；不部署、不自动开始 YU-33。
 
-**YU-31 尚未启动。**
+**YU-32 尚未启动。**

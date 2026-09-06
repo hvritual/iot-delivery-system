@@ -1,8 +1,11 @@
 {
   "task_id": "YU-31",
   "framework_sha": "057ebcf88a87303eb633eb6e604d306f633dfac0",
-  "framework_source_changed": false,
+  "framework_modified": false,
   "problems": [],
   "new_framework_issues": [],
-  "status": "No framework defect established; initial executable certification pending."
+  "disposition": "No Yunka defect reproduced. Missing optional legacy API-key startup failure is consumer bootstrap composition, repaired with parent RED and restored GREEN evidence.",
+  "retained_consumer_debt": [
+    "AUDIT-AUTH-001 (YU-32 review)"
+  ]
 }
