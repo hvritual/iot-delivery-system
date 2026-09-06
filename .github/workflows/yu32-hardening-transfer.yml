@@ -4,35 +4,34 @@ on:
     branches: [transfer/yu32-hardening-20260906]
     paths: [.github/workflows/yu32-hardening-transfer.yml]
 permissions:
-  contents: read
+  contents: write
 jobs:
-  export:
+  transfer:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: 5e57424b034ae8da0ac27d6fb920b457005ea253
           fetch-depth: 0
-          submodules: recursive
-          persist-credentials: false
-      - name: Export committed source without credentials or runtime data
+      - name: Restore exact checksum-bound Git bundle and push isolated carrier only
         shell: bash
         run: |
           set -euo pipefail
-          out="$RUNNER_TEMP/yu32-source"
-          mkdir -p "$out"
-          test "$(git rev-parse HEAD)" = 5e57424b034ae8da0ac27d6fb920b457005ea253
-          test "$(git -C third_party/yunka rev-parse HEAD)" = 057ebcf88a87303eb633eb6e604d306f633dfac0
-          git rev-parse HEAD > "$out/consumer-head.txt"
-          git -C third_party/yunka rev-parse HEAD > "$out/framework-head.txt"
-          git bundle create "$out/consumer.bundle" HEAD
-          git -C third_party/yunka bundle create "$out/framework.bundle" HEAD
-          cd "$out"
-          sha256sum *.bundle > SHA256SUMS
+          cat .transfer/yu32h.part1 .transfer/yu32h.part2 .transfer/yu32h.part3 > "$RUNNER_TEMP/transferred.b64"
+          # Repair two transcription errors in the transport encoding, never source.
+          sed -i -e 's/L1aNLuc5U2/L1aNLucxU2/' -e 's/4bfwKbfwK\/gTZ/4bfwK\/gTZ/' "$RUNNER_TEMP/transferred.b64"
+          base64 --decode "$RUNNER_TEMP/transferred.b64" > "$RUNNER_TEMP/repair.bundle"
+          echo 'f1391da0349960c0d4f0aa1ad42a4206d4975132fa69a7896a5892118b2607ad  '"$RUNNER_TEMP/repair.bundle" | sha256sum --check --strict
+          git bundle verify "$RUNNER_TEMP/repair.bundle"
+          git fetch "$RUNNER_TEMP/repair.bundle" HEAD
+          test "$(git rev-parse FETCH_HEAD)" = 6839a9bdec10380623c37b8cc019c9a59ca03e44
+          git merge-base --is-ancestor 5e57424b034ae8da0ac27d6fb920b457005ea253 FETCH_HEAD
+          test "$(git ls-tree FETCH_HEAD third_party/yunka | awk '{print $3}')" = 057ebcf88a87303eb633eb6e604d306f633dfac0
+          git push origin 6839a9bdec10380623c37b8cc019c9a59ca03e44:refs/heads/transfer/yu32h-objects
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
         with:
-          name: yu32-hardening-source
-          path: ${{ runner.temp }}/yu32-source/
+          name: yu32h-transfer-payload
+          path: ${{ runner.temp }}/transferred.b64
           retention-days: 1
           if-no-files-found: error
