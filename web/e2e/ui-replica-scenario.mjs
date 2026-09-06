@@ -374,7 +374,20 @@ export async function runUIReplicaScenario({ fixture, webBase, stopBackend }) {
     );
     await ui.shot("27-item-retrospective-close");
     await ui.click("提交复盘并关闭", ".document");
-    await ui.text("Obsidian 档案");
+    // Production review and closure both require a reviewer different from the implementer.
+    await ui.text("403");
+    returned = await ui.request(`/api/items/${selected.id}`);
+    assert(returned.status === "released", "implementer close must reject without mutation");
+    await ru.click("提交复盘并关闭", ".inspector");
+    await ru.field("复盘内容", "独立复盘：保留网络中间层；弱网与补报回归纳入发布前验证。");
+    await ru.click("提交复盘并关闭", ".document");
+    await ru.text("已复盘关闭");
+    // Explicitly leave the rejected draft before reading the committed reviewer result.
+    await ui.click("交付事项", ".sidebar");
+    await ui.click("刷新数据", ".topbar");
+    await admin.waitFor(`Array.from(document.querySelectorAll('.list-main tr')).some(el => el.textContent.includes(${JSON.stringify(titles[0][0])}) && el.textContent.includes('已复盘关闭'))`);
+    await ui.click(titles[0][0], ".list-main");
+    await ui.click("查看 Obsidian 档案", ".inspector");
     await ui.shot("28-item-closed-archive");
     returned = await ui.request(`/api/items/${selected.id}`);
     assert(

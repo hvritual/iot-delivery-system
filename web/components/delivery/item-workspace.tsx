@@ -277,41 +277,21 @@ function ItemContent({
               </Notice>
             ) : null}
             <Section title="交付概况">
-              <dl className="receipt-grid">
-                <Prop label="当前状态">
-                  <Status value={item.status} />
-                </Prop>
-                <Prop label="完成进度">{item.progressPercent ?? 0}%</Prop>
-                <Prop label="开始日期">{displayDate(item.startDate)}</Prop>
-                <Prop label="目标日期">{displayDate(item.dueDate)}</Prop>
-              </dl>
+              <p className="prose-copy">{item.plan || "尚未填写交付目标与规划。"}</p>
             </Section>
-            <Section title="规划与方案">
-              <p className="prose-copy">{item.plan || "尚未填写规划。"}</p>
-              <p className="prose-copy muted">
-                {item.solution || "尚未填写方案。"}
-              </p>
-              <Action onClick={() => setTab("plan")} icon={FileText}>
-                查看规划与方案
-              </Action>
+            <Section title="交付上下文">
+              <div className="context-summary">
+                <div><p className="caption">规划</p><p className="prose-copy">{item.plan || "尚未填写规划。"}</p></div>
+                <div><p className="caption">方案</p><p className="prose-copy">{item.solution || "尚未填写方案。"}</p></div>
+              </div>
             </Section>
-            <Section title="关卡证据" description="证据来自已提交的交付记录。">
-              {item.evidence?.length ? (
-                item.evidence.map((e, i) => (
-                  <div className="evidence-row" key={`${e.recordedAt}-${i}`}>
-                    <FileText className="icon" />
-                    <div>
-                      <h3>{e.title}</h3>
-                      <p className="caption">
-                        {e.kind} · {e.recordedAt || "未返回时间"}
-                      </p>
-                      {e.reference ? <Reference value={e.reference} /> : null}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="caption">尚未记录关卡证据。</p>
-              )}
+            <Section title="最近活动">
+              {item.activities?.length ? item.activities.slice(-2).reverse().map(activity => (
+                <div className="evidence-row" key={activity.id}>
+                  <CheckCircle className="icon" />
+                  <div><h3>{activity.summary}</h3><p className="caption">{activity.actor}</p></div>
+                </div>
+              )) : <p className="caption">尚无活动记录。</p>}
             </Section>
           </div>
           <div hidden={tab !== "plan"}>
@@ -1217,7 +1197,7 @@ function CloseEditor({
     <>
       <Heading
         title="关闭前复盘"
-        description="只有生产验证完成后才可关闭；复盘内容进入单向知识沉淀。"
+        description="生产验证完成后，由非实施者提交复盘并关闭；最终由服务端校验。"
       />
       <Notice
         title={allowed ? "已完成生产验证" : "尚不满足关闭条件"}

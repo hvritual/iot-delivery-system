@@ -511,3 +511,8 @@ button svg[data-icon]{height:14px;width:14px;flex:none}
 .person{min-width:0;max-width:100%}
 .person-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inspector{min-width:0;overflow-x:hidden}
+
+.context-summary{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.context-summary>div{min-width:0}
+.context-summary .prose-copy{overflow-wrap:anywhere}
+.inspector .prop{min-height:28px}
