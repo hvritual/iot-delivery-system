@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "id": "ARCH-01",
+  "kind": "control",
+  "base": "f190fe237fa1efb738b4866275804093a209de5b",
+  "goal": "Establish the fixed architecture inventory, counterexample-tested gates and fail-closed delivery eligibility before business refactoring.",
+  "allowed_files": [
+    ".architecture/change.json",
+    ".architecture/policy.json",
+    ".github/workflows/architecture-gates.yml",
+    ".github/workflows/architecture-premerge.yml",
+    ".github/workflows/architecture-review.yml",
+    "AGENTS.md",
+    "backend-yunka/architecture_contract_test.go",
+    "scripts/check-architecture.sh",
+    "scripts/delivery_gates.py",
+    "scripts/test_delivery_gates.py",
+    "tools/archgate/go.mod",
+    "tools/archgate/main.go",
+    "tools/archgate/scanner.go",
+    "tools/archgate/scanner_test.go",
+    "tools/archgate/types.go"
+  ],
+  "invariants": [
+    "No changes to legacy backend, framework gitlink/source, generated business artifacts or runtime behavior.",
+    "No governance weakening and business change in the same task.",
+    "Frozen debt is visible and cannot grow in place.",
+    "Independent review and live exact-head evidence are mandatory; unprotected main cannot be called hard-enforced."
+  ],
+  "counterexamples": [
+    "Unclassified package, flat application SQL, inactive/generated source import and renamed raw write receiver must be rejected.",
+    "Stale base, unplanned path, contributor approval, dismissed review, skipped job and old workflow attempt must be rejected.",
+    "The same committed source must yield byte-identical architecture reports."
+  ],
+  "next": "ARCH-02 (after ARCH-01 independent approval and integration; no business code moved in ARCH-01)"
+}
