@@ -1,0 +1,44 @@
+name: Architecture review
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed]
+permissions:
+  contents: read
+  pull-requests: read
+concurrency:
+  group: architecture-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  independent-review:
+    name: Architecture / independent-review
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select established checker from the base revision
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          if git cat-file -e "$BASE:scripts/delivery_gates.py" 2>/dev/null; then
+            git show "$BASE:scripts/delivery_gates.py" > "$RUNNER_TEMP/review-gate.py"
+          else
+            # First installation has no established checker. It is still blocked
+            # until a genuine independent reviewer approves this exact HEAD.
+            cp scripts/delivery_gates.py "$RUNNER_TEMP/review-gate.py"
+          fi
+      - name: Verify live current-head independent approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python3 "$RUNNER_TEMP/review-gate.py" review --repo "$REPOSITORY" --pr "$PR_NUMBER"

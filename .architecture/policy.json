@@ -1,0 +1,218 @@
+{
+  "version": 1,
+  "baseline": "f190fe237fa1efb738b4866275804093a209de5b",
+  "module": "github.com/hvritual/iot-delivery-system/backend-yunka",
+  "framework": "057ebcf88a87303eb633eb6e604d306f633dfac0",
+  "packages": {
+    "cmd/iot-delivery-mcp": {
+      "module": "platform",
+      "role": "composition",
+      "remediation": "ARCH-04"
+    },
+    "cmd/yu29-fixture": {
+      "module": "platform",
+      "role": "composition",
+      "remediation": "ARCH-04"
+    },
+    "cmd/yunka-bootstrap": {
+      "module": "platform",
+      "role": "composition",
+      "remediation": "ARCH-04"
+    },
+    "contracts/authorization": {
+      "module": "delivery",
+      "role": "contract",
+      "remediation": "ARCH-02"
+    },
+    "contracts/delivery/v1": {
+      "module": "delivery",
+      "role": "contract",
+      "remediation": "ARCH-02"
+    },
+    "internal/assembly": {
+      "module": "platform",
+      "role": "composition",
+      "remediation": "ARCH-04"
+    },
+    "internal/audit": {
+      "module": "platform",
+      "role": "infrastructure",
+      "remediation": "ARCH-04"
+    },
+    "internal/bffassertion": {
+      "module": "identity",
+      "role": "security",
+      "remediation": "ARCH-03"
+    },
+    "internal/bffhttp": {
+      "module": "identity",
+      "role": "transport",
+      "remediation": "ARCH-03"
+    },
+    "internal/bootstrap": {
+      "module": "platform",
+      "role": "composition",
+      "remediation": "ARCH-04"
+    },
+    "internal/configapplication": {
+      "module": "configuration",
+      "role": "application",
+      "remediation": "ARCH-04"
+    },
+    "internal/configrevision": {
+      "module": "configuration",
+      "role": "domain",
+      "remediation": "ARCH-04"
+    },
+    "internal/delivery": {
+      "module": "delivery",
+      "role": "domain",
+      "remediation": "ARCH-02"
+    },
+    "internal/delivery/application": {
+      "module": "delivery",
+      "role": "application",
+      "remediation": "ARCH-02"
+    },
+    "internal/delivery/policy": {
+      "module": "delivery",
+      "role": "policy",
+      "remediation": "ARCH-02"
+    },
+    "internal/delivery/transport/rest": {
+      "module": "delivery",
+      "role": "transport",
+      "remediation": "ARCH-02"
+    },
+    "internal/delivery/transport/rpc": {
+      "module": "delivery",
+      "role": "transport",
+      "remediation": "ARCH-02"
+    },
+    "internal/deliveryauthz": {
+      "module": "identity",
+      "role": "security",
+      "remediation": "ARCH-03"
+    },
+    "internal/deliveryruntime": {
+      "module": "platform",
+      "role": "composition",
+      "remediation": "ARCH-04"
+    },
+    "internal/httpapi": {
+      "module": "delivery",
+      "role": "transport",
+      "remediation": "ARCH-02"
+    },
+    "internal/humanauthz": {
+      "module": "identity",
+      "role": "security",
+      "remediation": "ARCH-03"
+    },
+    "internal/identitybinding": {
+      "module": "identity",
+      "role": "application",
+      "remediation": "ARCH-03"
+    },
+    "internal/identitycore": {
+      "module": "identity",
+      "role": "domain",
+      "remediation": "ARCH-03"
+    },
+    "internal/localauth": {
+      "module": "identity",
+      "role": "security",
+      "remediation": "ARCH-03"
+    },
+    "internal/localbffhttp": {
+      "module": "identity",
+      "role": "transport",
+      "remediation": "ARCH-03"
+    },
+    "internal/localbootstrap": {
+      "module": "identity",
+      "role": "application",
+      "remediation": "ARCH-03"
+    },
+    "internal/localcredential": {
+      "module": "identity",
+      "role": "infrastructure",
+      "remediation": "ARCH-03"
+    },
+    "internal/locallogin": {
+      "module": "identity",
+      "role": "application",
+      "remediation": "ARCH-03"
+    },
+    "internal/localmemberadmin": {
+      "module": "identity",
+      "role": "application",
+      "remediation": "ARCH-03"
+    },
+    "internal/localoutbox": {
+      "module": "platform",
+      "role": "infrastructure",
+      "remediation": "ARCH-04"
+    },
+    "internal/localprojectroleadmin": {
+      "module": "identity",
+      "role": "application",
+      "remediation": "ARCH-03"
+    },
+    "internal/localtransportauth": {
+      "module": "identity",
+      "role": "security",
+      "remediation": "ARCH-03"
+    },
+    "internal/localtx": {
+      "module": "platform",
+      "role": "infrastructure",
+      "remediation": "ARCH-04"
+    },
+    "internal/mcpserver": {
+      "module": "delivery",
+      "role": "transport",
+      "remediation": "ARCH-02"
+    },
+    "internal/notification": {
+      "module": "platform",
+      "role": "infrastructure",
+      "remediation": "ARCH-04"
+    },
+    "internal/obsidian": {
+      "module": "platform",
+      "role": "infrastructure",
+      "remediation": "ARCH-04"
+    },
+    "internal/oidcverify": {
+      "module": "identity",
+      "role": "security",
+      "remediation": "ARCH-03"
+    },
+    "internal/principalauthz": {
+      "module": "identity",
+      "role": "security",
+      "remediation": "ARCH-03"
+    },
+    "internal/serviceauth": {
+      "module": "identity",
+      "role": "security",
+      "remediation": "ARCH-03"
+    },
+    "internal/serviceauthz": {
+      "module": "identity",
+      "role": "security",
+      "remediation": "ARCH-03"
+    },
+    "modules/delivery": {
+      "module": "platform",
+      "role": "composition",
+      "remediation": "ARCH-04"
+    },
+    "modules/delivery/autoload": {
+      "module": "platform",
+      "role": "composition",
+      "remediation": "ARCH-04"
+    }
+  }
+}

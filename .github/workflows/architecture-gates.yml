@@ -1,0 +1,75 @@
+name: Architecture gates
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, codex/architecture-gates-stage1]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: architecture-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  code-contract:
+    name: Architecture / code-contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GOWORK: 'off'
+      GOTOOLCHAIN: local
+      PYTHONDONTWRITEBYTECODE: '1'
+      IOT_GATE_BASE: ${{ github.event.pull_request.base.sha }}
+      IOT_ARCH_REPORT_DIR: ${{ runner.temp }}/architecture-evidence
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - name: Bind evidence to source
+        run: |
+          mkdir -p "$IOT_ARCH_REPORT_DIR"
+          git rev-parse HEAD > "$IOT_ARCH_REPORT_DIR/head.txt"
+          git rev-parse 'HEAD^{tree}' > "$IOT_ARCH_REPORT_DIR/tree.txt"
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: '1.25.13'
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend-yunka/go.sum
+      - name: Gate counterexamples and legitimate examples
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(go version | awk '{print $3}')" = go1.25.13
+          (cd tools/archgate && go test -race -count=1 -v ./...) 2>&1 | tee "$IOT_ARCH_REPORT_DIR/go-counterexamples.log"
+          (cd scripts && python3 -m unittest -v test_delivery_gates) 2>&1 | tee "$IOT_ARCH_REPORT_DIR/control-counterexamples.log"
+      - name: Full inventory, typed boundary and exact task contract
+        run: bash scripts/check-architecture.sh
+      - name: Repeated real-source scan must be byte-identical
+        run: |
+          cp "$IOT_ARCH_REPORT_DIR/architecture.json" "$IOT_ARCH_REPORT_DIR/architecture.first.json"
+          bash scripts/check-architecture.sh
+          cmp "$IOT_ARCH_REPORT_DIR/architecture.first.json" "$IOT_ARCH_REPORT_DIR/architecture.json"
+          test -z "$(git status --porcelain --untracked-files=all)"
+      - name: Preserve actual evidence and checksums
+        if: always()
+        shell: bash
+        run: |
+          git status --porcelain --untracked-files=all > "$IOT_ARCH_REPORT_DIR/worktree.txt"
+          python3 - <<'PY'
+          import hashlib, os
+          from pathlib import Path
+          root=Path(os.environ['IOT_ARCH_REPORT_DIR'])
+          lines=[hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.name for p in sorted(root.iterdir()) if p.is_file() and p.name!='SHA256SUMS']
+          (root/'SHA256SUMS').write_text('\n'.join(lines)+'\n')
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: architecture-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/architecture-evidence/
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,47 @@
+name: Architecture delivery readiness
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed]
+  workflow_run:
+    workflows: [Architecture gates, YU-30 regression, YU-31 runtime smoke]
+    types: [completed]
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+concurrency:
+  group: delivery-ready-${{ github.event.pull_request.number || github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+jobs:
+  delivery-ready:
+    name: Architecture / delivery-ready
+    if: github.event.pull_request || github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select trusted integration checker
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.sha }}
+        run: |
+          if git cat-file -e "$BASE:scripts/delivery_gates.py" 2>/dev/null; then
+            git show "$BASE:scripts/delivery_gates.py" > "$RUNNER_TEMP/delivery-gate.py"
+          else
+            cp scripts/delivery_gates.py "$RUNNER_TEMP/delivery-gate.py"
+          fi
+      - name: Reconcile current source, reviews, real CI and remote enforcement
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number }}
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          test -n "$PR_NUMBER"
+          python3 "$RUNNER_TEMP/delivery-gate.py" premerge --repo "$REPOSITORY" --pr "$PR_NUMBER"
