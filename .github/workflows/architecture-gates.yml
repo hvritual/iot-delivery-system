@@ -20,7 +20,6 @@ jobs:
       GOTOOLCHAIN: local
       PYTHONDONTWRITEBYTECODE: '1'
       IOT_GATE_BASE: ${{ github.event.pull_request.base.sha }}
-      IOT_ARCH_REPORT_DIR: ${{ runner.temp }}/architecture-evidence
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -30,6 +29,8 @@ jobs:
           persist-credentials: false
       - name: Bind evidence to source
         run: |
+          export IOT_ARCH_REPORT_DIR="$RUNNER_TEMP/architecture-evidence"
+          echo "IOT_ARCH_REPORT_DIR=$IOT_ARCH_REPORT_DIR" >> "$GITHUB_ENV"
           mkdir -p "$IOT_ARCH_REPORT_DIR"
           git rev-parse HEAD > "$IOT_ARCH_REPORT_DIR/head.txt"
           git rev-parse 'HEAD^{tree}' > "$IOT_ARCH_REPORT_DIR/tree.txt"
