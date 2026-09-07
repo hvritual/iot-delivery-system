@@ -38,7 +38,7 @@ jobs:
           fi
       - name: Verify live current-head independent approval
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.ARCH_GATE_READ_TOKEN || github.token }}
           REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: python3 "$RUNNER_TEMP/review-gate.py" review --repo "$REPOSITORY" --pr "$PR_NUMBER"

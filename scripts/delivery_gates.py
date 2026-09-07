@@ -199,6 +199,7 @@ EXPECTED = {
     ".github/workflows/architecture-gates.yml": {"Architecture / code-contract"},
     ".github/workflows/yu30-regression.yml": {"YU-30 / canonical-full", "YU-30 / go-diagnostics", "YU-30 / web-diagnostics", "YU-30 / browser-e2e"},
     ".github/workflows/yu31-runtime-smoke.yml": {"runtime-smoke"},
+    ".github/workflows/yu32-independent-review.yml": {"YU-32 / full-regression", "YU-32 / runtime-smoke"},
 }
 
 
@@ -262,7 +263,7 @@ def require_server_enforcement(api):
     protection = api.get("/branches/main/protection")
     checks = protection.get("required_status_checks") or {}
     contexts = set(checks.get("contexts", [])) | {c["context"] for c in checks.get("checks", [])}
-    required = set().union(*EXPECTED.values()) | {"Architecture / independent-review"}
+    required = set().union(*EXPECTED.values()) | {"Architecture / independent-review", "Architecture / delivery-ready"}
     require(required <= contexts and checks.get("strict") is True, "required/strict status checks are not fully enforced")
     reviews = protection.get("required_pull_request_reviews") or {}
     require(reviews.get("required_approving_review_count", 0) >= 1 and reviews.get("dismiss_stale_reviews") is True,

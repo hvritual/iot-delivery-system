@@ -6,7 +6,7 @@ on:
   pull_request_review:
     types: [submitted, dismissed]
   workflow_run:
-    workflows: [Architecture gates, YU-30 regression, YU-31 runtime smoke]
+    workflows: [Architecture gates, YU-30 regression, YU-31 runtime smoke, YU-32 independent security architecture review]
     types: [completed]
 permissions:
   contents: read
@@ -38,7 +38,7 @@ jobs:
           fi
       - name: Reconcile current source, reviews, real CI and remote enforcement
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.ARCH_GATE_READ_TOKEN || github.token }}
           REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number }}
           PYTHONDONTWRITEBYTECODE: '1'

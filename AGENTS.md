@@ -28,7 +28,7 @@ completed merely because their rules or package ownership have been declared.
    Missing/unlinked identity, stale approval, dismissal or changes requested blocks.
    An agent's own review document is not independent approval evidence.
 4. G4 / Harness: before merge, rerun the live premerge checker. It reconciles the
-   current PR/base, latest workflow attempts, required jobs and server enforcement.
+   current PR/base, latest workflow attempts, required jobs (including YU-32) and server enforcement.
    Missing, skipped, cancelled, stale or unreadable evidence is not success.
 5. G5 / Framework integration: preserve the exact framework gitlink and clean
    submodule. YU-30 canonical-full remains mandatory for double generation,
@@ -46,7 +46,8 @@ bash scripts/check-architecture.sh "$EXACT_BASE"
 python3 scripts/delivery_gates.py premerge --repo hvritual/iot-delivery-system --pr "$PR_NUMBER"
 ```
 
-The last command requires `GH_TOKEN` read access. It performs no merge. It must be
+The last command requires `GH_TOKEN` with repository metadata, actions, pull-request
+and administration READ access. It performs no merge. It must be
 executed using the established checker from the integration base, not an unchecked
 replacement from the PR. During initial installation the proposed checker itself
 requires independent review. Merge tooling must use the same exact head and must
@@ -71,7 +72,13 @@ checker refuses to claim a hard remote merge lock when main is unprotected or
 required checks/reviews cannot be verified. Classic strict branch protection,
 required named checks, stale-review dismissal and administrator enforcement must
 be established externally; this repository change does not grant administration
-permission. Alternative ruleset enforcement requires its own verified reader, not
+permission. The final `Architecture / delivery-ready` context itself is required;
+requiring only its prerequisite contexts is insufficient. Hosted checks may use
+the optional `ARCH_GATE_READ_TOKEN` secret, scoped to this repository with those
+read-only permissions. The default workflow token may lack administration read:
+a 403 remains BLOCKED, never a reason to remove the protection check. Supply this
+credential only after reviewing the initial checker; do not commit its value.
+Alternative ruleset enforcement requires its own verified reader, not
 an automatic fallback. Never bypass a failed gate to finish this installation.
 
 Private framework analysis documents are not republished by these tasks. Report

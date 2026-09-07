@@ -104,6 +104,18 @@ class CIAndEnforcementTests(unittest.TestCase):
         class Response:
             def get(self, _): return {"protected":False}
         with self.assertRaises(gate.Blocked): gate.require_server_enforcement(Response())
+    def test_delivery_ready_itself_must_be_required(self):
+        required = set().union(*gate.EXPECTED.values()) | {"Architecture / independent-review"}
+        class Protection:
+            def __init__(self, contexts): self.contexts = contexts
+            def get(self, endpoint):
+                if endpoint == "/branches/main": return {"protected": True}
+                return {"required_status_checks": {"strict": True, "contexts": sorted(self.contexts)},
+                        "required_pull_request_reviews": {"required_approving_review_count": 1, "dismiss_stale_reviews": True},
+                        "enforce_admins": {"enabled": True}}
+        with self.assertRaises(gate.Blocked):
+            gate.require_server_enforcement(Protection(required))
+        gate.require_server_enforcement(Protection(required | {"Architecture / delivery-ready"}))
     def test_pagination_not_first_page_only(self):
         class Pages(gate.GitHub):
             def __init__(self): pass
