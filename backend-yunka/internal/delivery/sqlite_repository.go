@@ -74,8 +74,9 @@ func NewSQLiteRepository(databasePath string) (*SQLiteRepository, error) {
 	database.SetMaxOpenConns(1)
 	database.SetMaxIdleConns(1)
 	for _, statement := range []string{
-		"PRAGMA journal_mode = WAL",
+		// Install the existing lock-wait budget before lock-sensitive startup.
 		"PRAGMA busy_timeout = 5000",
+		"PRAGMA journal_mode = WAL",
 		"PRAGMA foreign_keys = ON",
 	} {
 		if _, err := database.Exec(statement); err != nil {

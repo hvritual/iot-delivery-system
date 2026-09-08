@@ -74,7 +74,7 @@ No tracked source is edited by probes. Their qualified platform is Linux.
    cross-owner collision, sorting, SQLite reopen and errors. A wrapped legacy
    ErrNotFound from the all-owner collision query still means an available ID;
    the owner-scoped public list error remains unchanged.
-2. Execute all six TestAG03 parent groups with no skips. Deliberately substituting
+2. Execute the six saved-view TestAG03 parent groups plus the startup regression with no skips. Deliberately substituting
    the broad Repository must fail the actual-method-set test; restore the source.
 3. Run full YU-30 (two generate/check cycles, Ownership/Audit/ChangeSet, Go tests,
    race/vet, frontend tests/typecheck/build/audit and real browser E2E), YU-31 real
@@ -90,3 +90,16 @@ Revert this entire batch, including alias definitions, SQL delegation, facade,
 checks and script wiring. There is no schema/data migration or production action.
 Do not carry only a half-migrated alias/adapter into another task. AG-04 should
 consume this concrete narrowing example, not treat it as a generic analyzer.
+
+## AG-03R — bounded SQLite startup correction (IoT Delivery #6)
+
+Run 34221473016 passed the saved-view assertions but failed the unchanged
+bootstrap seed/restart race test with SQLITE_BUSY during connection configuration.
+The existing constructor set busy_timeout after the lock-sensitive journal_mode
+pragma. The corrective commit only puts the existing 5000ms busy setting first;
+there is no retry loop, timeout increase, transaction/schema change or Yunka fix.
+A permanent real-file exclusive-lock regression must reproduce exact SQLITE_BUSY
+on the immutable old constructor, then wait and succeed after lock release on the
+corrected constructor. It reads back WAL, timeout, foreign keys and preserved data.
+The original bootstrap test is repeated under race; all normal gates still apply.
+Qualification and actual review/main outcomes remain separate from this decision.
