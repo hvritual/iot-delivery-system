@@ -53,5 +53,12 @@ func (r savedViewRepository) CreateSavedView(ctx context.Context, v SavedView) e
 	return r.create(ctx, v)
 }
 func (r savedViewRepository) ListSavedViews(ctx context.Context, owner string) ([]SavedView, error) {
-	return r.list(ctx, owner)
+	views, err := r.list(ctx, owner)
+	// The legacy ID allocator treats ErrNotFound (including wrapped errors) as
+	// an available ID. Normalize only its all-owner collision query; public
+	// owner-scoped list errors must remain unchanged.
+	if owner == "" && errors.Is(err, ErrNotFound) {
+		return nil, nil
+	}
+	return views, err
 }

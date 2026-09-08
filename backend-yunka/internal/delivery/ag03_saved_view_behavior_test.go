@@ -3,6 +3,7 @@ package delivery
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/hvritual/yunka.io/framework/core/identity"
 	"path/filepath"
 	"reflect"
@@ -84,6 +85,31 @@ func TestAG03SavedViewBehaviorParity(t *testing.T) {
 			}
 		})
 	}
+	t.Run("wrapped_not_found_compatibility", func(t *testing.T) {
+		storage := NewMemoryRepository()
+		repository := ag03MissingSavedViews{Repository: storage}
+		service := NewService(repository, nil)
+		ctx := identity.WithPrincipal(context.Background(), identity.Principal{Authenticated: true, UserID: "owner"})
+		view, err := service.SaveView(ctx, SavedViewInput{Name: "available"})
+		if err != nil || view.ID == "" {
+			t.Fatalf("legacy not-found collision handling: %+v %v", view, err)
+		}
+		if _, err := service.ListSavedViews(ctx); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("owner-scoped list error changed: %v", err)
+		}
+		stored, err := storage.ListSavedViews(ctx, "owner")
+		if err != nil || len(stored) != 1 || stored[0].ID != view.ID {
+			t.Fatalf("collision compatibility did not save: %+v %v", stored, err)
+		}
+	})
+}
+
+// A legal legacy adapter can represent an empty list by a wrapped sentinel.
+// This test-only wide stub is never injected into the new production use case.
+type ag03MissingSavedViews struct{ Repository }
+
+func (ag03MissingSavedViews) ListSavedViews(context.Context, string) ([]SavedView, error) {
+	return nil, fmt.Errorf("legacy empty views: %w", ErrNotFound)
 }
 
 func TestAG03SavedViewSQLiteReopenAndErrors(t *testing.T) {

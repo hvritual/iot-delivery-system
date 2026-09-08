@@ -71,7 +71,9 @@ No tracked source is edited by probes. Their qualified platform is Linux.
 
 1. Run the same new behavior-characterization file on the immutable pre-refactor
    base and candidate: identity/validation order, normalization, shared sequence,
-   cross-owner collision, sorting, SQLite reopen and errors.
+   cross-owner collision, sorting, SQLite reopen and errors. A wrapped legacy
+   ErrNotFound from the all-owner collision query still means an available ID;
+   the owner-scoped public list error remains unchanged.
 2. Execute all six TestAG03 parent groups with no skips. Deliberately substituting
    the broad Repository must fail the actual-method-set test; restore the source.
 3. Run full YU-30 (two generate/check cycles, Ownership/Audit/ChangeSet, Go tests,
