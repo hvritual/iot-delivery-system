@@ -1,0 +1,180 @@
+name: ag03-qualification
+on:
+  push:
+    branches: [control/ag03-qualification-20260908]
+permissions:
+  contents: write
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GOWORK: 'off'
+      GOTOOLCHAIN: local
+      CI: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          path: control
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: f190fe237fa1efb738b4866275804093a209de5b
+          path: product
+          fetch-depth: 0
+          submodules: recursive
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: '1.25.13'
+          cache-dependency-path: product/backend-yunka/go.sum
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.16.0'
+          cache: npm
+          cache-dependency-path: product/web/package-lock.json
+      - name: Locked tools and read-only bootstrap
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/ag03-evidence"
+          tools="$RUNNER_TEMP/ag03-tools"
+          mkdir -p "$out" "$tools/protoc-21.12" "$tools/bin"
+          source third_party/yunka/tools/toolchain.env
+          curl --fail --silent --show-error --location --retry 3 "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_RELEASE}/protoc-${PROTOC_RELEASE}-linux-x86_64.zip" -o "$tools/protoc.zip"
+          echo "$PROTOC_LINUX_X86_64_SHA256  $tools/protoc.zip" | sha256sum -c -
+          unzip -q "$tools/protoc.zip" -d "$tools/protoc-21.12"
+          GOBIN="$tools/bin" go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+          GOBIN="$tools/bin" go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
+          echo "TOOLS_DIR=$tools" >> "$GITHUB_ENV"
+          echo "$tools/protoc-21.12/bin" >> "$GITHUB_PATH"
+          echo "$tools/bin" >> "$GITHUB_PATH"
+          browser="$(command -v google-chrome || command -v chromium || true)"
+          test -n "$browser"
+          echo "IOT_DELIVERY_E2E_BROWSER=$browser" >> "$GITHUB_ENV"
+          { go version; node --version; "$browser" --version; "$tools/protoc-21.12/bin/protoc" --version; "$tools/bin/protoc-gen-go" --version; "$tools/bin/protoc-gen-go-grpc" --version; } > "$out/toolchain.txt"
+          cat README.md docs/ARCHITECTURE.md > "$out/bootstrap.txt"
+          git status --short --branch > "$out/base-status.txt"
+          git submodule status > "$out/submodule.txt"
+      - name: Recreate exact local-Git candidate from verified text payload
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = f190fe237fa1efb738b4866275804093a209de5b
+          test -z "$(git status --porcelain)"
+          python3 - <<'PY'
+          import pathlib,base64,gzip,hashlib,subprocess,os
+          root=pathlib.Path('../control/control/ag03')
+          parts=[(root/f'part{i}.txt').read_bytes() for i in range(5)]
+          expected=['8b3fecdedcd3aa2222f07b5025edb75cd646c317','3f5952195a88270659694f261050eef66da53eaa','5980e9add2bde7b23af9031530edc324d1cad626','3f32de3e2432fdf37d23d63dfc04dd6084e562d0','03c45326215535d796df199eb7786cda845157b6']
+          for data,sha in zip(parts,expected):
+              assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()==sha
+          compressed=base64.b64decode(b''.join(parts),validate=True)
+          assert hashlib.sha256(compressed).hexdigest()=='c5d2b4e493d5c4210e00829e9c373d3d08af83b5521638470d0afa68ef0a3d33'
+          patch=gzip.decompress(compressed);assert len(patch)==51132
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'ag03-evidence'
+          (out/'candidate.patch').write_bytes(patch)
+          subprocess.run(['git','apply','--index','-'],input=patch,check=True)
+          assert subprocess.check_output(['git','write-tree'],text=True).strip()=='5990f9aaf03f877a1bdddfd1ac550f69910d506e'
+          PY
+          git diff --cached --check
+          export GIT_AUTHOR_NAME=hvritual GIT_COMMITTER_NAME=hvritual
+          export GIT_AUTHOR_EMAIL=460657446@qq.com GIT_COMMITTER_EMAIL=460657446@qq.com
+          export GIT_AUTHOR_DATE='1788865825 +0000' GIT_COMMITTER_DATE='1788865825 +0000'
+          git -c commit.gpgsign=false commit -m 'refactor(delivery): isolate saved-view use cases behind attenuated repository'
+          test "$(git rev-parse HEAD)" = 03db05c462cf71212da657db27746ec733688d80
+          git rev-parse HEAD HEAD^{tree} > "$RUNNER_TEMP/ag03-evidence/candidate.txt"
+          test -z "$(git status --porcelain)"
+      - name: Same behavior assertions against unchanged pre-refactor base
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$PWD"
+          work="$(mktemp -d)"
+          trap 'git worktree remove --force "$work/base" >/dev/null 2>&1 || true; rm -rf "$work"' EXIT
+          git worktree add --detach "$work/base" f190fe237fa1efb738b4866275804093a209de5b
+          rmdir "$work/base/third_party/yunka"
+          ln -s "$root/third_party/yunka" "$work/base/third_party/yunka"
+          cp backend-yunka/internal/delivery/ag03_saved_view_behavior_test.go "$work/base/backend-yunka/internal/delivery/ag03_saved_view_behavior_test.go"
+          (cd "$work/base/backend-yunka" && go test -mod=readonly -json -count=1 ./internal/delivery -run '^TestAG03SavedView(BehaviorParity|SQLiteReopenAndErrors)$') > "$RUNNER_TEMP/ag03-evidence/baseline-behavior.jsonl"
+      - name: Exact targeted checks and real wide-object negative control
+        working-directory: product/backend-yunka
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/ag03-evidence"
+          go test -mod=readonly -json -count=1 . ./internal/delivery -run '^TestAG03' > "$out/targeted.jsonl"
+          python3 - "$out/targeted.jsonl" <<'PY'
+          import json,sys
+          events=[json.loads(x) for x in open(sys.argv[1])]
+          wanted={'TestAG03SavedViewBehaviorParity','TestAG03SavedViewSQLiteReopenAndErrors','TestAG03SavedViewActualCapabilitySurfaces','TestAG03SavedViewNeedsOnlyTwoRepositoryMethods','TestAG03SavedViewLayerDependencies','TestAG03SavedViewGuardRejectsMasqueradingCallers'}
+          assert not any(e['Action']=='fail' or (e['Action']=='skip' and e.get('Test')) for e in events)
+          passed={e.get('Test') for e in events if e['Action']=='pass'}
+          assert wanted<=passed,(wanted-passed)
+          print('six required AG03 test parents passed')
+          PY
+          go test -mod=readonly -json -count=1 ./internal/delivery/application -run '^TestYU15' > "$out/unchanged-transaction-audit.jsonl"
+          file=internal/delivery/saved_view_service.go
+          trap 'git restore -- "$file"' EXIT
+          python3 - "$file" <<'PY'
+          import pathlib,sys
+          p=pathlib.Path(sys.argv[1]);s=p.read_text();needle='newSavedViewRepository(service.repository)';assert s.count(needle)==1
+          p.write_text(s.replace(needle,'service.repository'))
+          PY
+          set +e
+          go test -mod=readonly -count=1 ./internal/delivery -run '^TestAG03SavedViewActualCapabilitySurfaces$' > "$out/wide-object-negative.log" 2>&1
+          code=$?
+          set -e
+          test "$code" -eq 1
+          grep -q 'actual use-case repository exposes 22 methods, want 2' "$out/wide-object-negative.log"
+          git restore -- "$file"
+          trap - EXIT
+          go test -mod=readonly -count=1 ./internal/delivery -run '^TestAG03SavedViewActualCapabilitySurfaces$' > "$out/wide-object-restored.log"
+          test -z "$(git status --porcelain)"
+      - name: Existing complete regression and real runtime gates
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/ag03-evidence"
+          export YU30_EVIDENCE_DIR="$out/yu30" YU31_EVIDENCE_DIR="$out/yu31"
+          bash backend-yunka/scripts/run-yu32h-red-green.sh 2>&1 | tee "$out/yu32h.log"
+          bash backend-yunka/scripts/run-yu30-regression.sh 2>&1 | tee "$out/yu30.log"
+          bash backend-yunka/scripts/run-yu31-smoke.sh 2>&1 | tee "$out/yu31.log"
+          git diff --check
+          test -z "$(git status --porcelain --untracked-files=all)"
+          test -z "$(git diff --name-only f190fe237fa1efb738b4866275804093a209de5b HEAD -- third_party backend web .github backend-yunka/contracts backend-yunka/modules backend-yunka/internal/assembly backend-yunka/go.mod backend-yunka/go.sum)"
+      - name: Publish only the qualified task branch
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/ag03-evidence"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = f190fe237fa1efb738b4866275804093a209de5b
+          current="$(git ls-remote origin refs/heads/feat/ag03-saved-view-narrow-usecase | cut -f1)"
+          test -z "$current" || test "$current" = 03db05c462cf71212da657db27746ec733688d80
+          git push origin HEAD:refs/heads/feat/ag03-saved-view-narrow-usecase
+          test "$(git ls-remote origin refs/heads/feat/ag03-saved-view-narrow-usecase | cut -f1)" = 03db05c462cf71212da657db27746ec733688d80
+          git bundle create "$out/candidate.bundle" HEAD ^f190fe237fa1efb738b4866275804093a209de5b
+          git bundle verify "$out/candidate.bundle"
+          git diff --stat f190fe237fa1efb738b4866275804093a209de5b HEAD > "$out/diff-stat.txt"
+          git status --porcelain --untracked-files=all > "$out/worktree.txt"
+          printf '%s\n' 'QUALIFIED_TASK_BRANCH=03db05c462cf71212da657db27746ec733688d80' 'MAIN_NOT_MOVED=true' > "$out/result.txt"
+      - name: Evidence manifest
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/ag03-evidence"
+          cd "$RUNNER_TEMP/ag03-evidence"
+          find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ag03-qualification
+          path: ${{ runner.temp }}/ag03-evidence
+          include-hidden-files: true
+          if-no-files-found: error
