@@ -1,0 +1,77 @@
+diff --git a/backend-yunka/internal/delivery/ag03_saved_view_behavior_test.go b/backend-yunka/internal/delivery/ag03_saved_view_behavior_test.go
+index ddd2069..231e0f0 100644
+--- a/backend-yunka/internal/delivery/ag03_saved_view_behavior_test.go
++++ b/backend-yunka/internal/delivery/ag03_saved_view_behavior_test.go
+@@ -3,6 +3,7 @@ package delivery
+ import (
+ 	"context"
+ 	"errors"
++	"fmt"
+ 	"github.com/hvritual/yunka.io/framework/core/identity"
+ 	"path/filepath"
+ 	"reflect"
+@@ -84,6 +85,31 @@ func TestAG03SavedViewBehaviorParity(t *testing.T) {
+ 			}
+ 		})
+ 	}
++	t.Run("wrapped_not_found_compatibility", func(t *testing.T) {
++		storage := NewMemoryRepository()
++		repository := ag03MissingSavedViews{Repository: storage}
++		service := NewService(repository, nil)
++		ctx := identity.WithPrincipal(context.Background(), identity.Principal{Authenticated: true, UserID: "owner"})
++		view, err := service.SaveView(ctx, SavedViewInput{Name: "available"})
++		if err != nil || view.ID == "" {
++			t.Fatalf("legacy not-found collision handling: %+v %v", view, err)
++		}
++		if _, err := service.ListSavedViews(ctx); !errors.Is(err, ErrNotFound) {
++			t.Fatalf("owner-scoped list error changed: %v", err)
++		}
++		stored, err := storage.ListSavedViews(ctx, "owner")
++		if err != nil || len(stored) != 1 || stored[0].ID != view.ID {
++			t.Fatalf("collision compatibility did not save: %+v %v", stored, err)
++		}
++	})
++}
++
++// A legal legacy adapter can represent an empty list by a wrapped sentinel.
++// This test-only wide stub is never injected into the new production use case.
++type ag03MissingSavedViews struct{ Repository }
++
++func (ag03MissingSavedViews) ListSavedViews(context.Context, string) ([]SavedView, error) {
++	return nil, fmt.Errorf("legacy empty views: %w", ErrNotFound)
+ }
+ 
+ func TestAG03SavedViewSQLiteReopenAndErrors(t *testing.T) {
+diff --git a/backend-yunka/internal/delivery/saved_view_service.go b/backend-yunka/internal/delivery/saved_view_service.go
+index c21d17e..2e42e88 100644
+--- a/backend-yunka/internal/delivery/saved_view_service.go
++++ b/backend-yunka/internal/delivery/saved_view_service.go
+@@ -53,5 +53,12 @@ func (r savedViewRepository) CreateSavedView(ctx context.Context, v SavedView) e
+ 	return r.create(ctx, v)
+ }
+ func (r savedViewRepository) ListSavedViews(ctx context.Context, owner string) ([]SavedView, error) {
+-	return r.list(ctx, owner)
++	views, err := r.list(ctx, owner)
++	// The legacy ID allocator treats ErrNotFound (including wrapped errors) as
++	// an available ID. Normalize only its all-owner collision query; public
++	// owner-scoped list errors must remain unchanged.
++	if owner == "" && errors.Is(err, ErrNotFound) {
++		return nil, nil
++	}
++	return views, err
+ }
+diff --git a/docs/architecture/AG-03-saved-view.md b/docs/architecture/AG-03-saved-view.md
+index 50f8365..c2fa637 100644
+--- a/docs/architecture/AG-03-saved-view.md
++++ b/docs/architecture/AG-03-saved-view.md
+@@ -71,7 +71,9 @@ No tracked source is edited by probes. Their qualified platform is Linux.
+ 
+ 1. Run the same new behavior-characterization file on the immutable pre-refactor
+    base and candidate: identity/validation order, normalization, shared sequence,
+-   cross-owner collision, sorting, SQLite reopen and errors.
++   cross-owner collision, sorting, SQLite reopen and errors. A wrapped legacy
++   ErrNotFound from the all-owner collision query still means an available ID;
++   the owner-scoped public list error remains unchanged.
+ 2. Execute all six TestAG03 parent groups with no skips. Deliberately substituting
+    the broad Repository must fail the actual-method-set test; restore the source.
+ 3. Run full YU-30 (two generate/check cycles, Ownership/Audit/ChangeSet, Go tests,
