@@ -1,0 +1,109 @@
+name: ag03-main-acceptance
+on:
+  push:
+    branches: [control/ag03-main-acceptance-20260908]
+permissions:
+  contents: read
+  pull-requests: read
+jobs:
+  accept:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GOWORK: 'off'
+      GOTOOLCHAIN: local
+      CI: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          path: control
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: bcd20632b666405c3f7a8fe8d53f591c78450087
+          path: product
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5
+        with:
+          go-version: '1.25.13'
+          cache-dependency-path: product/backend-yunka/go.sum
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.16.0'
+          cache: npm
+          cache-dependency-path: product/web/package-lock.json
+      - name: Confirm integrated source and merged PR
+        working-directory: product
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ag03-evidence"
+          gh api repos/hvritual/iot-delivery-system/git/ref/heads/main > "$RUNNER_TEMP/ag03-evidence/main-before.json"
+          gh api repos/hvritual/iot-delivery-system/pulls/7 > "$RUNNER_TEMP/ag03-evidence/pr.json"
+          python3 - <<'PY'
+          import json,pathlib,os,subprocess
+          p=pathlib.Path(os.environ['RUNNER_TEMP'])/'ag03-evidence'
+          head='bcd20632b666405c3f7a8fe8d53f591c78450087'
+          assert json.loads((p/'main-before.json').read_text())['object']['sha']==head
+          pr=json.loads((p/'pr.json').read_text())
+          assert pr['merged'] and pr['head']['sha']==head and pr['merge_commit_sha']==head
+          assert subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()==head
+          assert subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip()=='0c0d1a2da23de4b7315245faba2103ec7a64377e'
+          PY
+      - name: Locked tools
+        working-directory: product
+        run: python3 ../control/control/ag03/run-step.py 'Locked tools and read-only bootstrap'
+      - name: Targeted cases and actual wide-object negative control
+        working-directory: product/backend-yunka
+        run: python3 ../../control/control/ag03/run-step.py 'Exact targeted checks and real wide-object negative control'
+      - name: Full actual-main runtime and existing gates
+        working-directory: product
+        run: python3 ../control/control/ag03/run-step.py 'Existing complete regression and real runtime gates'
+      - name: Final test inventory, clean source and main readback
+        working-directory: product
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/ag03-evidence"
+          gh api repos/hvritual/iot-delivery-system/git/ref/heads/main > "$out/main-after.json"
+          git diff --binary f190fe237fa1efb738b4866275804093a209de5b HEAD > "$out/candidate.patch"
+          git bundle create "$out/candidate.bundle" HEAD ^f190fe237fa1efb738b4866275804093a209de5b
+          git bundle verify "$out/candidate.bundle"
+          git diff --check
+          test -z "$(git status --porcelain --untracked-files=all)"
+          python3 - <<'PY'
+          import os,json,pathlib,subprocess
+          p=pathlib.Path(os.environ['RUNNER_TEMP'])/'ag03-evidence'
+          head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          assert json.loads((p/'main-after.json').read_text())['object']['sha']==head=='bcd20632b666405c3f7a8fe8d53f591c78450087'
+          names=[]
+          for f in ['targeted.jsonl','unchanged-transaction-audit.jsonl']:
+              rows=[json.loads(x) for x in (p/f).read_text().splitlines()]
+              assert not any(r['Action']=='fail' or (r['Action']=='skip' and r.get('Test')) for r in rows)
+              names.extend(r['Test'] for r in rows if r['Action']=='pass' and r.get('Test'))
+          required={'TestAG03SQLiteStartupWaitsForExternalLock','TestAG03SavedViewBehaviorParity/wrapped_not_found_compatibility','TestYU15SavedViewCommitsBusinessOutboxAndAuditInRootTransaction','TestYU15SavedViewOutboxFailureRollsBackBusinessAndAudit','TestYU15SavedViewAuditFailureRollsBackBusinessAndOutbox','TestYU15DirectSavedViewWriteFailsClosedWithTransactionalOutbox'}
+          assert required<=set(names), required-set(names)
+          assert len(names)==20,len(names)
+          receipt={'task':'AG-03','state':'ACTUAL_MAIN_ACCEPTED','repository':'hvritual/iot-delivery-system','head':head,'tree':subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip(),'base':'f190fe237fa1efb738b4866275804093a209de5b','runtime':'057ebcf88a87303eb633eb6e604d306f633dfac0','pr':7,'run':os.environ['GITHUB_RUN_ID'],'qualificationRun':34222448048,'testPassEvents':len(names),'testNames':names,'fullGates':['YU-32H RED/GREEN','YU-30 full regression','YU-31 real runtime'],'worktree':'clean','signed':False}
+          (p/'MAIN-RECEIPT.json').write_text(json.dumps(receipt,indent=2)+'\n')
+          print(json.dumps(receipt,indent=2))
+          PY
+      - name: Evidence manifest
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/ag03-evidence"
+          cd "$RUNNER_TEMP/ag03-evidence"
+          find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: ag03-main-acceptance
+          path: ${{ runner.temp }}/ag03-evidence
+          include-hidden-files: true
+          if-no-files-found: error
