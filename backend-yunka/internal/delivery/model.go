@@ -1,8 +1,11 @@
 package delivery
 
-import "time"
+import (
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/domain"
+	"time"
+)
 
-type Board string
+type Board = domain.Board
 
 const (
 	BoardDeviceQuality    Board = "设备质量与连接"
@@ -22,7 +25,7 @@ const (
 
 // WorkItemKind makes the delivery hierarchy explicit while retaining Type for
 // backwards compatibility with existing MVP records.
-type WorkItemKind string
+type WorkItemKind = domain.WorkItemKind
 
 const (
 	WorkItemKindEpic    WorkItemKind = "epic"
@@ -143,7 +146,7 @@ type SimilarityCandidate struct {
 	Exact bool    `json:"exact"`
 }
 
-type Status string
+type Status = domain.Status
 
 const (
 	StatusPlanned    Status = "planned"
@@ -336,33 +339,11 @@ type CommentInput struct {
 	ExpectedRevision int64  `json:"expectedRevision"`
 }
 
-// WorkItemFilter is deliberately reusable by item search, saved views, and
-// member/week reporting. All non-empty fields compose with AND semantics.
-type WorkItemFilter struct {
-	ProjectID   string       `json:"projectId,omitempty"`
-	Board       Board        `json:"board,omitempty"`
-	Owner       string       `json:"owner,omitempty"`
-	Status      Status       `json:"status,omitempty"`
-	Kind        WorkItemKind `json:"kind,omitempty"`
-	ReleaseID   string       `json:"releaseId,omitempty"`
-	SprintID    string       `json:"sprintId,omitempty"`
-	MilestoneID string       `json:"milestoneId,omitempty"`
-	Query       string       `json:"query,omitempty"`
-}
-
-type SavedView struct {
-	ID        string         `json:"id"`
-	Name      string         `json:"name"`
-	Owner     string         `json:"owner"`
-	Filter    WorkItemFilter `json:"filter"`
-	CreatedAt time.Time      `json:"createdAt"`
-	UpdatedAt time.Time      `json:"updatedAt"`
-}
-
-type SavedViewInput struct {
-	Name   string         `json:"name"`
-	Filter WorkItemFilter `json:"filter"`
-}
+// These aliases preserve the existing handwritten Go API and JSON representation.
+// Shared filter/value definitions have one leaf-domain owner.
+type WorkItemFilter = domain.WorkItemFilter
+type SavedView = domain.SavedView
+type SavedViewInput = domain.SavedViewInput
 
 type MemberWeek struct {
 	Member    string     `json:"member"`

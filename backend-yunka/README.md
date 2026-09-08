@@ -172,3 +172,11 @@ HTTP 被限流返回 `429` + `Retry-After` + `no-store`，不签发 cookie/sessi
 复验：`bash backend-yunka/scripts/run-yu32h-red-green.sh`、完整 YU-30 回归、YU-31 真实运行时验证。首条命令把只依赖旧 API 的两个回归复制到固定父提交，要求出现短密码被接受和重复猜测未限流的真实失败，再验证当前实现；缺工具、编译失败不能代替 RED。
 
 设计依据（2026-09-06 查阅）：NIST SP 800-63B-4 Password Verifiers / Rate Limiting（https://pages.nist.gov/800-63-4/sp800-63b/authenticators/）；OWASP Authentication Cheat Sheet / Login Throttling（https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html）。限流阈值是本产品本轮采用的明确合同，不是声称上述标准指定的默认值。
+
+## AG-03 saved-view implementation boundary
+
+Saved-view rules now use a two-method Repository behind a hidden use-case package;
+the legacy Service and SQLite entry points delegate without changing public
+Operations or transaction ownership. See [the bounded implementation record](../docs/architecture/AG-03-saved-view.md).
+The full YU-30 gate includes the saved-view tests and public/hidden import probes.
+This does not imply that unrelated delivery use cases have been refactored.

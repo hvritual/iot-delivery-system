@@ -6,13 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	savedviewstore "github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/infrastructure/persistence/savedview"
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/ports"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite"
 	"github.com/hvritual/yunka.io/framework/execution"
+	_ "modernc.org/sqlite"
 )
 
 const sqliteSchema = `
@@ -390,27 +392,16 @@ func (repository *SQLiteRepository) SaveMilestone(ctx context.Context, milestone
 	return repository.savePayload(ctx, "iotd_delivery_milestones", milestone.ID, milestone.UpdatedAt, milestone, "milestone")
 }
 
-func (repository *SQLiteRepository) CreateSavedView(ctx context.Context, view SavedView) error {
-	return repository.createPayload(ctx, "iotd_delivery_saved_views", view.ID, view.UpdatedAt, view, "saved view")
+// Compatibility methods delegate to the saved-view-only SQL adapter. The
+// existing executor selects the root transaction; no second transaction exists.
+func (repository *SQLiteRepository) savedViewRepository() ports.SavedViewRepository {
+	return savedviewstore.New(func(ctx context.Context) (savedviewstore.Executor, error) { return repository.executor(ctx) })
 }
-
+func (repository *SQLiteRepository) CreateSavedView(ctx context.Context, view SavedView) error {
+	return repository.savedViewRepository().CreateSavedView(ctx, view)
+}
 func (repository *SQLiteRepository) ListSavedViews(ctx context.Context, owner string) ([]SavedView, error) {
-	payloads, err := repository.listPayloads(ctx, "iotd_delivery_saved_views", "saved views")
-	if err != nil {
-		return nil, err
-	}
-	owner = strings.TrimSpace(owner)
-	views := make([]SavedView, 0, len(payloads))
-	for _, payload := range payloads {
-		view, err := decodeSavedView(payload)
-		if err != nil {
-			return nil, err
-		}
-		if owner == "" || view.Owner == owner {
-			views = append(views, view)
-		}
-	}
-	return views, nil
+	return repository.savedViewRepository().ListSavedViews(ctx, owner)
 }
 
 func (repository *SQLiteRepository) createPayload(ctx context.Context, table, id string, updatedAt time.Time, value any, label string) error {
@@ -636,14 +627,6 @@ func decodeMilestone(payload string) (Milestone, error) {
 		return Milestone{}, fmt.Errorf("decode delivery milestone: %w", err)
 	}
 	return milestone, nil
-}
-
-func decodeSavedView(payload string) (SavedView, error) {
-	var view SavedView
-	if err := json.Unmarshal([]byte(payload), &view); err != nil {
-		return SavedView{}, fmt.Errorf("decode delivery saved view: %w", err)
-	}
-	return view, nil
 }
 
 const timeLayout = "2006-01-02T15:04:05.999999999Z07:00"

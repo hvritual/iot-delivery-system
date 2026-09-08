@@ -108,7 +108,7 @@ func scanProductionSource(name string, source []byte) ([]string, error) {
 			if selector.Sel.Name == "Sync" && name != "internal/obsidian/projection_consumer.go" {
 				violations = append(violations, position(fset, value)+" directly calls Sync")
 			}
-			if guardedMutations[selector.Sel.Name] && !trustedMemberCreate(file, value) && !operationsReceiver(selector.X) && ((selector.Sel.Name != "Close" && selector.Sel.Name != "Save") || serviceReceiver(selector.X)) {
+			if guardedMutations[selector.Sel.Name] && !trustedMemberCreate(file, value) && !trustedSavedViewWrite(name, file, value) && !operationsReceiver(selector.X) && ((selector.Sel.Name != "Close" && selector.Sel.Name != "Save") || serviceReceiver(selector.X)) {
 				violations = append(violations, position(fset, value)+" calls "+selector.Sel.Name+" outside Operations")
 			}
 		}

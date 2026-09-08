@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/hvritual/iot-delivery-system/backend-yunka/internal/delivery/domain"
 	"github.com/hvritual/yunka.io/framework/core/identity"
 )
 
@@ -30,7 +31,7 @@ var (
 	ErrProductionPrincipalRequired      = errors.New("production validation and closing require a named JWT principal")
 	ErrImplementationSourceRequired     = errors.New("delivery item has no trusted implementation principal")
 	ErrImplementerCannotVerifyOwnChange = errors.New("implementer cannot production-verify or close their own change")
-	ErrCanonicalUserRequired            = errors.New("saved views require a canonical user identity")
+	ErrCanonicalUserRequired            = domain.ErrCanonicalUserRequired
 )
 
 type Exporter interface {
@@ -570,56 +571,6 @@ func (service *Service) ListMilestones(ctx context.Context, projectID string) ([
 	return result, nil
 }
 
-func (service *Service) SaveView(ctx context.Context, input SavedViewInput) (SavedView, error) {
-	if service == nil || service.repository == nil {
-		return SavedView{}, errors.New("delivery service is not configured")
-	}
-	name := strings.TrimSpace(input.Name)
-	if name == "" {
-		return SavedView{}, errors.New("delivery saved view name is required")
-	}
-	owner, err := canonicalUserIDFromContext(ctx)
-	if err != nil {
-		return SavedView{}, err
-	}
-	now := service.now().UTC()
-	id, err := service.nextSavedViewID(ctx, now)
-	if err != nil {
-		return SavedView{}, err
-	}
-	view := SavedView{
-		ID:        id,
-		Name:      name,
-		Owner:     owner,
-		Filter:    normalizeWorkItemFilter(input.Filter),
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	if err := service.repository.CreateSavedView(ctx, view); err != nil {
-		return SavedView{}, err
-	}
-	return view, nil
-}
-
-func (service *Service) ListSavedViews(ctx context.Context) ([]SavedView, error) {
-	if service == nil || service.repository == nil {
-		return nil, errors.New("delivery service is not configured")
-	}
-	owner, err := canonicalUserIDFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return service.repository.ListSavedViews(ctx, owner)
-}
-
-func canonicalUserIDFromContext(ctx context.Context) (string, error) {
-	principal, ok := identity.FromContext(ctx)
-	if !ok || !principal.Authenticated || strings.TrimSpace(principal.UserID) == "" {
-		return "", ErrCanonicalUserRequired
-	}
-	return strings.TrimSpace(principal.UserID), nil
-}
-
 func (service *Service) MemberWeek(ctx context.Context, member, weekStart string) (MemberWeek, error) {
 	if service == nil || service.repository == nil {
 		return MemberWeek{}, errors.New("delivery service is not configured")
@@ -1104,16 +1055,6 @@ func workItemMatchesQuery(item WorkItem, needle string) bool {
 		}
 	}
 	return false
-}
-
-func normalizeWorkItemFilter(filter WorkItemFilter) WorkItemFilter {
-	filter.ProjectID = strings.TrimSpace(filter.ProjectID)
-	filter.Owner = strings.TrimSpace(filter.Owner)
-	filter.ReleaseID = strings.TrimSpace(filter.ReleaseID)
-	filter.SprintID = strings.TrimSpace(filter.SprintID)
-	filter.MilestoneID = strings.TrimSpace(filter.MilestoneID)
-	filter.Query = strings.TrimSpace(filter.Query)
-	return filter
 }
 
 func (service *Service) validatePlanningLinks(ctx context.Context, projectID, releaseID, sprintID, milestoneID string) error {
@@ -1681,21 +1622,6 @@ func (service *Service) nextMilestoneID(ctx context.Context, now time.Time) (str
 	return service.nextPlanningID(ctx, "MS", now, func(id string) error {
 		_, err := service.repository.GetMilestone(ctx, id)
 		return err
-	})
-}
-
-func (service *Service) nextSavedViewID(ctx context.Context, now time.Time) (string, error) {
-	return service.nextPlanningID(ctx, "VIEW", now, func(id string) error {
-		views, err := service.repository.ListSavedViews(ctx, "")
-		if err != nil {
-			return err
-		}
-		for _, view := range views {
-			if view.ID == id {
-				return nil
-			}
-		}
-		return ErrNotFound
 	})
 }
 

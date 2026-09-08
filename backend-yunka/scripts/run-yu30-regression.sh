@@ -81,6 +81,10 @@ go_backend test ./... -count=1 -timeout=10m
 go_backend vet ./...
 go_backend test -race ./... -count=1 -timeout=10m
 
+log "AG-03 public/hidden/aliased saved-view import boundaries"
+GO="$GO_BIN" bash "$SCRIPT_DIR/run-ag03-boundary.sh"
+require_clean_tree
+
 log "frontend install/test/typecheck/build/security"
 (
   cd "$WEB_ROOT"
