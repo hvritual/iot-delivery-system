@@ -139,15 +139,25 @@ jobs:
           out="$RUNNER_TEMP/cg06-trusted"
           docker pull "$GO_IMAGE" >/dev/null
           docker image inspect "$GO_IMAGE" --format '{{json .RepoDigests}}' > "$out/evidence/go-image-digests.json"
-          docker run --rm \
+          timeout 15m docker run --rm \
             --read-only \
-            --tmpfs /tmp:rw,noexec,nosuid,size=256m \
-            --tmpfs /go:rw,nosuid,size=1g \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --pids-limit=512 \
+            --memory=2g \
+            --cpus=2 \
+            --tmpfs /tmp:rw,noexec,nosuid,size=512m \
+            --tmpfs /go:rw,nosuid,size=2g \
+            -e HOME=/tmp \
+            -e GOWORK=off \
+            -e GOFLAGS=-mod=readonly \
+            -e GOCACHE=/tmp/go-build \
+            -e GOMODCACHE=/go/pkg/mod \
             -v "$GITHUB_WORKSPACE/candidate:/src:ro" \
             -v "$out:/trusted:ro" \
             -w /src/backend-yunka \
             "$GO_IMAGE" \
-            sh -lc "GOWORK=off GOFLAGS=-mod=readonly go test -overlay=/trusted/overlay.json -json -count=1 -run '^TestAG03SQLiteStartupWaitsForExternalLock$' ./internal/delivery" \
+            /usr/local/go/bin/go test -overlay=/trusted/overlay.json -json -count=1 -run '^TestAG03SQLiteStartupWaitsForExternalLock$' ./internal/delivery \
             > "$out/evidence/behavior.raw.jsonl"
           python3 - <<'PY'
           import json, os, pathlib
