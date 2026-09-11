@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package iot.delivery.v1;
+
+import "yunka/dsl/v1/options.proto";
+import "google/protobuf/timestamp.proto";
+import "delivery/v1/work_item.proto";
+
+
+option go_package = "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1";
+
+message SavedView {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string id = 1;
+  string name = 2;
+  string owner = 3;
+  WorkItemFilter filter = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message MemberWeek {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string member = 1;
+  string week_start = 2;
+  string week_end = 3;
+  repeated WorkItem items = 4;
+}
+
+message SaveViewRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string name = 1;
+  WorkItemFilter filter = 2;
+}
+
+message ListSavedViewsRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+}
+
+message GetMemberWeekRequest {
+  option (yunka.dsl.v1.dto) = { kind: DTO_INPUT };
+  string member = 1;
+  string week_start = 2;
+}
+
+message SavedViewResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  SavedView view = 1;
+}
+
+message ListSavedViewsResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  repeated SavedView views = 1;
+}
+
+message MemberWeekResponse {
+  option (yunka.dsl.v1.dto) = { kind: DTO_OUTPUT };
+  MemberWeek week = 1;
+}

@@ -2,7 +2,19 @@
   "schemaVersion": 3,
   "files": [
     {
-      "name": "iot_delivery.proto",
+      "name": "delivery/v1/common.proto",
+      "package": "iot.delivery.v1",
+      "syntax": "proto3",
+      "goPackage": "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1"
+    },
+    {
+      "name": "delivery/v1/dashboard.proto",
+      "package": "iot.delivery.v1",
+      "syntax": "proto3",
+      "goPackage": "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1"
+    },
+    {
+      "name": "delivery/v1/delivery_service.proto",
       "package": "iot.delivery.v1",
       "syntax": "proto3",
       "goPackage": "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1",
@@ -12,9 +24,34 @@
       }
     },
     {
-      "name": "yunka_bootstrap.proto",
-      "package": "yunka.bootstrap.v1",
-      "syntax": "proto3"
+      "name": "delivery/v1/notification.proto",
+      "package": "iot.delivery.v1",
+      "syntax": "proto3",
+      "goPackage": "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1"
+    },
+    {
+      "name": "delivery/v1/planning.proto",
+      "package": "iot.delivery.v1",
+      "syntax": "proto3",
+      "goPackage": "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1"
+    },
+    {
+      "name": "delivery/v1/project.proto",
+      "package": "iot.delivery.v1",
+      "syntax": "proto3",
+      "goPackage": "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1"
+    },
+    {
+      "name": "delivery/v1/saved_view.proto",
+      "package": "iot.delivery.v1",
+      "syntax": "proto3",
+      "goPackage": "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1"
+    },
+    {
+      "name": "delivery/v1/work_item.proto",
+      "package": "iot.delivery.v1",
+      "syntax": "proto3",
+      "goPackage": "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1"
     }
   ],
   "messages": [
@@ -2657,11 +2694,6 @@
       "dto": {
         "kind": "output"
       }
-    },
-    {
-      "name": "Bootstrap",
-      "fullName": "yunka.bootstrap.v1.Bootstrap",
-      "fields": null
     }
   ],
   "enums": null,

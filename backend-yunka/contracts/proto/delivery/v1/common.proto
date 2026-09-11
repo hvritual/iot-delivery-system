@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package iot.delivery.v1;
+
+import "yunka/dsl/v1/options.proto";
+import "google/protobuf/timestamp.proto";
+
+
+option go_package = "github.com/hvritual/iot-delivery-system/backend-yunka/contracts/delivery/v1;deliveryv1";
+
+message WorkItemDependency {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string item_id = 1;
+  string relation = 2;
+}
+
+message IoTBinding {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string kind = 1;
+  string reference = 2;
+  string label = 3;
+  map<string, string> attributes = 4;
+}
+
+message TraceLink {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string kind = 1;
+  string reference = 2;
+  string title = 3;
+  string url = 4;
+  string status = 5;
+  google.protobuf.Timestamp recorded_at = 6;
+}
+
+message Comment {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string id = 1;
+  string body = 2;
+  string author = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message Activity {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string id = 1;
+  string type = 2;
+  string summary = 3;
+  string actor = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+}
+
+message Evidence {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string kind = 1;
+  string title = 2;
+  string reference = 3;
+  google.protobuf.Timestamp recorded_at = 4;
+}
+
+message Decision {
+  option (yunka.dsl.v1.dto) = { kind: DTO_SHARED };
+  string id = 1;
+  string title = 2;
+  string context = 3;
+  string outcome = 4;
+  string consequences = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
