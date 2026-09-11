@@ -57,7 +57,7 @@ jobs:
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" \
             > "$out/pr-files.json"
           python3 - <<'PY'
-          import json, os, pathlib, sys
+          import json, os, pathlib
           out=pathlib.Path(os.environ['RUNNER_TEMP'])/'cg06-integrate'
           files=json.loads((out/'pr-files.json').read_text())
           if len(files) >= 100:
@@ -157,16 +157,44 @@ jobs:
               raise SystemExit('trusted status is not source-pinned to App 15368')
           if p.get('strict_required_status_checks_policy') is not True:
               raise SystemExit('strict required status checks policy is not enabled')
-          (out/'ruleset-verification.json').write_text(json.dumps({'status':'PASS','rulesetId':r.get('id'),'ruleTypes':sorted(types),'statusSourcePinnedTo':int(os.environ['TRUSTED_APP_ID'])},indent=2,sort_keys=True)+'\n')
+          bypass=r.get('bypass_actors') or []
+          normalized=[(a.get('actor_type'),a.get('actor_id'),a.get('bypass_mode')) for a in bypass]
+          expected=('Integration',int(os.environ['TRUSTED_APP_ID']),'always')
+          if normalized != [expected]:
+              raise SystemExit('ruleset bypass set is not exactly the trusted App: '+str(normalized))
+          (out/'ruleset-verification.json').write_text(json.dumps({'status':'PASS','rulesetId':r.get('id'),'ruleTypes':sorted(types),'statusSourcePinnedTo':int(os.environ['TRUSTED_APP_ID']),'onlyBypassActor':{'type':'Integration','id':int(os.environ['TRUSTED_APP_ID']),'mode':'always'}},indent=2,sort_keys=True)+'\n')
           PY
 
-      - name: Verify candidate is a fast-forward of current main
+      - name: Revalidate current PR identity and fast-forward relation
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           out="$RUNNER_TEMP/cg06-integrate"
+          curl -fsSL \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2026-03-10' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+            > "$out/pr-current.json"
+          python3 - <<'PY'
+          import json, os, pathlib
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'cg06-integrate'
+          pr=json.loads((out/'pr-current.json').read_text())
+          if pr.get('state')!='open':
+              raise SystemExit('PR is no longer open')
+          if (pr.get('head') or {}).get('sha')!=os.environ['CANDIDATE_SHA']:
+              raise SystemExit('PR head moved after integration event')
+          if ((pr.get('head') or {}).get('repo') or {}).get('full_name')!=os.environ['GITHUB_REPOSITORY']:
+              raise SystemExit('PR head repository changed or is unsupported')
+          if (pr.get('base') or {}).get('ref')!='main':
+              raise SystemExit('PR base is no longer main')
+          labels={x.get('name') for x in (pr.get('labels') or [])}
+          if 'cg06-integrate' not in labels:
+              raise SystemExit('cg06-integrate label was removed before integration')
+          (out/'pr-identity.json').write_text(json.dumps({'status':'PASS','pr':pr.get('number'),'head':os.environ['CANDIDATE_SHA'],'base':'main','label':'cg06-integrate'},indent=2,sort_keys=True)+'\n')
+          PY
           curl -fsSL \
             -H 'Accept: application/vnd.github+json' \
             -H "Authorization: Bearer $GH_TOKEN" \
