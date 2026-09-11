@@ -58,7 +58,7 @@ jobs:
             --memory=2g \
             --cpus=2 \
             --tmpfs /tmp:rw,noexec,nosuid,size=512m \
-            --tmpfs /gotmp:rw,nosuid,nodev,size=512m \
+            --tmpfs /gotmp:rw,exec,nosuid,nodev,size=512m \
             --tmpfs /go:rw,nosuid,size=2g \
             -e HOME=/tmp \
             -e GOWORK=off \
