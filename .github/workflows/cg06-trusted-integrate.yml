@@ -1,0 +1,277 @@
+name: CG-06 trusted integrator
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: read
+  statuses: read
+
+concurrency:
+  group: cg06-trusted-integrate-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  integrate:
+    if: github.event.label.name == 'cg06-integrate'
+    name: engineering-governance/trusted-integrate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CANDIDATE_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+      BASE_REF: ${{ github.event.pull_request.base.ref }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      RULESET_NAME: cg06-trusted-delivery-main
+      STATUS_CONTEXT: engineering-governance/trusted-delivery
+      TRUSTED_APP_ID: '15368'
+      TRUSTED_STATUS_CREATOR: github-actions[bot]
+      TRUSTED_STATUS_DESCRIPTION: CG-05 exact required-check set reconciled for this candidate SHA
+    steps:
+      - name: Freeze event identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$CANDIDATE_REPOSITORY" = "$GITHUB_REPOSITORY"
+          test "$BASE_REF" = "main"
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          out="$RUNNER_TEMP/cg06-integrate"
+          mkdir -p "$out"
+          printf '%s\n' "$CANDIDATE_SHA" > "$out/candidate-sha.txt"
+          printf '%s\n' "$PR_NUMBER" > "$out/pr-number.txt"
+
+      - name: Reject governance-surface changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/cg06-integrate"
+          curl -fsSL \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2026-03-10' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" \
+            > "$out/pr-files.json"
+          python3 - <<'PY'
+          import json, os, pathlib
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'cg06-integrate'
+          files=json.loads((out/'pr-files.json').read_text())
+          if len(files) >= 100:
+              raise SystemExit('PR file list reached pagination boundary; fail closed')
+          blocked=[f['filename'] for f in files if f['filename']=='.github' or f['filename'].startswith('.github/')]
+          if blocked:
+              raise SystemExit('governance surface change rejected: '+', '.join(blocked))
+          (out/'governance-surface.json').write_text(json.dumps({'status':'PASS','blocked':[],'fileCount':len(files)},indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Verify exact trusted success status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/cg06-integrate"
+          curl -fsSL \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2026-03-10' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${CANDIDATE_SHA}/statuses?per_page=100" \
+            > "$out/statuses.json"
+          python3 - <<'PY'
+          import json, os, pathlib
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'cg06-integrate'
+          statuses=json.loads((out/'statuses.json').read_text())
+          expected_ctx=os.environ['STATUS_CONTEXT']
+          matches=[s for s in statuses if s.get('context')==expected_ctx]
+          if not matches:
+              raise SystemExit('trusted status missing')
+          s=matches[0]
+          if s.get('state')!='success':
+              raise SystemExit('trusted status is not success')
+          if s.get('description')!=os.environ['TRUSTED_STATUS_DESCRIPTION']:
+              raise SystemExit('trusted status description mismatch')
+          creator=s.get('creator') or {}
+          if creator.get('login')!=os.environ['TRUSTED_STATUS_CREATOR']:
+              raise SystemExit('trusted status creator mismatch')
+          avatar=s.get('avatar_url') or creator.get('avatar_url') or ''
+          marker='/in/'+os.environ['TRUSTED_APP_ID']
+          if marker not in avatar:
+              raise SystemExit('trusted status app identity mismatch')
+          (out/'trusted-status.json').write_text(json.dumps({'status':'PASS','statusId':s.get('id'),'context':expected_ctx,'state':s.get('state'),'creator':creator.get('login'),'integrationId':int(os.environ['TRUSTED_APP_ID'])},indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Verify active repository-blocking ruleset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/cg06-integrate"
+          curl -fsSL \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2026-03-10' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/rulesets?per_page=100" \
+            > "$out/rulesets.json"
+          ruleset_id="$(python3 - <<'PY'
+          import json, os, pathlib
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'cg06-integrate'
+          rs=json.loads((out/'rulesets.json').read_text())
+          matches=[r for r in rs if r.get('name')==os.environ['RULESET_NAME'] and r.get('enforcement')=='active']
+          if len(matches)!=1:
+              raise SystemExit('expected exactly one active CG-06 ruleset')
+          print(matches[0]['id'])
+          PY
+          )"
+          curl -fsSL \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2026-03-10' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/rulesets/${ruleset_id}" \
+            > "$out/ruleset.json"
+          python3 - <<'PY'
+          import json, os, pathlib
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'cg06-integrate'
+          r=json.loads((out/'ruleset.json').read_text())
+          if r.get('name')!=os.environ['RULESET_NAME'] or r.get('target')!='branch' or r.get('enforcement')!='active':
+              raise SystemExit('ruleset identity/enforcement mismatch')
+          cond=(r.get('conditions') or {}).get('ref_name') or {}
+          if '~DEFAULT_BRANCH' not in (cond.get('include') or []):
+              raise SystemExit('ruleset does not target default branch')
+          rules=r.get('rules') or []
+          types={x.get('type') for x in rules}
+          required={'update','deletion','non_fast_forward','required_status_checks'}
+          if not required.issubset(types):
+              raise SystemExit('ruleset required rule set incomplete: '+str(sorted(required-types)))
+          sr=[x for x in rules if x.get('type')=='required_status_checks']
+          if len(sr)!=1:
+              raise SystemExit('required_status_checks rule cardinality mismatch')
+          p=sr[0].get('parameters') or {}
+          checks=p.get('required_status_checks') or []
+          ok=any(c.get('context')==os.environ['STATUS_CONTEXT'] and c.get('integration_id')==int(os.environ['TRUSTED_APP_ID']) for c in checks)
+          if not ok:
+              raise SystemExit('trusted status is not source-pinned to App 15368')
+          if p.get('strict_required_status_checks_policy') is not True:
+              raise SystemExit('strict required status checks policy is not enabled')
+          bypass=r.get('bypass_actors') or []
+          normalized=[(a.get('actor_type'),a.get('actor_id'),a.get('bypass_mode')) for a in bypass]
+          expected=('Integration',int(os.environ['TRUSTED_APP_ID']),'always')
+          if normalized != [expected]:
+              raise SystemExit('ruleset bypass set is not exactly the trusted App: '+str(normalized))
+          (out/'ruleset-verification.json').write_text(json.dumps({'status':'PASS','rulesetId':r.get('id'),'ruleTypes':sorted(types),'statusSourcePinnedTo':int(os.environ['TRUSTED_APP_ID']),'onlyBypassActor':{'type':'Integration','id':int(os.environ['TRUSTED_APP_ID']),'mode':'always'}},indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Revalidate current PR identity and fast-forward relation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/cg06-integrate"
+          curl -fsSL \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2026-03-10' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+            > "$out/pr-current.json"
+          python3 - <<'PY'
+          import json, os, pathlib
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'cg06-integrate'
+          pr=json.loads((out/'pr-current.json').read_text())
+          if pr.get('state')!='open':
+              raise SystemExit('PR is no longer open')
+          if (pr.get('head') or {}).get('sha')!=os.environ['CANDIDATE_SHA']:
+              raise SystemExit('PR head moved after integration event')
+          if ((pr.get('head') or {}).get('repo') or {}).get('full_name')!=os.environ['GITHUB_REPOSITORY']:
+              raise SystemExit('PR head repository changed or is unsupported')
+          if (pr.get('base') or {}).get('ref')!='main':
+              raise SystemExit('PR base is no longer main')
+          labels={x.get('name') for x in (pr.get('labels') or [])}
+          if 'cg06-integrate' not in labels:
+              raise SystemExit('cg06-integrate label was removed before integration')
+          (out/'pr-identity.json').write_text(json.dumps({'status':'PASS','pr':pr.get('number'),'head':os.environ['CANDIDATE_SHA'],'base':'main','label':'cg06-integrate'},indent=2,sort_keys=True)+'\n')
+          PY
+          curl -fsSL \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2026-03-10' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" \
+            > "$out/main-before.json"
+          main_sha="$(python3 - <<'PY'
+          import json, os, pathlib
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'cg06-integrate'
+          print(json.loads((out/'main-before.json').read_text())['object']['sha'])
+          PY
+          )"
+          curl -fsSL \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2026-03-10' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/compare/${main_sha}...${CANDIDATE_SHA}" \
+            > "$out/compare.json"
+          MAIN_SHA="$main_sha" python3 - <<'PY'
+          import json, os, pathlib
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'cg06-integrate'
+          c=json.loads((out/'compare.json').read_text())
+          if c.get('status')!='ahead':
+              raise SystemExit('candidate is not strictly ahead of current main: '+str(c.get('status')))
+          if (c.get('base_commit') or {}).get('sha')!=os.environ['MAIN_SHA']:
+              raise SystemExit('compare base does not equal current main')
+          (out/'fast-forward.json').write_text(json.dumps({'status':'PASS','mainBefore':os.environ['MAIN_SHA'],'candidate':os.environ['CANDIDATE_SHA'],'aheadBy':c.get('ahead_by')},indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Fast-forward main to exact qualified SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/cg06-integrate"
+          body="$(python3 - <<'PY'
+          import json, os
+          print(json.dumps({'sha':os.environ['CANDIDATE_SHA'],'force':False}))
+          PY
+          )"
+          curl -fsSL -X PATCH \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2026-03-10' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/refs/heads/main" \
+            -d "$body" \
+            > "$out/update-ref.json"
+
+      - name: Read back exact main identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/cg06-integrate"
+          curl -fsSL \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2026-03-10' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" \
+            > "$out/main-after.json"
+          python3 - <<'PY'
+          import json, os, pathlib
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'cg06-integrate'
+          sha=json.loads((out/'main-after.json').read_text())['object']['sha']
+          if sha!=os.environ['CANDIDATE_SHA']:
+              raise SystemExit('post-integration main SHA mismatch')
+          (out/'integration-result.json').write_text(json.dumps({'status':'PASS','mainAfter':sha,'candidate':os.environ['CANDIDATE_SHA'],'force':False},indent=2,sort_keys=True)+'\n')
+          PY
+          (cd "$out" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
+
+      - name: Preserve integration receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: cg06-trusted-integration-${{ github.event.pull_request.number }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cg06-integrate
+          retention-days: 14
+          if-no-files-found: error
