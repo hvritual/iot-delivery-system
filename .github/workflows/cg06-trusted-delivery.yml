@@ -1,0 +1,260 @@
+name: CG-06 trusted delivery
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: cg06-trusted-delivery-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+  cancel-in-progress: true
+
+jobs:
+  trusted-delivery:
+    name: engineering-governance/trusted-delivery
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CANDIDATE_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+      GOVERNANCE_SHA: 271f62a22cf747985ef83836098303b9b8084579
+      EXPECTED_YUNKA_SHA: 057ebcf88a87303eb633eb6e604d306f633dfac0
+      AST_GREP_VERSION: 0.45.3
+      AST_GREP_ASSET_SHA256: f8ac830881339d1edee6b2652f54798c0f4da5a827f2db38a08ee31117783ce8
+      TRUSTED_TEST_SHA256: 57933ecd625283169f2e46d0365ee16e95336b09bfa2532cd5e74d4fcea581b0
+      TRUSTED_TEST_SOURCE_SHA: bcd20632b666405c3f7a8fe8d53f591c78450087
+      GO_IMAGE: golang@sha256:e401dae1bf814e29204a8cb7915682e1780951e609ca0dd8865ee1937f510c48
+      STATUS_CONTEXT: engineering-governance/trusted-delivery
+
+    steps:
+      - name: Reject unsupported candidate source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$CANDIDATE_REPOSITORY" = "${GITHUB_REPOSITORY}"
+          test -n "$CANDIDATE_SHA"
+
+      - name: Checkout immutable governance authority
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: hvritual/engineering-governance
+          ref: ${{ env.GOVERNANCE_SHA }}
+          path: governance
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout exact candidate without credentials
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: ${{ env.CANDIDATE_REPOSITORY }}
+          ref: ${{ env.CANDIDATE_SHA }}
+          path: candidate
+          fetch-depth: 1
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Freeze authority, source and dependency identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/cg06-trusted"
+          mkdir -p "$out/evidence" "$out/receipts" "$out/tools"
+          test "$(git -C candidate rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git -C candidate rev-parse HEAD:third_party/yunka)" = "$EXPECTED_YUNKA_SHA"
+          test "$(git -C governance rev-parse HEAD)" = "$GOVERNANCE_SHA"
+          test "$(git -C governance rev-parse HEAD:delivery/cg05/protocol.json)" = 0cf5d2b79eaab72bbd52195de19ec602dff508c6
+          test "$(git -C governance rev-parse HEAD:delivery/cg05/hvritual/iot-delivery-system/required-checks.json)" = 174d23688ffeb9afc15d9cb1390b38a35853b19c
+          test "$(git -C governance rev-parse HEAD:delivery/cg05/reconcile.py)" = 939069aa9d821e3f228885b546f90268b795a562
+          test "$(git -C governance rev-parse HEAD:adoption/cg04/hvritual/iot-delivery-system/profile.json)" = cd772ffff980036024880c3dd691adcdbbb29915
+          test "$(git -C governance rev-parse HEAD:adoption/cg04/hvritual/iot-delivery-system/lock.json)" = f6261ed9799780a62cd8ffce76002235d7737dee
+          test "$(git -C governance rev-parse HEAD:prevention/cg03/iot-sqlite-startup/rule.yml)" = 0a5d293d8d3571d9cbf9e7dee2f4dbc20eed1d05
+          find candidate -type f \( -name go.mod -o -name go.sum -o -name go.work -o -name go.work.sum \) -print0 | sort -z | xargs -0 sha256sum > "$out/dependencies-before.sha256"
+          git -C candidate status --porcelain --untracked-files=all > "$out/candidate-status-before.txt"
+          test ! -s "$out/candidate-status-before.txt"
+          cat > "$out/candidate.json" <<EOF
+          {"repository":"hvritual/iot-delivery-system","sourceCommit":"$CANDIDATE_SHA"}
+          EOF
+          {
+            printf 'candidate\t%s\n' "$CANDIDATE_SHA"
+            printf 'candidate-tree\t%s\n' "$(git -C candidate rev-parse HEAD^{tree})"
+            printf 'governance\t%s\n' "$GOVERNANCE_SHA"
+            printf 'yunka\t%s\n' "$EXPECTED_YUNKA_SHA"
+          } > "$out/identity.tsv"
+
+      - name: Run immutable static recurrence guard
+        id: static
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/cg06-trusted"
+          curl -fsSL "https://github.com/ast-grep/ast-grep/releases/download/${AST_GREP_VERSION}/app-x86_64-unknown-linux-gnu.zip" -o "$out/tools/ast-grep.zip"
+          echo "$AST_GREP_ASSET_SHA256  $out/tools/ast-grep.zip" | sha256sum -c -
+          unzip -q "$out/tools/ast-grep.zip" -d "$out/tools/bin"
+          "$out/tools/bin/ast-grep" scan \
+            -r governance/prevention/cg03/iot-sqlite-startup/rule.yml \
+            --json=compact \
+            candidate/backend-yunka/internal/delivery/sqlite_repository.go \
+            > "$out/evidence/static.raw.json"
+          python3 - <<'PY'
+          import json, os, pathlib
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'cg06-trusted'
+          data=json.loads((out/'evidence/static.raw.json').read_text() or '[]')
+          rid='cg03-sqlite-busy-timeout-before-wal'
+          def hits(v):
+            if isinstance(v,dict):
+              return (1 if v.get('ruleId')==rid else 0)+sum(hits(x) for x in v.values())
+            if isinstance(v,list): return sum(hits(x) for x in v)
+            return 0
+          n=hits(data)
+          assert n==0, f'recurrence findings={n}'
+          result={'schemaVersion':1,'checkId':'CG05_STATIC_RECURRENCE_GUARD','status':'PASS','findings':0,'sourceCommit':os.environ['CANDIDATE_SHA']}
+          (out/'evidence/static.json').write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Prepare immutable authoritative held-lock test
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/cg06-trusted"
+          curl -fsSL \
+            "https://raw.githubusercontent.com/hvritual/iot-delivery-system/${TRUSTED_TEST_SOURCE_SHA}/backend-yunka/internal/delivery/ag03_sqlite_startup_test.go" \
+            -o "$out/ag03_sqlite_startup_test.go"
+          echo "$TRUSTED_TEST_SHA256  $out/ag03_sqlite_startup_test.go" | sha256sum -c -
+          python3 - <<'PY'
+          import json, os, pathlib
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'cg06-trusted'
+          overlay={'Replace':{'/src/backend-yunka/internal/delivery/ag03_sqlite_startup_test.go':'/trusted/ag03_sqlite_startup_test.go'}}
+          (out/'overlay.json').write_text(json.dumps(overlay,sort_keys=True)+'\n')
+          PY
+
+      - name: Run candidate behavior in credential-free read-only container
+        id: behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/cg06-trusted"
+          docker pull "$GO_IMAGE" >/dev/null
+          docker image inspect "$GO_IMAGE" --format '{{json .RepoDigests}}' > "$out/evidence/go-image-digests.json"
+          docker run --rm \
+            --read-only \
+            --tmpfs /tmp:rw,noexec,nosuid,size=256m \
+            --tmpfs /go:rw,nosuid,size=1g \
+            -v "$GITHUB_WORKSPACE/candidate:/src:ro" \
+            -v "$out:/trusted:ro" \
+            -w /src/backend-yunka \
+            "$GO_IMAGE" \
+            sh -lc "GOWORK=off GOFLAGS=-mod=readonly go test -overlay=/trusted/overlay.json -json -count=1 -run '^TestAG03SQLiteStartupWaitsForExternalLock$' ./internal/delivery" \
+            > "$out/evidence/behavior.raw.jsonl"
+          python3 - <<'PY'
+          import json, os, pathlib
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'cg06-trusted'
+          name='TestAG03SQLiteStartupWaitsForExternalLock'
+          seen=passed=package_pass=False
+          for line in (out/'evidence/behavior.raw.jsonl').read_text().splitlines():
+            try: e=json.loads(line)
+            except json.JSONDecodeError: continue
+            if e.get('Test')==name:
+              seen=True
+              if e.get('Action')=='pass': passed=True
+            if e.get('Action')=='pass' and not e.get('Test'): package_pass=True
+          assert seen and passed and package_pass, (seen,passed,package_pass)
+          result={'schemaVersion':1,'checkId':'CG05_AUTHORITATIVE_HELD_LOCK_REGRESSION','status':'PASS','test':name,'executed':seen,'passed':passed,'packagePassed':package_pass,'sourceCommit':os.environ['CANDIDATE_SHA'],'trustedTestSha256':os.environ['TRUSTED_TEST_SHA256']}
+          (out/'evidence/behavior.json').write_text(json.dumps(result,indent=2,sort_keys=True)+'\n')
+          PY
+
+      - name: Reconcile CG-05 exact required-check set
+        id: reconcile
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/cg06-trusted"
+          protocol=governance/delivery/cg05/protocol.json
+          plan=governance/delivery/cg05/hvritual/iot-delivery-system/required-checks.json
+          profile=governance/adoption/cg04/hvritual/iot-delivery-system/profile.json
+          lock=governance/adoption/cg04/hvritual/iot-delivery-system/lock.json
+          protocol_blob="$(git -C governance rev-parse HEAD:delivery/cg05/protocol.json)"
+          plan_blob="$(git -C governance rev-parse HEAD:delivery/cg05/hvritual/iot-delivery-system/required-checks.json)"
+          profile_blob="$(git -C governance rev-parse HEAD:adoption/cg04/hvritual/iot-delivery-system/profile.json)"
+          lock_blob="$(git -C governance rev-parse HEAD:adoption/cg04/hvritual/iot-delivery-system/lock.json)"
+          export PROTOCOL_BLOB="$protocol_blob" PLAN_BLOB="$plan_blob" PROFILE_BLOB="$profile_blob" LOCK_BLOB="$lock_blob"
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'cg06-trusted'
+          common={
+            'schemaVersion':1,
+            'status':'PASS',
+            'candidate':{'repository':'hvritual/iot-delivery-system','sourceCommit':os.environ['CANDIDATE_SHA']},
+            'profile':{'id':'ADOPT-CG04-HVRITUAL-IOT-DELIVERY','blob':os.environ['PROFILE_BLOB']},
+            'lock':{'id':'LOCK-CG04-HVRITUAL-IOT-DELIVERY-0001','blob':os.environ['LOCK_BLOB']},
+            'plan':{'id':'CG05-IOT-DELIVERY-REQUIRED-CHECKS','blob':os.environ['PLAN_BLOB']},
+            'execution':{'run':int(os.environ['GITHUB_RUN_ID']),'job':'engineering-governance/trusted-delivery','attempt':int(os.environ['GITHUB_RUN_ATTEMPT']),'workflowHead':os.environ['GITHUB_SHA']}
+          }
+          for cid,name in [('CG05_STATIC_RECURRENCE_GUARD','static.json'),('CG05_AUTHORITATIVE_HELD_LOCK_REGRESSION','behavior.json')]:
+            p=out/'evidence'/name
+            r=dict(common); r['checkId']=cid; r['evidence']={'path':'../evidence/'+name,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}
+            (out/'receipts'/(cid+'.json')).write_text(json.dumps(r,indent=2,sort_keys=True)+'\n')
+          PY
+          python3 governance/delivery/cg05/reconcile.py \
+            --protocol "$protocol" \
+            --plan "$plan" \
+            --profile "$profile" \
+            --lock "$lock" \
+            --candidate "$out/candidate.json" \
+            --receipt "$out/receipts/CG05_STATIC_RECURRENCE_GUARD.json" \
+            --receipt "$out/receipts/CG05_AUTHORITATIVE_HELD_LOCK_REGRESSION.json" \
+            --protocol-blob "$protocol_blob" \
+            --plan-blob "$plan_blob" \
+            --profile-blob "$profile_blob" \
+            --lock-blob "$lock_blob" \
+            --output "$out/aggregate.json"
+          python3 - <<'PY'
+          import json, os, pathlib
+          p=pathlib.Path(os.environ['RUNNER_TEMP'])/'cg06-trusted'/'aggregate.json'
+          v=json.loads(p.read_text())
+          assert v['status']=='PASS' and v['candidate']['sourceCommit']==os.environ['CANDIDATE_SHA'], v
+          PY
+          find candidate -type f \( -name go.mod -o -name go.sum -o -name go.work -o -name go.work.sum \) -print0 | sort -z | xargs -0 sha256sum > "$out/dependencies-after.sha256"
+          diff -u "$out/dependencies-before.sha256" "$out/dependencies-after.sha256"
+          test -z "$(git -C candidate status --porcelain --untracked-files=all)"
+
+      - name: Publish trusted success status on exact candidate SHA
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(python3 - <<'PY'
+          import json, os
+          print(json.dumps({'state':'success','context':os.environ['STATUS_CONTEXT'],'description':'CG-05 exact required-check set reconciled for this candidate SHA'}))
+          PY
+          )"
+          curl -fsSL -X POST \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2026-03-10' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${CANDIDATE_SHA}" \
+            -d "$body" >/dev/null
+
+      - name: Publish trusted failure status on exact candidate SHA
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(python3 - <<'PY'
+          import json, os
+          print(json.dumps({'state':'failure','context':os.environ['STATUS_CONTEXT'],'description':'Trusted delivery gate failed or evidence was incomplete'}))
+          PY
+          )"
+          curl -fsSL -X POST \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2026-03-10' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${CANDIDATE_SHA}" \
+            -d "$body" >/dev/null
