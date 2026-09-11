@@ -4,4 +4,4 @@ This file is a disposable, non-runtime probe used to verify that the default-bra
 
 It does not change application code, dependencies, Yunka, generated code, `server/**`, or workflow definitions.
 
-Probe generation: 2 — rerun after the trusted behavior container fix landed on `main`.
+Probe generation: 3 — rerun after the explicit executable Go test tmpfs fix landed on `main`.
