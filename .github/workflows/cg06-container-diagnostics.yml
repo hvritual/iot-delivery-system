@@ -1,0 +1,91 @@
+name: CG-06 trusted behavior container diagnostics
+
+on:
+  push:
+    branches: [cg06/trusted-delivery-diagnostics]
+    paths: [.github/workflows/cg06-container-diagnostics.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CANDIDATE_SHA: dc2fa3f14795d14dcca2d6e7923aec443bde2f54
+      TRUSTED_TEST_SHA256: 57933ecd625283169f2e46d0365ee16e95336b09bfa2532cd5e74d4fcea581b0
+      TRUSTED_TEST_SOURCE_SHA: bcd20632b666405c3f7a8fe8d53f591c78450087
+      GO_IMAGE: golang@sha256:e401dae1bf814e29204a8cb7915682e1780951e609ca0dd8865ee1937f510c48
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: hvritual/iot-delivery-system
+          ref: ${{ env.CANDIDATE_SHA }}
+          path: candidate
+          fetch-depth: 1
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Prepare immutable test and overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/cg06-diag"
+          mkdir -p "$out"
+          curl -fsSL "https://raw.githubusercontent.com/hvritual/iot-delivery-system/${TRUSTED_TEST_SOURCE_SHA}/backend-yunka/internal/delivery/ag03_sqlite_startup_test.go" -o "$out/ag03_sqlite_startup_test.go"
+          echo "$TRUSTED_TEST_SHA256  $out/ag03_sqlite_startup_test.go" | sha256sum -c -
+          python3 - <<'PY'
+          import json, os, pathlib
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'cg06-diag'
+          overlay={'Replace':{'/src/backend-yunka/internal/delivery/ag03_sqlite_startup_test.go':'/trusted/ag03_sqlite_startup_test.go'}}
+          (out/'overlay.json').write_text(json.dumps(overlay,sort_keys=True)+'\n')
+          PY
+
+      - name: Diagnose exact isolated container command
+        shell: bash
+        run: |
+          set -uo pipefail
+          out="$RUNNER_TEMP/cg06-diag"
+          docker pull "$GO_IMAGE" >/dev/null
+          docker image inspect "$GO_IMAGE" --format '{{json .RepoDigests}}' > "$out/go-image-digests.json"
+          set +e
+          timeout 15m docker run --rm \
+            --read-only \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --pids-limit=512 \
+            --memory=2g \
+            --cpus=2 \
+            --tmpfs /tmp:rw,noexec,nosuid,size=512m \
+            --tmpfs /go:rw,nosuid,size=2g \
+            -e HOME=/tmp \
+            -e GOWORK=off \
+            -e GOFLAGS=-mod=readonly \
+            -e GOCACHE=/tmp/go-build \
+            -e GOMODCACHE=/go/pkg/mod \
+            -v "$GITHUB_WORKSPACE/candidate:/src:ro" \
+            -v "$out:/trusted:ro" \
+            -w /src/backend-yunka \
+            "$GO_IMAGE" \
+            /usr/local/go/bin/go test -overlay=/trusted/overlay.json -json -count=1 -run '^TestAG03SQLiteStartupWaitsForExternalLock$' ./internal/delivery \
+            > "$out/stdout.jsonl" 2> "$out/stderr.log"
+          code=$?
+          set -e
+          printf '%s\n' "$code" > "$out/exit-code.txt"
+          echo "exit=$code"
+          echo '--- stderr ---'
+          cat "$out/stderr.log"
+          echo '--- stdout tail ---'
+          tail -n 120 "$out/stdout.jsonl"
+          docker inspect --format '{{json .State}}' "$(docker ps -alq 2>/dev/null)" > "$out/last-container-state.json" 2>/dev/null || true
+          (cd "$out" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
+          exit "$code"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: cg06-container-diagnostics-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cg06-diag
+          retention-days: 7
+          if-no-files-found: error
